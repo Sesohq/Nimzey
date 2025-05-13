@@ -122,10 +122,14 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showLargePreview, setShowLargePreview] = useState(false);
+  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  
+  // Log when the component renders to debug preview data
+  console.log(`NoiseGeneratorNode [${id}] rendering, preview:`,  
+    data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
   
   // Function to generate the noise texture and return it as a data URL
   const generateNoiseTexture = () => {
@@ -329,18 +333,33 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
     return canvas.toDataURL();
   };
   
-  // Generate texture when parameters change
+  // Use direct preview from node data if available
   useEffect(() => {
-    const textureDataUrl = generateNoiseTexture();
-    setPreviewImage(textureDataUrl);
-    
-    // Also update the node data with the preview
-    if (data.onParamChange && textureDataUrl) {
-      // This is a workaround - we're using an existing callback to pass the preview
-      // In a real implementation, you'd add a dedicated method for setting preview
-      data.onParamChange(id, 'preview', textureDataUrl);
+    if (data.preview && data.preview.startsWith('data:image/')) {
+      console.log(`Using provided preview for ${id} (noiseGenerator)`);
+      setInternalPreviewUrl(data.preview);
+    } else {
+      console.log(`No valid preview found for ${id} (noiseGenerator), generating locally`);
+      
+      // Generate our own preview
+      const textureDataUrl = generateNoiseTexture();
+      
+      if (textureDataUrl) {
+        setInternalPreviewUrl(textureDataUrl);
+        
+        // Also update the node data with the preview
+        if (data.onParamChange) {
+          // Store in official preview prop
+          data.onParamChange(id, 'preview', textureDataUrl);
+        }
+      } else {
+        // Reset internal preview if texture generation failed
+        if (internalPreviewUrl) {
+          setInternalPreviewUrl(null);
+        }
+      }
     }
-  }, [data.params, id]);
+  }, [data.preview, data.params, id, internalPreviewUrl]);
   
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -408,12 +427,14 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
           style={{ height: '100px' }}
           onClick={() => setShowLargePreview(!showLargePreview)}
         >
-          {previewImage ? (
+          {internalPreviewUrl ? (
             <div className="relative w-full h-full">
               <img 
-                src={previewImage} 
+                src={internalPreviewUrl} 
                 alt="Noise preview" 
                 className="w-full h-full object-cover"
+                onLoad={() => console.log(`Preview image loaded successfully for ${id} (noiseGenerator)`)}
+                onError={(e) => console.error(`Preview image failed to load for ${id} (noiseGenerator)`, e)}
               />
               <div className="absolute bottom-1 right-1">
                 <Badge variant="secondary" className="text-[9px] bg-white/90 shadow-sm">
@@ -422,16 +443,35 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
               </div>
             </div>
           ) : (
-            <div className="text-xs text-gray-500 p-2 text-center">
-              Generating texture...
+            <div 
+              className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
+              onClick={(e) => {
+                // Prevent opening large preview
+                e.stopPropagation();
+                
+                // Try to manually refresh the preview
+                console.log(`Manually refreshing preview for ${id} (noiseGenerator)`);
+                
+                // If we have an onTriggerPreviewUpdate function, call it
+                if (data.onTriggerPreviewUpdate) {
+                  data.onTriggerPreviewUpdate(id);
+                }
+              }}
+            >
+              {/* Show loading animation */}
+              <div className="w-6 h-6 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin mb-2"></div>
+              <div>Generating texture...</div>
+              <div className="text-[9px] text-purple-500 mt-2">
+                Click to retry preview
+              </div>
             </div>
           )}
         </div>
         
         {/* Large preview modal */}
-        {showLargePreview && previewImage && (
+        {showLargePreview && internalPreviewUrl && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">{data.label} Preview</h3>
                 <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
@@ -441,7 +481,7 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
                 </button>
               </div>
               <img 
-                src={previewImage} 
+                src={internalPreviewUrl} 
                 alt="Noise preview (large)" 
                 className="max-w-full" 
               />
