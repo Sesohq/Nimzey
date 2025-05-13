@@ -525,11 +525,17 @@ export function useFilterGraph() {
           // Find all nodes and edges in the chain leading to this node
           const nodeChain = getNodeChain(node.id, nodes, edges);
           
-          // Skip if the node has no input connections and it's not a noise generator
+          // Skip if the node has no input connections and it's not a texture source like noise generator
           if (nodeChain.nodes.length <= 1 && 
               !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
-            console.log(`Skipping node ${node.id} as it has no inputs`);
+            console.log(`Skipping node ${node.id} as it has no inputs (and is not a texture source)`);
             continue;
+          }
+          
+          // Handle noiseGenerator specially as it's a pure texture source with no inputs needed
+          const isNoiseGenerator = (node.data as FilterNodeData).filterType === 'noiseGenerator';
+          if (isNoiseGenerator) {
+            console.log(`Processing noise generator node ${node.id} as a standalone texture source`);
           }
           
           // Create a temporary canvas for the preview

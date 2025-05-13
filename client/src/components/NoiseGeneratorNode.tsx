@@ -359,15 +359,19 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Output Handle */}
+      {/* Output Handle - This is the only connection point needed for the noise generator */}
       <div className="absolute right-0 top-[50%] flex items-center">
         <Handle
           type="source"
           position={Position.Right}
           id="output"
-          className="w-9 h-9 rounded-full -mr-4 bg-accent"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
+          className="w-3 h-3 rounded-full -mr-1.5 bg-purple-500"
         />
+        <div className="absolute right-2 top-[50%] transform translate-y-[-50%]">
+          <Badge variant="outline" className="bg-white text-[10px] mr-2 shadow-sm">
+            Texture Output
+          </Badge>
+        </div>
       </div>
       
       <div className="p-4">
@@ -386,6 +390,12 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
           </div>
         </div>
         
+        {/* Texture Source description */}
+        <div className="mb-3 text-xs px-2 py-1 bg-purple-50 border border-purple-100 rounded text-purple-700">
+          <div className="font-semibold mb-1">Texture Source</div>
+          <div>Creates a procedural texture that can be connected to other nodes as an input source.</div>
+        </div>
+        
         {/* Hidden canvas for generating the texture */}
         <canvas 
           ref={canvasRef} 
@@ -395,18 +405,25 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
         {/* Node Preview Area */}
         <div 
           className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-          style={{ height: '80px' }}
+          style={{ height: '100px' }}
           onClick={() => setShowLargePreview(!showLargePreview)}
         >
           {previewImage ? (
-            <img 
-              src={previewImage} 
-              alt="Noise preview" 
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="relative w-full h-full">
+              <img 
+                src={previewImage} 
+                alt="Noise preview" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-1 right-1">
+                <Badge variant="secondary" className="text-[9px] bg-white/90 shadow-sm">
+                  Click to enlarge
+                </Badge>
+              </div>
+            </div>
           ) : (
             <div className="text-xs text-gray-500 p-2 text-center">
-              Generating noise...
+              Generating texture...
             </div>
           )}
         </div>
@@ -433,14 +450,19 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
         )}
         
         <div className="flex items-center justify-between mb-3">
-          <Label htmlFor={`${id}-enabled`} className="text-xs text-slate-500">
-            Enabled
-          </Label>
+          <div className="flex items-center">
+            <Label htmlFor={`${id}-enabled`} className="text-xs text-slate-500">
+              Enabled
+            </Label>
+            <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-100 text-purple-800">
+              Texture Source
+            </Badge>
+          </div>
           <Switch 
             id={`${id}-enabled`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
-            className="data-[state=checked]:bg-blue-500"
+            className="data-[state=checked]:bg-purple-500"
           />
         </div>
         
