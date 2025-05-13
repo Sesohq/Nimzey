@@ -308,36 +308,18 @@ export function useFilterGraph() {
 
   // Handle new connections
   const onConnect = useCallback((connection: Connection) => {
-    // Generate a unique edge ID based on the source, target and target handle if exists
-    // This allows multiple connections to different input handles on the same target node
-    const targetHandle = connection.targetHandle ? `-${connection.targetHandle}` : '';
-    const edgeId = `e-${connection.source}-${connection.target}${targetHandle}`;
-    
-    // Check if we're connecting to a blend node with multiple inputs
-    if (connection.target) {
-      const targetNode = nodes.find(n => n.id === connection.target);
-      
-      // If this is a blend node, we need special handling for the multiple inputs
-      if (targetNode && targetNode.type === 'blendNode') {
-        // For blend nodes, we may already have a connection to one of the input handles
-        // We'll keep that connection and add this one
-        
-        // But first, check if we already have a connection to this specific input handle
-        const existingConnection = edges.find(e => 
-          e.target === connection.target && 
-          e.targetHandle === connection.targetHandle
-        );
-        
-        // If there's already a connection to this handle, we'll remove it before adding the new one
-        if (existingConnection) {
-          setEdges(eds => eds.filter(e => e.id !== existingConnection.id));
-        }
-      } else {
-        // For other node types, we'll remove any existing connections to the target node
-        // as each standard node can only have one input
-        setEdges(eds => eds.filter(e => e.target !== connection.target));
-      }
+    // For unlimited connections, we'll generate a unique handle ID if none is specified
+    // This ensures each connection gets its own unique endpoint
+    if (!connection.targetHandle) {
+      // Use a timestamp + random number to ensure uniqueness
+      connection.targetHandle = `input-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     }
+    
+    // Generate a unique edge ID based on the source, target and target handle
+    const edgeId = `e-${connection.source}-${connection.target}-${connection.targetHandle}`;
+    
+    // With the unlimited connection approach, we don't need to delete existing connections
+    // Every new connection gets its own unique handle ID
     
     const newEdge = {
       ...connection,

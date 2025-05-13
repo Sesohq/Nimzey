@@ -185,42 +185,30 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       </div>
       
       <div className="px-3 pb-2 flex justify-between relative h-6">
-        {/* Default primary input handle */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="inputA"
-          className="w-9 h-9 rounded-full -ml-4 bg-primary"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
-        />
+        {/* Unlimited connection input area - covers left and top sides */}
+        <div 
+          className="absolute top-0 left-0 w-full h-full" 
+          style={{ 
+            clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)',
+            zIndex: 1 
+          }}
+        >
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="dynamic-input"
+            className="w-full h-full bg-transparent"
+            style={{ 
+              top: 0, 
+              left: 0, 
+              transform: 'none',
+              opacity: 0 // Invisible but functional
+            }}
+          />
+        </div>
         
-        {/* Additional input handles for compositing nodes */}
-        {(data.filterType === 'mask' || 
-          data.filterType === 'multiply' || 
-          data.filterType === 'screen' || 
-          data.filterType === 'mix' || 
-          data.filterType === 'transform' || 
-          data.filterType === 'setAlpha') && (
-          <>
-            {/* Secondary input from top */}
-            <Handle
-              type="target"
-              position={Position.Top}
-              id="inputB"
-              className="w-9 h-9 rounded-full -mt-4 bg-purple-400"
-              style={{ left: '50%', transform: 'translateX(-50%)' }}
-            />
-            
-            {/* Tertiary input from bottom */}
-            <Handle
-              type="target"
-              position={Position.Bottom}
-              id="inputC"
-              className="w-9 h-9 rounded-full -mb-4 bg-blue-400"
-              style={{ left: '50%', transform: 'translateX(-50%)' }}
-            />
-          </>
-        )}
+        {/* Visual indicator for the connection area */}
+        <div className="absolute top-0 left-0 w-12 h-12 rounded-tl-full pointer-events-none opacity-30 bg-gradient-to-br from-purple-400 via-blue-400 to-transparent" />
         
         {/* Output handle */}
         <Handle
