@@ -408,18 +408,23 @@ const processBlendNode = (
   // Get the blend node data
   const blendData = node.data as FilterNodeData;
   
-  // Get both input nodes
+  // Get both input nodes using handleId - inputA comes from the left, inputB from the top
   const inputA = getSourceNode(node.id, nodes, edges, 'inputA');
   const inputB = getSourceNode(node.id, nodes, edges, 'inputB');
   
-  // Skip if we don't have both inputs or if they're not in the cache
-  if (!inputA || !inputB || !nodeResultCache.has(inputA.id) || !nodeResultCache.has(inputB.id)) {
+  // Debug logging for connection issues
+  console.log(`Blend Node ${node.id}: Input A: ${inputA?.id}, Input B: ${inputB?.id}`);
+  
+  // Check if we have at least inputA - we can work with just one input if necessary
+  if (!inputA || !nodeResultCache.has(inputA.id)) {
+    console.warn(`Blend Node ${node.id} missing Input A, cannot process`);
     return;
   }
   
   // Get the input canvases from the cache
   const inputACanvas = nodeResultCache.get(inputA.id)!;
-  const inputBCanvas = nodeResultCache.get(inputB.id)!;
+  const hasInputB = inputB && nodeResultCache.has(inputB.id);
+  const inputBCanvas = hasInputB ? nodeResultCache.get(inputB.id)! : null;
   
   // Create a new canvas for this node's result
   const resultCanvas = document.createElement('canvas');
@@ -427,18 +432,45 @@ const processBlendNode = (
   resultCanvas.height = tempCanvas.height;
   const resultCtx = resultCanvas.getContext('2d')!;
   
-  // Draw the first input (base layer)
-  resultCtx.drawImage(inputACanvas, 0, 0);
-  
-  // If the blend node is disabled, just use the first input
+  // If the blend node is disabled, just pass through input A
   if (!blendData.enabled) {
+    resultCtx.drawImage(inputACanvas, 0, 0);
     nodeResultCache.set(node.id, resultCanvas);
     return;
   }
   
+  // If we don't have input B, just use input A with a subtle tint to show the node is active
+  if (!hasInputB) {
+    resultCtx.drawImage(inputACanvas, 0, 0);
+    
+    // Apply a subtle color tint to indicate the blend node is active but missing input B
+    const imageData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+    const data = imageData.data;
+    
+    // Apply very subtle blue tint
+    for (let i = 0; i < data.length; i += 4) {
+      data[i + 2] = Math.min(255, data[i + 2] + 15); // Add a bit of blue
+    }
+    
+    resultCtx.putImageData(imageData, 0, 0);
+    nodeResultCache.set(node.id, resultCanvas);
+    
+    console.warn(`Blend Node ${node.id} active but missing Input B`);
+    return;
+  }
+  
+  // We have both inputs, proceed with normal blending
+  
+  // Draw the first input (base layer) to the result canvas
+  resultCtx.drawImage(inputACanvas, 0, 0);
+  
   // Draw the second input to the temp canvas
   tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-  tempCtx.drawImage(inputBCanvas, 0, 0);
+  
+  // TypeScript safety check - we already verified inputBCanvas exists with hasInputB check
+  if (inputBCanvas) {
+    tempCtx.drawImage(inputBCanvas, 0, 0);
+  }
   
   // Process with any additional blend-specific filters if needed
   if (blendData.filterType === 'blend') {
@@ -450,7 +482,9 @@ const processBlendNode = (
   }
   
   // Now blend the second input onto the first using the specified blend mode
-  applyBlendMode(resultCtx, tempCtx, blendData.blendMode, blendData.opacity);
+  // The opacity comes from the blend node's settings (0-100 value)
+  const opacity = blendData.opacity / 100; // Convert from percentage (0-100) to decimal (0-1)
+  applyBlendMode(resultCtx, tempCtx, blendData.blendMode, opacity);
   
   // Store the result
   nodeResultCache.set(node.id, resultCanvas);

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
+import { useState, useEffect } from 'react';
+import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { FilterNodeData } from '@/types';
 import { Slider } from '@/components/ui/slider';
 import { 
@@ -12,17 +12,43 @@ import {
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import NodeControls from '@/components/NodeControls';
 import { 
-  Settings2,
   Layers,
-  X
+  MoveHorizontal,
+  ArrowDown
 } from 'lucide-react';
 
 export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeData>) {
   // Access the node ID from props
   const nodeId = id;
   const [isMinimized, setIsMinimized] = useState(false);
+  const { getEdges } = useReactFlow();
+  
+  // State to track connected inputs
+  const [connectedInputs, setConnectedInputs] = useState({
+    inputA: false,
+    inputB: false
+  });
+  
+  // Check for connected edges when the component mounts or edges change
+  useEffect(() => {
+    const checkConnections = () => {
+      const edges = getEdges();
+      const hasInputA = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'inputA');
+      const hasInputB = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'inputB');
+      
+      setConnectedInputs({
+        inputA: hasInputA,
+        inputB: hasInputB
+      });
+    };
+    
+    checkConnections();
+    
+    // We could add a subscription to edge changes here if needed
+  }, [nodeId, getEdges]);
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
@@ -53,32 +79,53 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Input Handle A - Primary Input */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="inputA"
-        className="w-3 h-3 rounded-full bg-green-500 border-2 border-white left-[-6px]"
-      />
+      {/* Input Handle A - Base/Background Layer Input (left side) */}
+      <div className="absolute left-[-30px] top-[50%] translate-y-[-50%] flex items-center">
+        <Badge variant={connectedInputs.inputA ? "default" : "outline"} className="mr-1 bg-green-100 text-green-800 hover:bg-green-200 text-[10px]">
+          Base
+        </Badge>
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="inputA"
+          className={cn(
+            "w-4 h-4 rounded-full border-2 border-white left-[-6px]",
+            connectedInputs.inputA ? "bg-green-500" : "bg-green-200"
+          )}
+        />
+      </div>
       
-      {/* Input Handle B - Secondary Input */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="inputB"
-        className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white top-[-6px]"
-      />
+      {/* Input Handle B - Blend/Foreground Layer Input (top) */}
+      <div className="absolute top-[-30px] left-[50%] translate-x-[-50%] flex flex-col items-center">
+        <Badge variant={connectedInputs.inputB ? "default" : "outline"} className="mb-1 bg-blue-100 text-blue-800 hover:bg-blue-200 text-[10px]">
+          Blend
+        </Badge>
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="inputB"
+          className={cn(
+            "w-4 h-4 rounded-full border-2 border-white top-[-6px]",
+            connectedInputs.inputB ? "bg-blue-500" : "bg-blue-200"
+          )}
+        />
+      </div>
       
-      {/* Output Handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="output"
-        className="w-3 h-3 rounded-full bg-red-500 border-2 border-white right-[-6px]"
-      />
+      {/* Output Handle - Combined Result (right side) */}
+      <div className="absolute right-[-30px] top-[50%] translate-y-[-50%] flex items-center">
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="output"
+          className="w-4 h-4 rounded-full bg-purple-500 border-2 border-white right-[-6px]"
+        />
+        <Badge variant="default" className="ml-1 bg-purple-100 text-purple-800 hover:bg-purple-200 text-[10px]">
+          Result
+        </Badge>
+      </div>
       
       <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
           <div className="flex items-center">
             <Layers className="w-5 h-5 mr-2 text-blue-500" />
             <h3 className="font-medium text-sm text-slate-700">{data.label}</h3>
@@ -195,15 +242,38 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
             </div>
             
             <div className="mt-4 bg-slate-50 -mx-4 -mb-4 p-3 rounded-b-lg border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mr-1"></div>
-                  <span className="text-xs text-slate-500">Input A</span>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
+                  <div className="flex items-center">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full mr-2",
+                      connectedInputs.inputA ? "bg-green-500" : "bg-green-200"
+                    )}></div>
+                    <span className="text-xs text-slate-500">Base Layer (Left)</span>
+                  </div>
+                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
                 </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 mr-1"></div>
-                  <span className="text-xs text-slate-500">Input B</span>
+                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
+                  <div className="flex items-center">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full mr-2",
+                      connectedInputs.inputB ? "bg-blue-500" : "bg-blue-200"
+                    )}></div>
+                    <span className="text-xs text-slate-500">Blend Layer (Top)</span>
+                  </div>
+                  <ArrowDown className="w-3 h-3 text-slate-400" />
                 </div>
+                {(!connectedInputs.inputA || !connectedInputs.inputB) && (
+                  <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100">
+                    {!connectedInputs.inputA && !connectedInputs.inputB ? (
+                      "Connect both inputs to enable blending"
+                    ) : !connectedInputs.inputA ? (
+                      "Missing base layer input (left)"
+                    ) : (
+                      "Missing blend layer input (top)"
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </>
