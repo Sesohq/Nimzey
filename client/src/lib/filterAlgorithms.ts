@@ -502,16 +502,16 @@ const processFilterNode = (
           tempInputCanvas.width = tempCanvas.width;
           tempInputCanvas.height = tempCanvas.height;
           const tempInputCtx = tempInputCanvas.getContext('2d')!;
+          
+          // Draw the secondary input to the temp canvas
+          tempInputCtx.clearRect(0, 0, tempInputCanvas.width, tempInputCanvas.height);
           tempInputCtx.drawImage(secondaryInput, 0, 0);
           
-          // Draw the secondary input with blend mode
-          applyBlendMode(
-            resultCtx, 
-            tempInputCtx, 
-            nodeData.blendMode || 'normal', 
-            secondaryInput,
-            nodeData.opacity !== undefined ? nodeData.opacity / 100 : 1
-          );
+          // Calculate blend opacity (0-1)
+          const blendOpacity = nodeData.opacity !== undefined ? nodeData.opacity / 100 : 1;
+          
+          // Apply the blend mode from the secondary input to the result
+          applyBlendMode(resultCtx, tempInputCtx, nodeData.blendMode || 'normal', blendOpacity);
         }
         
         if (tertiaryInput) {
@@ -522,16 +522,16 @@ const processFilterNode = (
           tempInputCanvas.width = tempCanvas.width;
           tempInputCanvas.height = tempCanvas.height;
           const tempInputCtx = tempInputCanvas.getContext('2d')!;
+          
+          // Draw the tertiary input to the temp canvas
+          tempInputCtx.clearRect(0, 0, tempInputCanvas.width, tempInputCanvas.height);
           tempInputCtx.drawImage(tertiaryInput, 0, 0);
           
-          // Draw the tertiary input with same blend mode
-          applyBlendMode(
-            resultCtx, 
-            tempInputCtx, 
-            nodeData.blendMode || 'normal', 
-            tertiaryInput,
-            nodeData.opacity !== undefined ? nodeData.opacity / 100 : 0.7 // Slightly less opaque
-          );
+          // Calculate blend opacity for tertiary input (slightly less opaque)
+          const blendOpacity = nodeData.opacity !== undefined ? nodeData.opacity / 100 * 0.7 : 0.7;
+          
+          // Apply the blend mode from the tertiary input to the result
+          applyBlendMode(resultCtx, tempInputCtx, nodeData.blendMode || 'normal', blendOpacity);
         }
       }
     );
