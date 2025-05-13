@@ -342,7 +342,7 @@ const applyFilter = (
       applyInvertFilter(data);
       break;
     case 'noise':
-      applyNoiseFilter(data, getParamValue(params, 'amount', 25));
+      applyNoiseFilter(data, canvas.width, canvas.height, params);
       break;
     case 'dither':
       applyDitherFilter(data, canvas.width, canvas.height, params);
@@ -2422,4 +2422,141 @@ function applyCannyEdgeDetection(
       }
     }
   }
+}
+
+
+
+// Implement blend modes for combining layers
+function applyBlendMode(
+  destCtx: CanvasRenderingContext2D, 
+  srcCtx: CanvasRenderingContext2D, 
+  blendMode: BlendMode, 
+  opacity: number = 1.0
+): void {
+  const width = destCtx.canvas.width;
+  const height = destCtx.canvas.height;
+  
+  // Get image data from both canvases
+  const destData = destCtx.getImageData(0, 0, width, height);
+  const srcData = srcCtx.getImageData(0, 0, width, height);
+  
+  // Process each pixel according to the blend mode
+  for (let i = 0; i < destData.data.length; i += 4) {
+    // Get source and destination pixel values
+    const srcR = srcData.data[i];
+    const srcG = srcData.data[i + 1];
+    const srcB = srcData.data[i + 2];
+    const srcA = srcData.data[i + 3] / 255;
+    
+    const destR = destData.data[i];
+    const destG = destData.data[i + 1];
+    const destB = destData.data[i + 2];
+    
+    // Calculate blended values based on blend mode
+    let resultR = 0, resultG = 0, resultB = 0;
+    
+    switch (blendMode) {
+      case 'normal':
+        resultR = srcR;
+        resultG = srcG;
+        resultB = srcB;
+        break;
+        
+      case 'multiply':
+        resultR = (destR * srcR) / 255;
+        resultG = (destG * srcG) / 255;
+        resultB = (destB * srcB) / 255;
+        break;
+        
+      case 'screen':
+        resultR = 255 - ((255 - destR) * (255 - srcR)) / 255;
+        resultG = 255 - ((255 - destG) * (255 - srcG)) / 255;
+        resultB = 255 - ((255 - destB) * (255 - srcB)) / 255;
+        break;
+        
+      case 'overlay':
+        resultR = destR < 128 ? (2 * destR * srcR) / 255 : 255 - 2 * ((255 - destR) * (255 - srcR)) / 255;
+        resultG = destG < 128 ? (2 * destG * srcG) / 255 : 255 - 2 * ((255 - destG) * (255 - srcG)) / 255;
+        resultB = destB < 128 ? (2 * destB * srcB) / 255 : 255 - 2 * ((255 - destB) * (255 - srcB)) / 255;
+        break;
+        
+      case 'darken':
+        resultR = Math.min(destR, srcR);
+        resultG = Math.min(destG, srcG);
+        resultB = Math.min(destB, srcB);
+        break;
+        
+      case 'lighten':
+        resultR = Math.max(destR, srcR);
+        resultG = Math.max(destG, srcG);
+        resultB = Math.max(destB, srcB);
+        break;
+        
+      case 'color-dodge':
+        resultR = destR === 0 ? 0 : srcR === 255 ? 255 : Math.min(255, (destR * 255) / (255 - srcR));
+        resultG = destG === 0 ? 0 : srcG === 255 ? 255 : Math.min(255, (destG * 255) / (255 - srcG));
+        resultB = destB === 0 ? 0 : srcB === 255 ? 255 : Math.min(255, (destB * 255) / (255 - srcB));
+        break;
+        
+      case 'color-burn':
+        resultR = destR === 255 ? 255 : srcR === 0 ? 0 : 255 - Math.min(255, ((255 - destR) * 255) / srcR);
+        resultG = destG === 255 ? 255 : srcG === 0 ? 0 : 255 - Math.min(255, ((255 - destG) * 255) / srcG);
+        resultB = destB === 255 ? 255 : srcB === 0 ? 0 : 255 - Math.min(255, ((255 - destB) * 255) / srcB);
+        break;
+        
+      case 'hard-light':
+        resultR = srcR < 128 ? (2 * srcR * destR) / 255 : 255 - 2 * ((255 - srcR) * (255 - destR)) / 255;
+        resultG = srcG < 128 ? (2 * srcG * destG) / 255 : 255 - 2 * ((255 - srcG) * (255 - destG)) / 255;
+        resultB = srcB < 128 ? (2 * srcB * destB) / 255 : 255 - 2 * ((255 - srcB) * (255 - destB)) / 255;
+        break;
+        
+      case 'soft-light':
+        const softLight = (a: number, b: number) => {
+          return b < 128 ? 
+            2 * ((a * b) / 255) + ((a * a) / 255) * (1 - 2 * (b / 255)) :
+            2 * (a * (1 - b / 255)) + Math.sqrt(a / 255) * (2 * b - 255);
+        };
+        resultR = softLight(destR, srcR);
+        resultG = softLight(destG, srcG);
+        resultB = softLight(destB, srcB);
+        break;
+        
+      case 'difference':
+        resultR = Math.abs(destR - srcR);
+        resultG = Math.abs(destG - srcG);
+        resultB = Math.abs(destB - srcB);
+        break;
+        
+      case 'exclusion':
+        resultR = destR + srcR - (2 * destR * srcR) / 255;
+        resultG = destG + srcG - (2 * destG * srcG) / 255;
+        resultB = destB + srcB - (2 * destB * srcB) / 255;
+        break;
+        
+      // Additional blend modes - simplified implementations
+      case 'hue':
+      case 'saturation':
+      case 'color':
+      case 'luminosity':
+        // These modes require RGB to HSL conversion
+        // For simplicity, we'll implement a basic version
+        resultR = srcR;
+        resultG = srcG;
+        resultB = srcB;
+        break;
+    }
+    
+    // Apply opacity to the blended result
+    resultR = destR + (resultR - destR) * opacity * srcA;
+    resultG = destG + (resultG - destG) * opacity * srcA;
+    resultB = destB + (resultB - destB) * opacity * srcA;
+    
+    // Write back the blended values
+    destData.data[i] = Math.round(resultR);
+    destData.data[i + 1] = Math.round(resultG);
+    destData.data[i + 2] = Math.round(resultB);
+  }
+  
+  // Put the modified pixels back on the destination canvas
+  destCtx.putImageData(destData, 0, 0);
 }
