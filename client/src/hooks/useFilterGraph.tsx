@@ -533,6 +533,13 @@ export function useFilterGraph() {
           tempCanvas.width = 150; // Smaller for embedded preview
           tempCanvas.height = 150;
           
+          // Make sure we have a 2D context
+          const ctx = tempCanvas.getContext('2d');
+          if (!ctx) {
+            console.error(`Failed to get 2D context for preview canvas for node ${node.id}`);
+            continue;
+          }
+          
           // Process the image through the node chain
           const result = applyFilters(
             sourceImageRef.current!, 
@@ -541,9 +548,43 @@ export function useFilterGraph() {
             tempCanvas
           );
           
-          // Store the preview data to apply in a batch update
-          nodeUpdates[node.id] = result;
-          console.log(`Generated preview for node ${node.id}`);
+          // If applyFilters failed, try a direct approach as fallback
+          if (!result || !result.startsWith('data:image/')) {
+            console.warn(`Using fallback approach for node ${node.id} preview`);
+            
+            try {
+              // Clear canvas and try to draw directly
+              ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+              
+              // Create a simple test pattern as a last resort
+              if (sourceImageRef.current) {
+                // Draw the source image and apply a simple transformation
+                ctx.drawImage(sourceImageRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // Apply some visual indication that this is a filter
+                if (node.type === 'filterNode') {
+                  const filterType = (node.data as FilterNodeData).filterType;
+                  
+                  // Add filter name text
+                  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                  ctx.fillRect(0, 0, tempCanvas.width, 20);
+                  ctx.fillStyle = '#000';
+                  ctx.font = '10px sans-serif';
+                  ctx.fillText(filterType, 5, 12);
+                }
+                
+                const fallbackResult = tempCanvas.toDataURL('image/png');
+                console.log(`Generated emergency fallback preview for node ${node.id}`);
+                nodeUpdates[node.id] = fallbackResult;
+              }
+            } catch (fallbackError) {
+              console.error('Fallback preview generation failed:', fallbackError);
+            }
+          } else {
+            // If we got a valid result from applyFilters, use it
+            nodeUpdates[node.id] = result;
+            console.log(`Generated valid preview for node ${node.id} (length: ${result.length})`);
+          }
         } catch (error) {
           console.error(`Error generating preview for node ${node.id}:`, error);
         }
@@ -552,22 +593,40 @@ export function useFilterGraph() {
     
     // Batch update all nodes at once
     if (Object.keys(nodeUpdates).length > 0) {
-      console.log(`Applying batch update to ${Object.keys(nodeUpdates).length} nodes`);
-      setNodes(prevNodes => 
-        prevNodes.map(node => {
+      console.log(`Applying batch update to ${Object.keys(nodeUpdates).length} nodes:`, Object.keys(nodeUpdates));
+      
+      // Track previews we're applying for debug purposes
+      const updatedPreviews: Record<string, boolean> = {};
+      
+      setNodes(prevNodes => {
+        const newNodes = prevNodes.map(node => {
           if (nodeUpdates[node.id]) {
-            console.log(`Setting preview for node ${node.id}`);
-            return {
+            console.log(`Setting preview for node ${node.id} with data URL length: ${nodeUpdates[node.id].length}`);
+            updatedPreviews[node.id] = true;
+            
+            // Create a completely new node object with the preview data
+            const updatedNode = {
               ...node,
               data: {
                 ...node.data,
                 preview: nodeUpdates[node.id]
               }
             };
+            
+            return updatedNode;
           }
           return node;
-        })
-      );
+        });
+        
+        // Log any discrepancies
+        const missingNodes = Object.keys(nodeUpdates).filter(id => !updatedPreviews[id]);
+        if (missingNodes.length > 0) {
+          console.error(`Failed to update some nodes: ${missingNodes.join(', ')}`);
+        }
+        
+        console.log(`Updated ${Object.keys(updatedPreviews).length} nodes with previews`);
+        return newNodes;
+      });
     }
   }, [nodes, edges, sourceImageRef, setNodes]);
   

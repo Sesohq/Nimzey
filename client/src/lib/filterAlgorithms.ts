@@ -475,7 +475,7 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandl
 };
 
 // Cache for storing intermediate node results
-const nodeResultCache = new Map<string, HTMLCanvasElement>();
+export const nodeResultCache = new Map<string, HTMLCanvasElement>();
 
 // Main function to apply filters
 export const applyFilters = (
