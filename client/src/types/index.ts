@@ -17,7 +17,14 @@ export type FilterType =
   | 'blend'
   | 'motionBlur'
   | 'noiseDistortion'
-  | 'refraction';
+  | 'refraction'
+  // Compositing node types
+  | 'mask'
+  | 'multiply'
+  | 'screen'
+  | 'mix'
+  | 'transform'
+  | 'setAlpha';
 
 export type NodeType = 'filterNode' | 'imageNode';
 
@@ -60,7 +67,15 @@ export type BlendMode =
   | 'hue' 
   | 'saturation' 
   | 'color' 
-  | 'luminosity';
+  | 'luminosity'
+  // Additional blend modes
+  | 'add'
+  | 'subtract'
+  | 'divide'
+  | 'linear-dodge' 
+  | 'linear-burn'
+  | 'vivid-light'
+  | 'linear-light';
 
 export type FilterNodeData = {
   label: string;

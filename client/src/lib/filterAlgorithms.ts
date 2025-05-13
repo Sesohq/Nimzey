@@ -566,11 +566,16 @@ const processBlendNode = (
   // Log the blending operation for debugging
   console.log(`Blending with mode: ${blendData.blendMode}, opacity: ${opacity}`);
   
+  // Handle blend mode aliases and consistency
+  let finalBlendMode = blendData.blendMode;
+  
   // Map any alias blend modes to their standard names
-  const normalizedBlendMode = blendData.blendMode === 'linear-dodge' ? 'add' : blendData.blendMode;
+  if (finalBlendMode === 'linear-dodge') {
+    finalBlendMode = 'add';
+  }
   
   // Apply the blend operation
-  applyBlendMode(resultCtx, tempCtx, normalizedBlendMode, opacity);
+  applyBlendMode(resultCtx, tempCtx, finalBlendMode, opacity);
   
   // Store the result
   nodeResultCache.set(node.id, resultCanvas);
