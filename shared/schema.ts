@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -21,6 +21,18 @@ export const projects = pgTable("projects", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Filter presets table for saving reusable filter configurations
+export const filterPresets = pgTable("filter_presets", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  nodes: jsonb("nodes").notNull(), // Store node configurations as JSON
+  edges: jsonb("edges").notNull(), // Store edge connections as JSON
+  thumbnail: text("thumbnail"), // Optional base64 thumbnail of the result
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -30,8 +42,17 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
 });
 
+export const insertFilterPresetSchema = createInsertSchema(filterPresets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
+
+export type InsertFilterPreset = z.infer<typeof insertFilterPresetSchema>;
+export type FilterPreset = typeof filterPresets.$inferSelect;
