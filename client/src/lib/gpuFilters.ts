@@ -981,10 +981,11 @@ export function isGPUAccelerationAvailable(): boolean {
 }
 
 // List of filters that support GPU acceleration
+// Temporarily removing noise from GPU acceleration to fix issues
 export const gpuAcceleratedFilters: FilterType[] = [
   'blur',
   'sharpen',
-  'noise',
+  // 'noise', // Disabled due to issues
   'halftone',
   'glow'
 ];
