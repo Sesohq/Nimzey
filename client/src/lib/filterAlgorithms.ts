@@ -2,7 +2,7 @@ import { Node, Edge } from 'reactflow';
 import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
 import { createNoise2D, createNoise3D } from 'simplex-noise';
 
-// Refraction filter implementation
+// Refraction filter implementation - mimics optical refraction phenomenon
 function applyRefractionFilter(
   data: Uint8ClampedArray,
   width: number,
@@ -16,30 +16,37 @@ function applyRefractionFilter(
     paramsObj[param.name] = param.value;
   });
   
+  // Parameters:
+  // - Size: Controls the global height scale (max thickness of refractive layer)
+  // - Amount: Refraction amount (IOR ratio calculation: 100 * (1 - IOR1/IOR2))
+  // - HeightScale: Contrast adjustment for the height map
+  // - Precision: Sampling precision level for performance vs. quality
   const size = parseInt(String(paramsObj.size || 30));
   const refractionAmount = parseInt(String(paramsObj.amount || 50)) / 100;
   const heightScale = parseInt(String(paramsObj.heightScale || 50)) / 100;
   const precision = paramsObj.precision || 'Medium';
   
-  // Define precision based on parameter
+  // Define precision based on parameter (affects sampling rate)
   let sampleStep = 1;
   switch (precision) {
     case 'Low':
-      sampleStep = 2;
+      sampleStep = 2;  // Lower quality, better performance
       break;
     case 'Medium':
-      sampleStep = 1;
+      sampleStep = 1;  // Balanced
       break;
     case 'High':
-      sampleStep = 0.5;
+      sampleStep = 0.5; // Higher quality, lower performance
       break;
   }
   
-  // Create bump map (height map) using perlin noise
-  const bumpMap = new Float32Array(width * height);
+  // Create height map for the refractive surface
+  // In the real Filter Forge, this would come from a Height input source
+  // Since we don't have a second input, we'll generate a height map using Perlin noise
+  const heightMap = new Float32Array(width * height);
   
-  // Use existing noise generator implementation with unique seed for this filter
-  const seed = 12345; // Could be a parameter in the future
+  // Use deterministic random seed for consistent results
+  const seed = 12345;
   const randomSeed = () => {
     let s = seed;
     return function() {
@@ -50,57 +57,65 @@ function applyRefractionFilter(
   const random = randomSeed();
   const noise2D = createNoise2D(() => random());
   
-  // Generate the bump map with perlin noise
-  const scale = 1 / size;
+  // Generate the height map with fractal Perlin noise
+  const noiseScale = 1 / size;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // Generate height value from perlin noise
+      // Multi-octave noise for natural-looking height map
       let noiseValue = 0;
-      
-      // Use multiple octaves of noise for more natural look
-      noiseValue += noise2D(x * scale, y * scale) * 0.5;
-      noiseValue += noise2D(x * scale * 2, y * scale * 2) * 0.25;
-      noiseValue += noise2D(x * scale * 4, y * scale * 4) * 0.125;
+      noiseValue += noise2D(x * noiseScale, y * noiseScale) * 0.5;
+      noiseValue += noise2D(x * noiseScale * 2, y * noiseScale * 2) * 0.25;
+      noiseValue += noise2D(x * noiseScale * 4, y * noiseScale * 4) * 0.125;
       
       // Normalize to 0-1 range
       noiseValue = (noiseValue + 1) * 0.5;
       
-      // Apply heightScale to control the intensity of height differences
+      // Apply height scale (intensity adjustment)
       noiseValue = noiseValue * heightScale;
       
-      // Store in bump map
-      bumpMap[y * width + x] = noiseValue;
+      // Store in height map
+      heightMap[y * width + x] = noiseValue;
     }
   }
   
-  // Create a copy of the original image data
-  const originalData = new Uint8ClampedArray(data.length);
+  // Store original image data for sampling (this is our "Source" input)
+  const sourceData = new Uint8ClampedArray(data.length);
   for (let i = 0; i < data.length; i++) {
-    originalData[i] = data[i];
+    sourceData[i] = data[i];
   }
   
-  // Apply refraction based on bump map
+  // Calculate IOR ratio based on refraction amount
+  // This follows the formula: Refraction = 100 * (1 - IOR1/IOR2)
+  // We reverse it to get the IOR ratio: IOR1/IOR2 = 1 - (Refraction/100)
+  const iorRatio = 1 - refractionAmount;
+  
+  // Apply refraction based on height map and IOR ratio
   for (let y = 0; y < height; y += sampleStep) {
     for (let x = 0; x < width; x += sampleStep) {
       const index = (Math.floor(y) * width + Math.floor(x)) * 4;
-      const bumpIdx = Math.floor(y) * width + Math.floor(x);
+      const hmIdx = Math.floor(y) * width + Math.floor(x);
       
-      // Calculate surface normal from bump map
-      // Compute gradient by sampling neighboring pixels
-      const left = x > 0 ? bumpMap[bumpIdx - 1] : bumpMap[bumpIdx];
-      const right = x < width - 1 ? bumpMap[bumpIdx + 1] : bumpMap[bumpIdx];
-      const top = y > 0 ? bumpMap[bumpIdx - width] : bumpMap[bumpIdx];
-      const bottom = y < height - 1 ? bumpMap[bumpIdx + width] : bumpMap[bumpIdx];
+      // Calculate surface normal from height map gradients
+      // Sampling neighboring pixels to compute the gradient
+      const left = x > 0 ? heightMap[hmIdx - 1] : heightMap[hmIdx];
+      const right = x < width - 1 ? heightMap[hmIdx + 1] : heightMap[hmIdx];
+      const top = y > 0 ? heightMap[hmIdx - width] : heightMap[hmIdx];
+      const bottom = y < height - 1 ? heightMap[hmIdx + width] : heightMap[hmIdx];
       
-      // X and Y gradients (approximation of partial derivatives)
+      // Calculate gradients (partial derivatives)
       const gradX = (right - left) * 2.0;
       const gradY = (bottom - top) * 2.0;
       
-      // Apply refraction - offset coordinates based on surface normal
-      const offsetX = gradX * refractionAmount;
-      const offsetY = gradY * refractionAmount;
+      // Get height value (thickness) at this point
+      const thickness = heightMap[hmIdx] * size;
       
-      // Calculate new sample position
+      // Calculate refraction offset based on Snell's law
+      // offset = gradient * thickness * (1 - iorRatio)
+      const strengthFactor = thickness * (1 - iorRatio) * refractionAmount;
+      const offsetX = gradX * strengthFactor;
+      const offsetY = gradY * strengthFactor;
+      
+      // Calculate refracted sample position
       let sampleX = Math.min(Math.max(0, x + offsetX), width - 1);
       let sampleY = Math.min(Math.max(0, y + offsetY), height - 1);
       
@@ -113,30 +128,34 @@ function applyRefractionFilter(
       const sx = sampleX - x0;
       const sy = sampleY - y0;
       
-      // Bilinear interpolation of four surrounding pixels
+      // Bilinear interpolation of four surrounding pixels from source image
       const idx00 = (y0 * width + x0) * 4;
       const idx01 = (y0 * width + x1) * 4;
       const idx10 = (y1 * width + x0) * 4;
       const idx11 = (y1 * width + x1) * 4;
       
+      // Interpolate each color channel
       for (let c = 0; c < 3; c++) {
-        const c00 = originalData[idx00 + c];
-        const c01 = originalData[idx01 + c];
-        const c10 = originalData[idx10 + c];
-        const c11 = originalData[idx11 + c];
+        const c00 = sourceData[idx00 + c];
+        const c01 = sourceData[idx01 + c];
+        const c10 = sourceData[idx10 + c];
+        const c11 = sourceData[idx11 + c];
         
-        // Interpolate
+        // Bilinear interpolation formula
         const cX0 = c00 * (1 - sx) + c01 * sx;
         const cX1 = c10 * (1 - sx) + c11 * sx;
         const cXY = cX0 * (1 - sy) + cX1 * sy;
         
-        // Set the color
+        // Write refracted pixel to output
         data[index + c] = cXY;
       }
+      
+      // Preserve alpha channel
+      data[index + 3] = sourceData[index + 3];
     }
   }
   
-  // Fill in any gaps due to sampleStep
+  // Fill in any gaps from sparse sampling in lower precision modes
   if (sampleStep > 1) {
     const tempData = new Uint8ClampedArray(data.length);
     for (let i = 0; i < data.length; i++) {
@@ -160,25 +179,30 @@ function applyRefractionFilter(
         const sx = (x - x0) / sampleStep;
         const sy = (y - y0) / sampleStep;
         
+        // Get the four corner samples
         const idx00 = (y0 * width + x0) * 4;
         const idx01 = (y0 * width + x1) * 4;
         const idx10 = (y1 * width + x0) * 4;
         const idx11 = (y1 * width + x1) * 4;
         
+        // Interpolate color channels
         for (let c = 0; c < 3; c++) {
           const c00 = tempData[idx00 + c];
           const c01 = tempData[idx01 + c];
           const c10 = tempData[idx10 + c];
           const c11 = tempData[idx11 + c];
           
-          // Interpolate
+          // Bilinear interpolation
           const cX0 = c00 * (1 - sx) + c01 * sx;
           const cX1 = c10 * (1 - sx) + c11 * sx;
           const cXY = cX0 * (1 - sy) + cX1 * sy;
           
-          // Set the color
+          // Fill in the gaps
           data[index + c] = cXY;
         }
+        
+        // Preserve alpha
+        data[index + 3] = sourceData[index + 3];
       }
     }
   }

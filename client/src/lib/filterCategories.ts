@@ -592,7 +592,7 @@ export const filterCategories: Record<string, FilterCategory> = {
           },
           {
             name: 'amount',
-            label: 'Refraction Amount',
+            label: 'Refraction',
             type: 'range',
             min: 0,
             max: 100,
@@ -604,10 +604,10 @@ export const filterCategories: Record<string, FilterCategory> = {
             name: 'heightScale',
             label: 'Height Scale',
             type: 'range',
-            min: 1,
-            max: 100,
+            min: 0,
+            max: 200,
             step: 1,
-            value: 50,
+            value: 100,
             unit: '%'
           },
           {
