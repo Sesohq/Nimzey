@@ -1,0 +1,63 @@
+🧱 1. Core Blending Nodes (Image-on-Image Logic)
+Node Name	What It Does	Photoshop Equivalent
+Blend	Combines two images using blend modes + mask/opacity	Layer Blend Modes
+Add/Subtract	Lightens/darkens one image by numeric addition/sub	Linear Dodge / Subtract
+Multiply	Multiplies pixel values (darkening)	Multiply
+Divide	Brightens using division	Not standard, but used in math nodes
+Overlay	Conditional multiply/screen based on tone	Overlay
+Screen	Inverse of Multiply (lightens)	Screen
+Difference	Inverts overlapping pixels	Difference
+
+These are your go-to for merging layers and effects.
+
+🎭 2. Masking & Alpha Compositing Nodes
+Node Name	What It Does
+Mask	Applies a grayscale or alpha image to hide/show
+Alpha Over	Composites one image over another using alpha
+Clip / Invert Mask	Flips or restricts masked areas
+Set Alpha	Assigns alpha from another image or channel
+
+These handle visibility, transitions, and cutouts.
+
+🌈 3. Color & Tone-Based Compositing
+Node Name	What It Does
+Luminance Key	Isolates areas based on brightness
+Chroma Key	Green-screen removal (color similarity)
+Desaturate	Converts to grayscale for use as masks
+Clamp	Limits pixel values (min/max)
+
+Helpful for building smart procedural masks.
+
+🌀 4. Geometric & Transform Compositing Nodes
+Node Name	What It Does
+Transform	Translate, rotate, scale an input image
+Displace	Offsets pixels based on a displacement map
+Warp	Warps based on UV or control grid
+Mirror / Flip	Flips image along axes
+
+Used for image distortion and alignment.
+
+🎛 5. Logic and Routing Nodes
+Node Name	What It Does
+Switch	Selects between multiple inputs dynamically
+Mix	Blends two images using a factor or condition
+If / Compare	Conditional routing based on mask or value
+Merge / Stack	Adds more than 2 inputs together in a chain
+
+These let your node graph behave programmatically.
+
+🧠 What To Prioritize in Your App’s First “Compositing” Group:
+Node	Why It’s Important
+✅ Blend	Core layer fusion — must-have
+✅ Multiply	Great for masks, shadows, overlays
+✅ Screen	Essential for glows, light overlays
+✅ Mask	Fundamental for selective blending
+✅ Transform	Needed for placement of filtered effects
+✅ Set Alpha	Makes procedural alpha blending possible
+
+🧩 Advanced (For Later):
+Node Name	Why Add It
+Color Dodge	Good for glow blending, digital effects
+Normal Map Combine	Great for 3D-style filters / lighting
+Z-Depth Merge	Combine layers based on depth or fog
+Ambient Occlusion Mask	Adds realism in stylized renders

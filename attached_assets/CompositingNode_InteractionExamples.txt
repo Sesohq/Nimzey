@@ -1,0 +1,140 @@
+Filter Plugin – Developer Deep Guide: Compositing Nodes with Filter Interaction Examples
+
+This guide explains core compositing nodes in your plugin (based on Filter Forge's logic) with real-world walkthroughs using your working filters like Noise, Wave, Mask, Dither, Halftone, etc.
+
+Each node includes:
+- 🧠 Description and math logic
+- 🧩 How it interacts with other filters in your plugin
+- 🧪 Real filter examples from your interface
+
+---
+
+🌓 1. BLEND NODE
+-----------------
+🧠 Combines two images using a blend mode (Multiply, Add, Screen, etc.) with optional opacity or image-based mask.
+
+🧩 Example Interaction:
+- Combine a noisy background and a pixelated top layer using "Overlay" to preserve depth.
+- Blend(InputA: Noise, InputB: Dithered Image, Mode: Overlay)
+
+🧪 Real Filter: "Retro Print with Texture"
+  - Chain: Noise → Colorize → Blend (Dither, Overlay, Opacity 0.5) → Output
+
+---
+
+🎭 2. MASK NODE
+---------------
+🧠 Applies an alpha mask (grayscale image) to selectively show or hide areas of an image.
+
+🧩 Example Interaction:
+- Use a procedural Noise node as the Mask input for Wave → only some areas distort.
+- Mask(Input: Wave Image, Mask: Noise)
+
+🧪 Real Filter: "Wave Through Static"
+  - Chain: Input → Wave → Mask (Noise) → Output
+
+---
+
+✖️ 3. MULTIPLY NODE
+---------------------
+🧠 Multiplies two inputs to darken; black cancels, white passes through.
+
+🧩 Example Interaction:
+- Combine inverted Edge Map with original to add dark outlines only where edges exist.
+- Multiply(Grayscale → Find Edges → Invert, Original Image)
+
+🧪 Real Filter: "Comic Lineart"
+  - Chain: Input → Find Edges → Invert → Multiply with Input → Output
+
+---
+
+💡 4. SCREEN NODE
+-------------------
+🧠 Lightens by blending inverses of inputs. Used to apply glow or highlights.
+
+🧩 Example Interaction:
+- Glow highlights from Highlight Glow node back onto original image.
+- Screen(InputA: Highlight Glow, InputB: Original)
+
+🧪 Real Filter: "Photo Bloom"
+  - Chain: Grayscale → Threshold → Blur → Screen with Input → Output
+
+---
+
+🔀 5. MIX NODE
+---------------
+🧠 Interpolates between two inputs using a float or mask image.
+
+🧩 Example Interaction:
+- Mix two textures (e.g. Dither + Halftone) based on a blurred edge map.
+- Mix(A: Dither, B: Halftone, Factor: Blur(Find Edges))
+
+🧪 Real Filter: "Hybrid Print"
+  - Chain: Dither + Halftone → Mix (Factor: Edge-Blurred) → Output
+
+---
+
+🔁 6. TRANSFORM NODE
+---------------------
+🧠 Translates, rotates, or scales an input image spatially.
+
+🧩 Example Interaction:
+- Transform a pixelated grid slightly before blending to get glitch offset.
+- Transform(Input: Pixelate, translateX: 5px, rotate: 1°)
+
+🧪 Real Filter: "Shifted 8-Bit"
+  - Chain: Pixelate → Transform (offset + rotate) → Blend with Input → Output
+
+---
+
+⚪ 7. SET ALPHA NODE
+---------------------
+🧠 Replaces the alpha channel of one image with another.
+
+🧩 Example Interaction:
+- Use Dither as alpha for a solid color to make dot pattern cutout.
+- SetAlpha(Input: Color Fill, Alpha Source: Dither)
+
+🧪 Real Filter: "Dither Mask Cutout"
+  - Chain: Color Fill → SetAlpha (Dither) → Output
+
+---
+
+📐 8. LUMINANCE MASK
+---------------------
+🧠 Converts brightness into a usable mask. Bright = 1, Dark = 0.
+
+🧩 Example Interaction:
+- Extract highlights and blur them to get natural glow using this as a base.
+- LuminanceMask → Blur → Add to Original
+
+🧪 Real Filter: "Highlight Bloom"
+  - Chain: Grayscale → Luminance Mask → Blur → Add → Output
+
+---
+
+🧪 COMPOSITE NODE FLOW DEMO
+============================
+
+Filter: "Textured CRT Dither"
+
+- Input → Grayscale
+- → Dither
+- → Noise Distortion (uses a Noise image input as displacement)
+- → Blend with Color Texture (Mode: Multiply)
+- → Glow from highlights (Find Edges + Blur + Screen)
+- → Output
+
+Involves nodes:
+• Grayscale
+• Dither
+• Noise
+• Noise Distortion (used as Displace)
+• Blend
+• Screen
+• Blur
+• Find Edges
+
+These walkthroughs help devs understand how compositing nodes behave not just in theory, but when used with your actual filters like Wave, Dither, Noise, Extrude, and more.
+
+Save this file to your `/docs/logic/` folder for core development reference.

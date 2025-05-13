@@ -438,8 +438,8 @@ export const filterCategories: Record<string, FilterCategory> = {
       }
     ]
   },
-  blending: {
-    name: 'Blending',
+  compositing: {
+    name: 'Compositing',
     filters: [
       {
         name: 'Blend',
@@ -462,6 +462,9 @@ export const filterCategories: Record<string, FilterCategory> = {
               'Soft Light',
               'Difference',
               'Exclusion',
+              'Add',
+              'Subtract',
+              'Divide',
               'Hue',
               'Saturation',
               'Color',
@@ -488,6 +491,165 @@ export const filterCategories: Record<string, FilterCategory> = {
           }
         ]
       },
+      {
+        name: 'Mask',
+        type: 'mask',
+        params: [
+          {
+            name: 'maskChannel',
+            label: 'Mask Channel',
+            type: 'select',
+            options: ['Alpha', 'Luminance', 'Inverted'],
+            value: 'Alpha'
+          },
+          {
+            name: 'strength',
+            label: 'Strength',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'feather',
+            label: 'Feather',
+            type: 'range',
+            min: 0,
+            max: 20,
+            step: 1,
+            value: 0,
+            unit: 'px'
+          }
+        ]
+      },
+      {
+        name: 'Multiply',
+        type: 'multiply',
+        params: [
+          {
+            name: 'strength',
+            label: 'Strength',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          }
+        ]
+      },
+      {
+        name: 'Screen',
+        type: 'screen',
+        params: [
+          {
+            name: 'strength',
+            label: 'Strength',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          }
+        ]
+      },
+      {
+        name: 'Mix',
+        type: 'mix',
+        params: [
+          {
+            name: 'factor',
+            label: 'Mix Factor',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 50,
+            unit: '%'
+          },
+          {
+            name: 'method',
+            label: 'Mix Method',
+            type: 'select',
+            options: ['Linear', 'Curved', 'Stepped'],
+            value: 'Linear'
+          }
+        ]
+      },
+      {
+        name: 'Transform',
+        type: 'transform',
+        params: [
+          {
+            name: 'translateX',
+            label: 'Translate X',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: 'px'
+          },
+          {
+            name: 'translateY',
+            label: 'Translate Y',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: 'px'
+          },
+          {
+            name: 'rotate',
+            label: 'Rotate',
+            type: 'range',
+            min: -180,
+            max: 180,
+            step: 1,
+            value: 0,
+            unit: '°'
+          },
+          {
+            name: 'scale',
+            label: 'Scale',
+            type: 'range',
+            min: 10,
+            max: 200,
+            step: 1,
+            value: 100,
+            unit: '%'
+          }
+        ]
+      },
+      {
+        name: 'Set Alpha',
+        type: 'setAlpha',
+        params: [
+          {
+            name: 'mode',
+            label: 'Mode',
+            type: 'select',
+            options: ['Replace', 'Add', 'Subtract', 'Multiply'],
+            value: 'Replace'
+          },
+          {
+            name: 'invert',
+            label: 'Invert',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'Off'
+          }
+        ]
+      },
+    ]
+  },
+  blending: {
+    name: 'Blending Effects',
+    filters: [
       {
         name: 'Motion Blur',
         type: 'motionBlur',
