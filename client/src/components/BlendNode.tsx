@@ -33,10 +33,6 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     opacity: false
   });
   
-  // State for the node preview
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [showLargePreview, setShowLargePreview] = useState(false);
-  
   // Check for connected edges when the component mounts or edges change
   useEffect(() => {
     const checkConnections = () => {
