@@ -305,9 +305,26 @@ const findSourceImage = (
   const inputNodes = getSourceNodesForNode(startNode.id, nodes, edges);
   const inputNodesList = Object.values(inputNodes).filter(Boolean) as Node[];
   
-  // If no inputs, we can't find a source image
+  // If no inputs through direct edges, try to find an image node elsewhere in the graph
   if (inputNodesList.length === 0) {
-    console.log(`Node ${startNode.id} has no input nodes`);
+    console.log(`Node ${startNode.id} has no direct input nodes, looking for any source image`);
+    
+    // Find a source image node as a fallback
+    const sourceNode = nodes.find(node => node.type === 'imageNode');
+    if (sourceNode) {
+      console.log(`Using source image node ${sourceNode.id} as fallback for ${startNode.id}`);
+      
+      // If this source is already processed, use its result
+      if (nodeResultCache.has(sourceNode.id)) {
+        return nodeResultCache.get(sourceNode.id)!;
+      } else {
+        // Otherwise use the original image
+        return originalImage;
+      }
+    }
+    
+    // No source image found anywhere
+    console.log(`No source image found anywhere in graph for ${startNode.id}`);
     return null;
   }
   
@@ -342,7 +359,14 @@ const findSourceImage = (
     }
   }
   
-  // No source image found in the chain
+  // Last resort: find any image node in the entire graph
+  const anySourceNode = nodes.find(node => node.type === 'imageNode');
+  if (anySourceNode) {
+    console.log(`Found fallback source image node ${anySourceNode.id} for ${startNode.id}`);
+    return originalImage;
+  }
+  
+  // No source image found anywhere
   console.log(`No source image found for ${startNode.id}`);
   return null;
 };
@@ -354,17 +378,23 @@ const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Re
   // Find all edges targeting this node
   const incomingEdges = edges.filter(edge => edge.target === nodeId);
   
+  console.log(`Node ${nodeId} has ${incomingEdges.length} incoming edges`);
+  
+  // For debugging - check all edges
+  console.log('All edges:', edges.map(e => `${e.source} -> ${e.target} (${e.targetHandle || 'default'})`));
+  
   // Create an entry for each incoming edge based on target handle
   incomingEdges.forEach(edge => {
     // Map the targetHandle to a consistent ID for easier access
-    // Most filter nodes use "dynamic-input" for their input handle
     let handleId: string;
     
+    // Extract any dynamic input handle IDs
+    // The dynamic inputs get assigned unique IDs during connection, like "input-timestamp-random"
     if (!edge.targetHandle) {
       handleId = 'input-default';
-    } else if (edge.targetHandle === 'dynamic-input') {
-      // Generate a unique ID for each connection to the dynamic input handle
-      // Use the source node ID to make it unique
+    } else if (edge.targetHandle === 'dynamic-input' || edge.targetHandle.startsWith('input-')) {
+      // For both "dynamic-input" and generated input-* handles, create a consistent ID 
+      // based on the source node that's connecting
       handleId = `input-${edge.source}`;
     } else {
       // For specialized handles like blend node's inputA, inputB, use as-is
@@ -372,7 +402,15 @@ const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Re
     }
     
     // Add this source node to our result
-    result[handleId] = nodes.find(node => node.id === edge.source) || null;
+    const sourceNode = nodes.find(node => node.id === edge.source);
+    
+    if (sourceNode) {
+      console.log(`Found source node ${sourceNode.id} (${sourceNode.type}) for target ${nodeId} on handle ${handleId}`);
+      result[handleId] = sourceNode;
+    } else {
+      console.log(`No source node found for edge from ${edge.source} to ${nodeId}`);
+      result[handleId] = null;
+    }
   });
   
   return result;
