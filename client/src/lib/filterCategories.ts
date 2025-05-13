@@ -97,7 +97,7 @@ export const filterCategories: Record<string, FilterCategory> = {
     name: 'Create Texture',
     filters: [
       {
-        name: 'Texture Generator',
+        name: 'Noise Generator',
         type: 'textureGenerator',
         params: [
           {

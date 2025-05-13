@@ -87,6 +87,7 @@ export type FilterNodeData = {
   blendMode: BlendMode;
   opacity: number;
   id?: string; // Optional ID that can be used in component props
+  preview?: string; // URL or data URI for node preview
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
   onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
