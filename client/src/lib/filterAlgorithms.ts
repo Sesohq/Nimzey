@@ -673,6 +673,29 @@ const processFilterNode = (
   const inputNodes = getSourceNodesForNode(node.id, nodes, edges);
   const inputKeys = Object.keys(inputNodes);
   
+  // Check if this is a texture generator that doesn't require input
+  if (filterData.filterType === 'textureGenerator') {
+    // Create a new canvas for this node's result
+    const resultCanvas = document.createElement('canvas');
+    resultCanvas.width = tempCanvas.width;
+    resultCanvas.height = tempCanvas.height;
+    const resultCtx = resultCanvas.getContext('2d')!;
+    
+    // Process using the texture generator filter
+    processTextureGeneratorFilter(
+      {}, // Empty inputs since texture generator creates its own content
+      resultCtx,
+      resultCanvas,
+      filterData,
+      tempCanvas,
+      tempCtx
+    );
+    
+    // Store the result
+    nodeResultCache.set(node.id, resultCanvas);
+    return;
+  }
+  
   // Check if this is a compositing filter that should use specialized multiple input processing
   const compositingTypes = ['mask', 'multiply', 'screen', 'mix', 'transform', 'setAlpha'];
   
@@ -2341,6 +2364,38 @@ function processTextureGeneratorFilter(
     resultCtx.globalCompositeOperation = 'source-over';
     resultCtx.globalAlpha = 1.0;
   }
+}
+
+// Helper function to convert blend mode to canvas globalCompositeOperation
+function getCompositeOperation(blendMode: string): GlobalCompositeOperation {
+  // Map our blend modes to Canvas composite operations
+  const blendModeMap: Record<string, GlobalCompositeOperation> = {
+    'normal': 'source-over',
+    'multiply': 'multiply',
+    'screen': 'screen',
+    'overlay': 'overlay',
+    'darken': 'darken',
+    'lighten': 'lighten',
+    'color-dodge': 'color-dodge',
+    'color-burn': 'color-burn',
+    'hard-light': 'hard-light',
+    'soft-light': 'soft-light',
+    'difference': 'difference',
+    'exclusion': 'exclusion',
+    'hue': 'hue',
+    'saturation': 'saturation',
+    'color': 'color',
+    'luminosity': 'luminosity',
+    'add': 'lighter',
+    'subtract': 'difference',  // Canvas doesn't have subtract
+    'divide': 'color-dodge',   // Approximation
+    'linear-dodge': 'lighter',
+    'linear-burn': 'darken',
+    'vivid-light': 'hard-light', // Approximation
+    'linear-light': 'overlay'    // Approximation
+  };
+  
+  return (blendModeMap[blendMode] || 'source-over') as GlobalCompositeOperation;
 }
 
 // Noise filter with Perlin and Simplex noise support
