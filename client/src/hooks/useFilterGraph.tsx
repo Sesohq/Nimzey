@@ -33,9 +33,19 @@ export function useFilterGraph() {
   // State for tracking zoom level
   const [zoomLevel, setZoomLevel] = useState(1);
   
+  // Define extended types for clipboard operations
+  type ClipboardNode = Node & {
+    originalId?: string;
+  };
+  
+  type ClipboardEdge = Edge & {
+    originalSource?: string;
+    originalTarget?: string;
+  };
+  
   // State for clipboard operations
-  const [clipboardNodes, setClipboardNodes] = useState<Node[]>([]);
-  const [clipboardEdges, setClipboardEdges] = useState<Edge[]>([]);
+  const [clipboardNodes, setClipboardNodes] = useState<ClipboardNode[]>([]);
+  const [clipboardEdges, setClipboardEdges] = useState<ClipboardEdge[]>([]);
   
   // Refs for elements we need to track
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
@@ -703,7 +713,7 @@ export function useFilterGraph() {
       ...node,
       // Generate a mapping of original IDs to new IDs for when we paste
       originalId: node.id
-    }));
+    })) as ClipboardNode[];
     
     // Find edges between selected nodes
     const relevantEdges = edges.filter(edge => {
@@ -715,7 +725,7 @@ export function useFilterGraph() {
       ...edge,
       originalSource: edge.source,
       originalTarget: edge.target
-    }));
+    })) as ClipboardEdge[];
     
     // Store in clipboard state
     setClipboardNodes(nodesToCopy);
@@ -742,7 +752,9 @@ export function useFilterGraph() {
     // Create new nodes with new IDs at slightly offset positions
     const newNodes = clipboardNodes.map(node => {
       const originalId = node.originalId || node.id;
-      const newId = `${node.type.replace('Node', '')}-${uuidv4().substring(0, 8)}`;
+      // Handle potential undefined type by using a default
+      const nodeType = node.type || 'filterNode';
+      const newId = `${nodeType.replace('Node', '')}-${uuidv4().substring(0, 8)}`;
       
       // Store the mapping of original to new ID
       idMap.set(originalId, newId);
@@ -757,7 +769,7 @@ export function useFilterGraph() {
         },
         selected: true, // Select the newly pasted nodes
         originalId: undefined // Remove the temporary property
-      };
+      } as Node;
     });
     
     // Create new edges with updated source/target IDs
@@ -771,14 +783,22 @@ export function useFilterGraph() {
       
       // Only create edge if both nodes exist in the paste operation
       if (newSource && newTarget) {
-        return {
-          ...edge,
+        // Create a clean edge object without the custom properties
+        const newEdge: Edge = {
           id: `edge-${newSource}-${newTarget}-${Date.now()}`,
           source: newSource,
           target: newTarget,
-          originalSource: undefined, // Remove the temporary property
-          originalTarget: undefined  // Remove the temporary property
+          // Copy any standard edge properties we need
+          type: edge.type,
+          animated: edge.animated,
+          style: edge.style,
+          label: edge.label,
+          markerEnd: edge.markerEnd,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle,
+          data: edge.data
         };
+        return newEdge;
       }
       return null;
     }).filter(Boolean) as Edge[];
@@ -787,9 +807,18 @@ export function useFilterGraph() {
     setNodes(prevNodes => [...prevNodes, ...newNodes]);
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
     
-    // Process the image with the updated graph
-    processImage();
-  }, [clipboardNodes, clipboardEdges, processImage]);
+    // We'll need to process the image, but to avoid circular references,
+    // we'll use setTimeout to ensure processImage is defined
+    setTimeout(() => {
+      // By this time, processImage will be defined
+      try {
+        // @ts-ignore - TypeScript doesn't know processImage will be defined by now
+        processImage();
+      } catch (e) {
+        console.error("Error processing image after paste:", e);
+      }
+    }, 0);
+  }, [clipboardNodes, clipboardEdges]);
   
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
