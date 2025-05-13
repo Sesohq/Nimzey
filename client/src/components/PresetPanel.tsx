@@ -178,9 +178,16 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
       fetchPresets(); // Refresh the list
     } catch (error) {
       console.error('Error saving preset:', error);
+      
+      // Provide more detailed error message if available
+      let errorMessage = 'Failed to save filter preset';
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to save filter preset',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -215,12 +222,19 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
         dragging: undefined,
       }));
 
+      // Compress the thumbnail if there's a new processed image
+      const thumbnailData = processedImage 
+        ? await resizeAndCompressImage(processedImage, 200)
+        : (preset.thumbnail || '');
+      
+      console.log('Compressed update thumbnail size:', thumbnailData ? thumbnailData.length : 0);
+        
       const updatedPreset = {
         name: presetName,
         description: presetDescription,
         nodes: sanitizedNodes,
         edges: edges,
-        thumbnail: processedImage || preset.thumbnail,
+        thumbnail: thumbnailData,
       };
 
       const response = await fetch(`/api/presets/${selectedPresetId}`, {
@@ -247,9 +261,16 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
       fetchPresets(); // Refresh the list
     } catch (error) {
       console.error('Error updating preset:', error);
+      
+      // Provide more detailed error message if available
+      let errorMessage = 'Failed to update filter preset';
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to update filter preset',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -283,9 +304,16 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
       fetchPresets(); // Refresh the list
     } catch (error) {
       console.error('Error deleting preset:', error);
+      
+      // Provide more detailed error message if available
+      let errorMessage = 'Failed to delete filter preset';
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to delete filter preset',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -296,6 +324,10 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
   // Load a preset
   const loadPreset = (preset: FilterPreset) => {
     try {
+      if (!preset.nodes || !preset.edges) {
+        throw new Error('Preset data is incomplete or corrupted');
+      }
+      
       // Clone the nodes and add positions
       const loadedNodes = (preset.nodes as Node[]).map((node, index) => ({
         ...node,
@@ -311,9 +343,16 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
       });
     } catch (error) {
       console.error('Error loading preset:', error);
+      
+      // Provide more detailed error message if available
+      let errorMessage = 'Failed to load filter preset';
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to load filter preset',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
