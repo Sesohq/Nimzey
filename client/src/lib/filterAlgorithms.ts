@@ -776,7 +776,7 @@ const applyFilter = (
       applyDitherFilter(data, canvas.width, canvas.height, params);
       break;
     case 'texture':
-      applyTextureFilter(data, getParamValue(params, 'intensity', 30));
+      applyTextureFilter(data, canvas.width, canvas.height, params);
       break;
     case 'extrude':
       applyExtrudeFilter(data, canvas.width, canvas.height, params);
@@ -1942,7 +1942,11 @@ function applyFindEdgesFilter(
   const method = paramsObj.method || 'Sobel';
   const strength = parseInt(String(paramsObj.strength || '50')) / 100;
   const threshold = parseInt(String(paramsObj.threshold || '25'));
+  const brightness = parseInt(String(paramsObj.brightness || '0'));
   const shouldInvert = paramsObj.invert === 'On';
+  
+  // Calculate brightness adjustment factor
+  const brightnessFactor = brightness / 100;
   const preserveColor = paramsObj.preserveColor === 'On';
   
   // Make a copy of the original data to work with
@@ -1991,8 +1995,26 @@ function applyFindEdgesFilter(
   }
   
   // Copy the result back to the original data
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 0; i < data.length; i += 4) {
     data[i] = edgeData[i];
+    data[i + 1] = edgeData[i + 1];
+    data[i + 2] = edgeData[i + 2];
+    data[i + 3] = edgeData[i + 3];
+    
+    // Apply brightness adjustment if needed
+    if (brightness !== 0) {
+      if (brightnessFactor > 0) {
+        // Increase brightness (move toward white)
+        for (let j = 0; j < 3; j++) {
+          data[i + j] = Math.min(255, data[i + j] + (255 - data[i + j]) * brightnessFactor);
+        }
+      } else {
+        // Decrease brightness (move toward black)
+        for (let j = 0; j < 3; j++) {
+          data[i + j] = Math.max(0, data[i + j] + data[i + j] * brightnessFactor);
+        }
+      }
+    }
   }
 }
 
