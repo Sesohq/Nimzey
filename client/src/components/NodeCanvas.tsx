@@ -75,7 +75,7 @@ export default function NodeCanvas({
           <Button size="icon" variant="ghost" onClick={zoomOut}>
             <ZoomOut className="h-5 w-5" />
           </Button>
-          <Badge variant="outline" className="text-sm px-2 py-1 bg-white border border-gray-300 rounded">
+          <Badge variant="outline" className="text-sm px-2 py-1 bg-white border border-gray-300 rounded text-gray-800 font-medium">
             {zoomLevel}%
           </Badge>
         </div>

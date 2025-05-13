@@ -183,7 +183,7 @@ export default function PreviewPanel({
               className="flex-1 mr-2"
               onValueChange={(values) => setExportQuality(values[0])}
             />
-            <span className="text-xs font-mono bg-gray-700 px-2 py-1 rounded">{exportQuality}%</span>
+            <span className="text-xs font-mono bg-gray-600 px-2 py-1 rounded text-white font-medium">{exportQuality}%</span>
           </div>
         </div>
         <Button 

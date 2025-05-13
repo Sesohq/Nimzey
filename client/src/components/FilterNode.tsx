@@ -72,7 +72,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     onValueChange={(values) => handleParamChange(param.name, values[0])}
                     disabled={!data.enabled}
                   />
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
                     {param.value}{param.unit || ''}
                   </span>
                 </div>
