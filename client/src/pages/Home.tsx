@@ -46,7 +46,7 @@ export default function Home() {
       <Header onNewProject={resetCanvas} onExportImage={exportImage} />
       
       <div className="flex flex-1 overflow-hidden">
-        <div className="h-full" style={{ width: `${filtersPanelWidth}px` }}>
+        <div className="h-full flex flex-col" style={{ width: `${filtersPanelWidth}px` }}>
           <div className="flex border-b">
             <button 
               className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'filters' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
@@ -68,29 +68,63 @@ export default function Home() {
             </button>
           </div>
           
-          {activeLeftTab === 'filters' ? (
-            <FilterPanel 
-              width={filtersPanelWidth} 
-              onAddFilter={addNode}
-              onUploadImage={uploadImage}
-              sourceImage={sourceImage}
+          {/* Upload Image Button - Now at the top of the panel */}
+          <div className="px-2 py-2 flex-shrink-0 bg-[#0A0D14]">
+            <button 
+              className="w-full flex items-center justify-center h-9 text-sm font-medium text-white relative overflow-hidden"
+              style={{
+                background: '#2A5DCE',
+                border: 'none',
+                borderRadius: '5px',
+                boxShadow: '0 0 10px rgba(0, 182, 254, 0.3)'
+              }}
+              onClick={() => document.getElementById('imageUpload')?.click()}
+            >
+              <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M17 8L12 3L7 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 3V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Upload Image
+            </button>
+            <input 
+              type="file" 
+              id="imageUpload" 
+              className="hidden" 
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  uploadImage(e.target.files[0]);
+                }
+              }}
             />
-          ) : activeLeftTab === 'presets' ? (
-            <PresetPanel
-              width={filtersPanelWidth}
-              nodes={nodes}
-              edges={edges}
-              onLoadPreset={loadPreset}
-              processedImage={processedImage}
-            />
-          ) : (
-            <CustomNodesPanel
-              width={filtersPanelWidth}
-              onAddCustomNode={addCustomNode}
-              onCreateCustomNode={() => setCreateCustomNodeOpen(true)} 
-              onDeleteCustomNode={() => {}}
-            />
-          )}
+          </div>
+          
+          <div className="flex-1 overflow-hidden">
+            {activeLeftTab === 'filters' ? (
+              <FilterPanel 
+                width={filtersPanelWidth} 
+                onAddFilter={addNode}
+                onUploadImage={uploadImage}
+                sourceImage={sourceImage}
+              />
+            ) : activeLeftTab === 'presets' ? (
+              <PresetPanel
+                width={filtersPanelWidth}
+                nodes={nodes}
+                edges={edges}
+                onLoadPreset={loadPreset}
+                processedImage={processedImage}
+              />
+            ) : (
+              <CustomNodesPanel
+                width={filtersPanelWidth}
+                onAddCustomNode={addCustomNode}
+                onCreateCustomNode={() => setCreateCustomNodeOpen(true)} 
+                onDeleteCustomNode={() => {}}
+              />
+            )}
+          </div>
         </div>
         
         <NodeCanvas

@@ -32,107 +32,79 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ width: `${width}px` }}>
-      {/* Main filter panel with filters */}
-      <div className="w-full bg-[#0A0D14] text-white flex-1 flex flex-col overflow-hidden">
-        <div className="p-3 font-semibold text-white flex items-center border-b border-gray-800">
-          <div className="h-2 w-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_5px_#2A5DCE]"></div>
-          <span>Filter Library</span>
-        </div>
+    <div className="h-full flex flex-col bg-[#0A0D14] text-white" style={{ width: `${width}px` }}>
+      <div className="p-3 font-semibold text-white flex items-center border-b border-gray-800">
+        <div className="h-2 w-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_5px_#2A5DCE]"></div>
+        <span>Filter Library</span>
+      </div>
         
-        {/* Scrollable area for filters */}
-        <ScrollArea className="flex-1">
-          <div className="p-2">
-            <Accordion 
-              type="multiple" 
-              defaultValue={Object.keys(filterCategories)}
-              className="space-y-3"
-            >
-              {Object.entries(filterCategories).map(([categoryId, category]) => {
-                const categoryColor = categoryId === 'basic' ? '#032573' : 
-                                     categoryId === 'texture' ? '#2A5DCE' : 
-                                     categoryId === 'distortion' ? '#B3282D' : 
-                                     categoryId === 'compositing' ? '#B35F28' : 
-                                     categoryId === 'blending' ? '#AB2EA3' : '#032573';
-                
-                return (
-                  <AccordionItem value={categoryId} key={categoryId} className="border-0 mb-2">
-                    <AccordionTrigger 
-                      className={`
-                        px-6 py-3 rounded-full text-white text-lg font-semibold
-                        transition-all hover:brightness-110
-                        relative overflow-hidden
-                      `}
-                      style={{
-                        background: `linear-gradient(90deg, ${categoryColor} 0%, rgba(11, 24, 49, 0.9) 100%)`,
-                        border: '0.5px solid #00B6FE',
-                        boxShadow: '0 0 15px rgba(0, 182, 254, 0.15)'
-                      }}
-                    >
-                      {/* Subtle glow circle in background */}
-                      <div className="absolute left-[-30px] top-[-80px] w-[120px] h-[120px] rounded-full opacity-20 blur-xl"
-                           style={{background: `radial-gradient(circle, ${categoryColor} 0%, rgba(0,0,0,0) 70%)`}}>
-                      </div>
-                      <span className="z-10 relative">{category.name}</span>
-                    </AccordionTrigger>
-                    <AccordionContent className="mt-1.5 space-y-1.5 px-1">
-                      {category.filters.map(filter => {
-                        return (
-                          <div
-                            key={filter.type}
-                            className={`
-                              px-6 py-2.5 rounded-full cursor-pointer
-                              transition-all hover:brightness-110
-                              text-white text-base font-medium
-                              relative overflow-hidden flex items-center
-                            `}
-                            style={{
-                              background: 'linear-gradient(90deg, rgba(24, 49, 95, 0.8) 0%, rgba(11, 24, 49, 0.95) 100%)',
-                              border: '0.5px solid rgba(0, 182, 254, 0.4)',
-                              boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)'
-                            }}
-                            draggable
-                            onDragStart={(e) => handleFilterDragStart(e, filter.type)}
-                            onDragEnd={handleFilterDragEnd}
-                            onClick={() => onAddFilter(filter.type)}
-                          >
-                            {filter.name}
-                          </div>
-                        );
-                      })}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          </div>
-        </ScrollArea>
-      </div>
-      
-      {/* Blue upload button at the bottom, clearly visible */}
-      <div className="mt-auto py-2 px-2 bg-[#0A0D14]">
-        <Button 
-          variant="default" 
-          className="w-full flex items-center justify-center h-10 text-base font-semibold relative overflow-hidden"
-          style={{
-            background: '#2A5DCE',
-            border: 'none',
-            borderRadius: '5px',
-            boxShadow: '0 0 10px rgba(0, 182, 254, 0.3)'
-          }}
-          onClick={() => document.getElementById('imageUpload')?.click()}
-        >
-          <Upload className="h-5 w-5 mr-2" />
-          <span>Upload Image</span>
-        </Button>
-        <input 
-          type="file" 
-          id="imageUpload" 
-          className="hidden" 
-          accept="image/*"
-          onChange={handleImageUpload}
-        />
-      </div>
+      {/* Scrollable area for filters */}
+      <ScrollArea className="flex-1">
+        <div className="p-2">
+          <Accordion 
+            type="multiple" 
+            defaultValue={Object.keys(filterCategories)}
+            className="space-y-3"
+          >
+            {Object.entries(filterCategories).map(([categoryId, category]) => {
+              const categoryColor = categoryId === 'basic' ? '#032573' : 
+                                   categoryId === 'texture' ? '#2A5DCE' : 
+                                   categoryId === 'distortion' ? '#B3282D' : 
+                                   categoryId === 'compositing' ? '#B35F28' : 
+                                   categoryId === 'blending' ? '#AB2EA3' : '#032573';
+              
+              return (
+                <AccordionItem value={categoryId} key={categoryId} className="border-0 mb-2">
+                  <AccordionTrigger 
+                    className={`
+                      px-6 py-3 rounded-full text-white text-lg font-semibold
+                      transition-all hover:brightness-110
+                      relative overflow-hidden
+                    `}
+                    style={{
+                      background: `linear-gradient(90deg, ${categoryColor} 0%, rgba(11, 24, 49, 0.9) 100%)`,
+                      border: '0.5px solid #00B6FE',
+                      boxShadow: '0 0 15px rgba(0, 182, 254, 0.15)'
+                    }}
+                  >
+                    {/* Subtle glow circle in background */}
+                    <div className="absolute left-[-30px] top-[-80px] w-[120px] h-[120px] rounded-full opacity-20 blur-xl"
+                         style={{background: `radial-gradient(circle, ${categoryColor} 0%, rgba(0,0,0,0) 70%)`}}>
+                    </div>
+                    <span className="z-10 relative">{category.name}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="mt-1.5 space-y-1.5 px-1">
+                    {category.filters.map(filter => {
+                      return (
+                        <div
+                          key={filter.type}
+                          className={`
+                            px-6 py-2.5 rounded-full cursor-pointer
+                            transition-all hover:brightness-110
+                            text-white text-base font-medium
+                            relative overflow-hidden flex items-center
+                          `}
+                          style={{
+                            background: 'linear-gradient(90deg, rgba(24, 49, 95, 0.8) 0%, rgba(11, 24, 49, 0.95) 100%)',
+                            border: '0.5px solid rgba(0, 182, 254, 0.4)',
+                            boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)'
+                          }}
+                          draggable
+                          onDragStart={(e) => handleFilterDragStart(e, filter.type)}
+                          onDragEnd={handleFilterDragEnd}
+                          onClick={() => onAddFilter(filter.type)}
+                        >
+                          {filter.name}
+                        </div>
+                      );
+                    })}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
