@@ -1361,12 +1361,9 @@ function applyHalftoneFilter(
   // Save context state
   tempCtx.save();
   
-  // Apply rotation if needed
-  if (angle !== 0) {
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((angle * Math.PI) / 180);
-    tempCtx.translate(-width / 2, -height / 2);
-  }
+  // Note: We don't apply rotation to the entire canvas here anymore
+  // The rotation angle will be passed to the drawHalftonePattern function
+  // and applied individually to each dot pattern
   
   // Handle different channel modes
   if (channelMode === 'Grayscale') {
@@ -1380,7 +1377,10 @@ function applyHalftoneFilter(
       minDotSize,
       maxDotSize,
       shape,
-      dotColor === 'Original' ? null : { r: fillColorR, g: fillColorG, b: fillColorB }
+      dotColor === 'Original' ? null : { r: fillColorR, g: fillColorG, b: fillColorB },
+      null,
+      null,
+      angle // Pass the rotation angle to pattern
     );
   } 
   else if (channelMode === 'RGB') {
@@ -1388,12 +1388,12 @@ function applyHalftoneFilter(
     // First clear to white/black
     tempCtx.clearRect(0, 0, width, height);
     
-    // Red channel (typically at 15-25 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((15 * Math.PI) / 180); // 15 degree angle for red
-    tempCtx.translate(-width / 2, -height / 2);
+    // Calculate base angles for each channel with user's rotation added
+    const redAngle = (15 + angle) % 90; // Red at 15° + user angle
+    const greenAngle = (75 + angle) % 90; // Green at 75° + user angle
+    const blueAngle = (0 + angle) % 90; // Blue at 0° + user angle
     
+    // Red channel
     drawHalftonePattern(
       originalData,
       tempCtx,
@@ -1404,16 +1404,12 @@ function applyHalftoneFilter(
       maxDotSize,
       shape,
       { r: 255, g: 0, b: 0 },
-      0 // red channel
+      0, // red channel
+      null,
+      redAngle // Pass appropriate angle to the pattern
     );
-    tempCtx.restore();
     
-    // Green channel (typically at 75 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((75 * Math.PI) / 180); // 75 degree angle for green
-    tempCtx.translate(-width / 2, -height / 2);
-    
+    // Green channel
     drawHalftonePattern(
       originalData,
       tempCtx,
@@ -1424,16 +1420,12 @@ function applyHalftoneFilter(
       maxDotSize,
       shape,
       { r: 0, g: 255, b: 0 },
-      1 // green channel
+      1, // green channel
+      null,
+      greenAngle
     );
-    tempCtx.restore();
     
-    // Blue channel (typically at 0 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((0 * Math.PI) / 180); // 0 degree angle for blue
-    tempCtx.translate(-width / 2, -height / 2);
-    
+    // Blue channel
     drawHalftonePattern(
       originalData,
       tempCtx,
@@ -1444,9 +1436,10 @@ function applyHalftoneFilter(
       maxDotSize,
       shape,
       { r: 0, g: 0, b: 255 },
-      2 // blue channel
+      2, // blue channel
+      null,
+      blueAngle
     );
-    tempCtx.restore();
   }
   else if (channelMode === 'CMYK') {
     // Process C, M, Y, K channels separately 
@@ -1572,7 +1565,8 @@ function applyHalftoneFilter(
     shape: string,
     color: { r: number, g: number, b: number } | null,
     channel: number | null = null,
-    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null
+    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null,
+    rotationAngle: number = 0 // Add rotation angle parameter
   ) {
     // Step through the image in grid cells
     for (let y = 0; y < height; y += gridSize) {
@@ -1599,8 +1593,8 @@ function applyHalftoneFilter(
           ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         }
         
-        // Draw the appropriate shape
-        drawShape(ctx, centerX, centerY, radius, shape);
+        // Draw the appropriate shape with rotation
+        drawShape(ctx, centerX, centerY, radius, shape, rotationAngle);
       }
     }
   }
@@ -1654,10 +1648,21 @@ function applyHalftoneFilter(
     return (normalizedBrightness * dotSizeRange + minDotSize) * (gridSize / 2);
   }
   
-  // Function to draw different shapes
-  function drawShape(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, shape: string): void {
+  // Function to draw different shapes with rotation
+  function drawShape(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, shape: string, angle: number = 0): void {
+    // Save the context state to restore later
+    ctx.save();
+    
+    // Apply rotation if needed - translate to the center point, rotate, then translate back
+    if (angle !== 0) {
+      ctx.translate(x, y);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.translate(-x, -y);
+    }
+    
     switch (shape) {
       case 'Circle':
+        // Circles look the same when rotated, so no special handling needed
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
@@ -1701,6 +1706,9 @@ function applyHalftoneFilter(
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
     }
+    
+    // Restore the context state
+    ctx.restore();
   }
   
   // Function to invert brightness (for CMYK-like effects)
