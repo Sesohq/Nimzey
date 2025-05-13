@@ -333,7 +333,7 @@ export function useFilterGraph() {
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
 
-  // Generate node preview for the selected node
+  // Generate node preview for the selected node (to be shown in the preview panel)
   const generateNodePreview = useCallback((targetNode: Node) => {
     if (!sourceImageRef.current) return;
     
@@ -354,13 +354,18 @@ export function useFilterGraph() {
         tempCanvas
       );
       
-      // Set the preview
+      // Set the preview in the preview panel
       setNodePreview(result);
+      
+      // Also update the node's own preview
+      if (targetNode.type !== 'imageNode') {
+        handleParamChange(targetNode.id, 'preview', result);
+      }
     } catch (error) {
       console.error('Error generating node preview:', error);
       setNodePreview(null);
     }
-  }, [nodes, edges, sourceImageRef]);
+  }, [nodes, edges, sourceImageRef, handleParamChange]);
   
   // Gets all nodes and edges in a chain leading to a specific node
   const getNodeChain = (nodeId: string, allNodes: Node[], allEdges: Edge[]) => {
@@ -481,17 +486,48 @@ export function useFilterGraph() {
     }
   }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
   
-  // Effect to generate preview when a node is selected
+  // Effect to generate previews for all nodes
   useEffect(() => {
-    if (selectedNodeId && sourceImageRef.current) {
-      const node = nodes.find(n => n.id === selectedNodeId);
-      if (node) {
-        generateNodePreview(node);
+    if (sourceImageRef.current) {
+      // Generate preview for selected node (for the preview panel)
+      if (selectedNodeId) {
+        const node = nodes.find(n => n.id === selectedNodeId);
+        if (node) {
+          generateNodePreview(node);
+        }
+      } else {
+        setNodePreview(null);
       }
-    } else {
-      setNodePreview(null);
+      
+      // Generate previews for all filter nodes
+      nodes.forEach(node => {
+        if (node.type !== 'imageNode') {
+          try {
+            // Find all nodes and edges in the chain leading to this node
+            const nodeChain = getNodeChain(node.id, nodes, edges);
+            
+            // Create a temporary canvas for the preview
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 150; // Smaller for embedded preview
+            tempCanvas.height = 150;
+            
+            // Process the image through the node chain
+            const result = applyFilters(
+              sourceImageRef.current!, 
+              nodeChain.nodes, 
+              nodeChain.edges, 
+              tempCanvas
+            );
+            
+            // Update the node's preview
+            handleParamChange(node.id, 'preview', result);
+          } catch (error) {
+            console.error(`Error generating preview for node ${node.id}:`, error);
+          }
+        }
+      });
     }
-  }, [selectedNodeId, nodes, sourceImageRef, generateNodePreview]);
+  }, [nodes, edges, selectedNodeId, sourceImageRef, generateNodePreview, handleParamChange]);
   
   // Effect to update the source image ref when the image changes
   useEffect(() => {
