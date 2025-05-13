@@ -513,17 +513,42 @@ export function useFilterGraph() {
   
   // Connect two nodes
   const onConnect = useCallback((connection: Connection) => {
+    console.log(`Connecting: ${connection.source} -> ${connection.target} (handle: ${connection.targetHandle})`);
+    
+    // Special handling for input connections - we'll normalize dynamic input handles
+    let targetHandle = connection.targetHandle;
+    let sourceHandle = connection.sourceHandle;
+    
+    // Configure the edge appearance
     const newEdge = {
       ...connection,
+      // Keep the original handle IDs
+      targetHandle,
+      sourceHandle,
+      // Ensure the edge is uniquely identified
+      id: `edge-${connection.source}-${connection.target}-${Date.now()}`,
+      // Visual styling
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: '#888',
       },
-      animated: true
+      animated: true,
+      // Add data to help with filter chain processing
+      data: {
+        // Store information about the nodes being connected
+        sourceNode: nodes.find(n => n.id === connection.source)?.type || 'unknown',
+        targetNode: nodes.find(n => n.id === connection.target)?.type || 'unknown'
+      }
     };
     
+    console.log(`Created edge: ${JSON.stringify(newEdge)}`);
+    
+    // Add the edge to our graph
     setEdges(prevEdges => addEdge(newEdge, prevEdges));
-  }, []);
+    
+    // Ensure the connected nodes get processed in the right order
+    processImage();
+  }, [nodes, processImage]);
   
   // Upload an image
   const uploadImage = useCallback((file: File) => {

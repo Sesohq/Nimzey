@@ -479,16 +479,40 @@ export const applyFilters = (
   // Clear the cache before each processing run
   nodeResultCache.clear();
   
+  console.log('=== Starting filter processing ===');
+  console.log(`Processing with ${nodes.length} nodes and ${edges.length} edges`);
+  if (targetNodeId) {
+    console.log(`Target node: ${targetNodeId}`);
+  }
+  
+  // Dump the edges for debugging
+  edges.forEach(edge => {
+    console.log(`Edge: ${edge.source} -> ${edge.target} (${edge.targetHandle || 'default'})`);
+  });
+  
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
-  if (!sourceNode) return null;
+  if (!sourceNode) {
+    console.warn('No source image node found!');
+    return null;
+  }
+  
+  console.log(`Found source node: ${sourceNode.id}`);
   
   // If a target node is specified, get the path to it
   const nodesToProcess = targetNodeId 
     ? getPathToNode(targetNodeId, nodes, edges)
     : buildProcessingChain(sourceNode.id, nodes, edges);
 
-  if (nodesToProcess.length === 0) return null;
+  console.log(`Processing chain contains ${nodesToProcess.length} nodes:`);
+  nodesToProcess.forEach(node => {
+    console.log(`- ${node.id} (${node.type})`);
+  });
+
+  if (nodesToProcess.length === 0) {
+    console.warn('No nodes to process!');
+    return null;
+  }
   
   // Set up the canvas
   const ctx = canvas.getContext('2d');
