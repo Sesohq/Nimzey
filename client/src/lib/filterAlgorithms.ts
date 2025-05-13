@@ -1715,10 +1715,10 @@ const applyCPUFilter = (
       applyFindEdgesFilter(data, canvas.width, canvas.height, params);
       break;
     case 'glow':
-      applyGlowFilter(data, canvas.width, canvas.height, params);
+      applyGlowFilter(data, canvas.width, canvas.height, params, filterType, ctx, canvas);
       break;
     case 'halftone':
-      applyHalftoneFilter(data, canvas.width, canvas.height, ctx, params);
+      applyHalftoneFilter(data, canvas.width, canvas.height, params, ctx, canvas);
       break;
     case 'blend':
       applyBlendFilter(data, canvas.width, canvas.height, params);
@@ -3683,8 +3683,8 @@ export function applyHalftoneFilter(
   width: number,
   height: number,
   params: any[] = [],
-  ctx?: CanvasRenderingContext2D,
-  canvas?: HTMLCanvasElement
+  providedCtx?: CanvasRenderingContext2D,
+  providedCanvas?: HTMLCanvasElement
 ): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
@@ -3707,11 +3707,19 @@ export function applyHalftoneFilter(
     originalData[i] = data[i];
   }
   
-  // Create a temporary canvas for drawing the halftone pattern
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
+  // Use provided canvas/context if available, otherwise create temporary ones
+  let tempCanvas: HTMLCanvasElement;
+  let tempCtx: CanvasRenderingContext2D;
+  
+  if (providedCanvas && providedCtx) {
+    tempCanvas = providedCanvas;
+    tempCtx = providedCtx;
+  } else {
+    tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
+  }
   
   // Fill with a background color - will be visible between dots
   if (dotColor === 'Black') {
