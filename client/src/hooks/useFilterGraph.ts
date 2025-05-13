@@ -11,7 +11,7 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
+import { FilterType, FilterNodeData, ImageNodeData, BlendMode } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
 
@@ -112,6 +112,50 @@ export function useFilterGraph() {
     // Re-process the image when a filter is enabled/disabled
     processImage();
   }, [processImage]);
+  
+  // Handle blend mode changes
+  const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              blendMode
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    // Re-process the image when blend mode changes
+    processImage();
+  }, [processImage]);
+  
+  // Handle opacity changes
+  const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              opacity
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    // Re-process the image when opacity changes
+    processImage();
+  }, [processImage]);
 
   // Upload an image function
   const uploadImage = useCallback((file: File) => {
@@ -200,8 +244,12 @@ export function useFilterGraph() {
       filterType,
       params: filterDef.params.map(param => ({ ...param })),
       enabled: true,
+      blendMode: 'normal',
+      opacity: 1.0,
       onParamChange: handleParamChange,
       onToggleEnabled: handleToggleEnabled,
+      onBlendModeChange: handleBlendModeChange,
+      onOpacityChange: handleOpacityChange
     };
 
     // Add the new node
@@ -220,7 +268,7 @@ export function useFilterGraph() {
 
     // Select the new node
     setSelectedNodeId(newNodeId);
-  }, [findFilterByType, handleParamChange, handleToggleEnabled]);
+  }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
 
   // Handle nodes changes
   const onNodesChange = useCallback((changes: NodeChange[]) => {

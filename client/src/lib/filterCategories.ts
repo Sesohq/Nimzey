@@ -121,6 +121,21 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'noise',
         params: [
           {
+            name: 'noiseType',
+            label: 'Noise Type',
+            type: 'select',
+            options: [
+              'Gaussian', 
+              'Uniform', 
+              'Salt & Pepper', 
+              'Perlin', 
+              'Simplex',
+              'Fractal Perlin', 
+              'Fractal Simplex'
+            ],
+            value: 'Perlin'
+          },
+          {
             name: 'amount',
             label: 'Amount',
             type: 'range',
@@ -131,11 +146,61 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
-            name: 'type',
-            label: 'Type',
+            name: 'scale',
+            label: 'Scale',
+            type: 'range',
+            min: 0.01,
+            max: 1,
+            step: 0.01,
+            value: 0.1,
+            unit: ''
+          },
+          {
+            name: 'octaves',
+            label: 'Octaves',
+            type: 'range',
+            min: 1,
+            max: 8,
+            step: 1,
+            value: 4,
+            unit: ''
+          },
+          {
+            name: 'persistence',
+            label: 'Persistence',
+            type: 'range',
+            min: 0.1,
+            max: 1.0,
+            step: 0.05,
+            value: 0.5,
+            unit: ''
+          },
+          {
+            name: 'lacunarity',
+            label: 'Lacunarity',
+            type: 'range',
+            min: 1.0,
+            max: 3.0,
+            step: 0.1,
+            value: 2.0,
+            unit: ''
+          },
+          {
+            name: 'seed',
+            label: 'Seed',
+            type: 'range',
+            min: 1,
+            max: 1000,
+            step: 1,
+            value: 42,
+            unit: ''
+          },
+          {
+            name: 'colorize',
+            label: 'Colorize',
             type: 'select',
-            options: ['Gaussian', 'Uniform', 'Salt & Pepper'],
-            value: 'Uniform'
+            options: ['Off', 'Grayscale', 'Rainbow', 'Fire', 'Electric'],
+            value: 'Off'
           }
         ]
       },

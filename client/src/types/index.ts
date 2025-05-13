@@ -40,13 +40,35 @@ export type FilterCategory = {
   filters: Filter[];
 };
 
+export type BlendMode = 
+  | 'normal' 
+  | 'multiply' 
+  | 'screen' 
+  | 'overlay' 
+  | 'darken' 
+  | 'lighten' 
+  | 'color-dodge' 
+  | 'color-burn' 
+  | 'hard-light' 
+  | 'soft-light' 
+  | 'difference' 
+  | 'exclusion' 
+  | 'hue' 
+  | 'saturation' 
+  | 'color' 
+  | 'luminosity';
+
 export type FilterNodeData = {
   label: string;
   filterType: FilterType;
   params: FilterParam[];
   enabled: boolean;
+  blendMode: BlendMode;
+  opacity: number;
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
+  onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
+  onOpacityChange?: (nodeId: string, opacity: number) => void;
 };
 
 export type ImageNodeData = {

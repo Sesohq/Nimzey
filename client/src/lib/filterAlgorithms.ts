@@ -473,15 +473,191 @@ function applyInvertFilter(data: Uint8ClampedArray): void {
 }
 
 // Noise filter
-function applyNoiseFilter(data: Uint8ClampedArray, amount: number): void {
-  const factor = amount / 100 * 255;
+// Import simplex-noise library
+import { createNoise2D, createNoise3D } from 'simplex-noise';
+
+function applyNoiseFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
   
-  for (let i = 0; i < data.length; i += 4) {
-    if (Math.random() > 0.5) {
-      const noise = (Math.random() - 0.5) * factor;
+  const noiseType = paramsObj.noiseType || 'Uniform';
+  const amount = parseInt(String(paramsObj.amount || 25)) / 100 * 255;
+  const scale = parseFloat(String(paramsObj.scale || 0.1));
+  const octaves = parseInt(String(paramsObj.octaves || 4));
+  const persistence = parseFloat(String(paramsObj.persistence || 0.5));
+  const lacunarity = parseFloat(String(paramsObj.lacunarity || 2.0));
+  const seed = parseInt(String(paramsObj.seed || 42));
+  const colorize = paramsObj.colorize || 'Off';
+  
+  // Generate random seed from the given number
+  const randomSeed = () => {
+    let s = seed;
+    return function() {
+      s = Math.sin(s) * 10000;
+      return s - Math.floor(s);
+    };
+  };
+  const random = randomSeed();
+  
+  // Initialize simplex noise generator
+  const noise2D = createNoise2D(() => random());
+  
+  // For uniform noise (original implementation)
+  if (noiseType === 'Uniform') {
+    for (let i = 0; i < data.length; i += 4) {
+      const noise = Math.random() * amount - amount / 2;
       
+      // Apply noise to RGB channels
       for (let j = 0; j < 3; j++) {
         data[i + j] = Math.min(255, Math.max(0, data[i + j] + noise));
+      }
+    }
+    return;
+  }
+  
+  // For Gaussian noise
+  if (noiseType === 'Gaussian') {
+    for (let i = 0; i < data.length; i += 4) {
+      // Box-Muller transform for Gaussian distribution
+      const u1 = Math.random();
+      const u2 = Math.random();
+      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      
+      const noise = z0 * amount / 3; // Divide by 3 to scale appropriately
+      
+      // Apply noise to RGB channels
+      for (let j = 0; j < 3; j++) {
+        data[i + j] = Math.min(255, Math.max(0, data[i + j] + noise));
+      }
+    }
+    return;
+  }
+  
+  // For Salt & Pepper noise
+  if (noiseType === 'Salt & Pepper') {
+    const threshold = amount / 255;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.random() < threshold) {
+        // Add salt or pepper randomly
+        const value = Math.random() < 0.5 ? 0 : 255;
+        
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+      }
+    }
+    return;
+  }
+  
+  // For Perlin and Simplex noise
+  if (noiseType.includes('Perlin') || noiseType.includes('Simplex')) {
+    // Determine if we're using fractal noise
+    const isFractal = noiseType.includes('Fractal');
+    
+    // Temporary array to store noise values
+    const noiseData = new Float32Array(width * height);
+    
+    // Generate noise values
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let value = 0;
+        
+        if (isFractal) {
+          // Fractal noise (multiple octaves)
+          let amplitude = 1;
+          let frequency = scale;
+          let maxValue = 0;
+          
+          for (let o = 0; o < octaves; o++) {
+            // Get noise value based on coordinates and frequency
+            const noiseValue = noise2D(x * frequency, y * frequency);
+            
+            // Add to value with current amplitude
+            value += noiseValue * amplitude;
+            
+            // Track max possible value for normalization
+            maxValue += amplitude;
+            
+            // Update amplitude and frequency for next octave
+            amplitude *= persistence;
+            frequency *= lacunarity;
+          }
+          
+          // Normalize to [-1, 1] range
+          value /= maxValue;
+        } else {
+          // Simple noise (single octave)
+          value = noise2D(x * scale, y * scale);
+        }
+        
+        // Store in our temporary array (normalized to [0, 1])
+        noiseData[y * width + x] = (value + 1) / 2;
+      }
+    }
+    
+    // Apply noise to image data based on colorization mode
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const noiseValue = noiseData[y * width + x];
+        
+        // Scale noise value by amount
+        const scaledNoise = noiseValue * amount / 128;
+        
+        if (colorize === 'Off') {
+          // Just add noise to existing pixels
+          for (let j = 0; j < 3; j++) {
+            data[i + j] = Math.min(255, Math.max(0, data[i + j] + scaledNoise - amount / 256));
+          }
+        } else if (colorize === 'Grayscale') {
+          // Grayscale noise
+          const grayValue = Math.floor(noiseValue * 255);
+          data[i] = grayValue;
+          data[i + 1] = grayValue;
+          data[i + 2] = grayValue;
+        } else if (colorize === 'Rainbow') {
+          // Rainbow colorization (HSV to RGB)
+          const h = noiseValue; // Hue from noise (0 to 1)
+          const s = 1.0; // Saturation
+          const v = 1.0; // Value
+          
+          // HSV to RGB conversion
+          const i_hsv = Math.floor(h * 6);
+          const f = h * 6 - i_hsv;
+          const p = v * (1 - s);
+          const q = v * (1 - f * s);
+          const t = v * (1 - (1 - f) * s);
+          
+          let r, g, b;
+          switch (i_hsv % 6) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+            default: r = v; g = t; b = p;
+          }
+          
+          data[i] = Math.floor(r * 255);
+          data[i + 1] = Math.floor(g * 255);
+          data[i + 2] = Math.floor(b * 255);
+        } else if (colorize === 'Fire') {
+          // Fire colorization
+          const temp = noiseValue;
+          data[i] = Math.floor(255 * Math.min(1.0, temp * 2));
+          data[i + 1] = Math.floor(255 * Math.min(1.0, temp * 1.5));
+          data[i + 2] = Math.floor(255 * Math.min(1.0, temp * 0.5));
+        } else if (colorize === 'Electric') {
+          // Electric blue colorization
+          const temp = noiseValue;
+          data[i] = Math.floor(255 * Math.min(1.0, temp * 0.5));
+          data[i + 1] = Math.floor(255 * Math.min(1.0, temp * 1.0));
+          data[i + 2] = Math.floor(255 * Math.min(1.0, temp * 2.0));
+        }
       }
     }
   }
