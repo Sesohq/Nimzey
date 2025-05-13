@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MinusIcon } from 'lucide-react';
+import { MinusIcon, LayersIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FilterNodeData } from '@/types';
+import { FilterNodeData, BlendMode } from '@/types';
 import NodeControls from './NodeControls';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -27,6 +29,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
       data.onToggleEnabled(id, checked);
+    }
+  };
+  
+  const handleBlendModeChange = (value: string) => {
+    if (data.onBlendModeChange) {
+      data.onBlendModeChange(id, value as BlendMode);
+    }
+  };
+  
+  const handleOpacityChange = (values: number[]) => {
+    if (data.onOpacityChange) {
+      data.onOpacityChange(id, values[0]);
     }
   };
 
@@ -101,6 +115,70 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         </div>
       )}
 
+      {/* Blend Mode and Opacity Controls */}
+      <div className="px-3 pb-3 pt-1">
+        <Separator className="my-2" />
+        
+        <div className="flex items-center justify-between">
+          <Popover>
+            <PopoverTrigger className="flex items-center space-x-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors">
+              <LayersIcon className="h-3 w-3" />
+              <span>{data.blendMode.replace('-', ' ')}</span>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" side="right">
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Blend Mode</Label>
+                <Select value={data.blendMode} onValueChange={handleBlendModeChange} disabled={!data.enabled}>
+                  <SelectTrigger className="w-full text-xs">
+                    <SelectValue placeholder="normal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    
+                    <SelectItem value="multiply">Multiply</SelectItem>
+                    <SelectItem value="screen">Screen</SelectItem>
+                    <SelectItem value="overlay">Overlay</SelectItem>
+                    
+                    <SelectItem value="darken">Darken</SelectItem>
+                    <SelectItem value="lighten">Lighten</SelectItem>
+                    
+                    <SelectItem value="color-dodge">Color Dodge</SelectItem>
+                    <SelectItem value="color-burn">Color Burn</SelectItem>
+                    
+                    <SelectItem value="hard-light">Hard Light</SelectItem>
+                    <SelectItem value="soft-light">Soft Light</SelectItem>
+                    
+                    <SelectItem value="difference">Difference</SelectItem>
+                    <SelectItem value="exclusion">Exclusion</SelectItem>
+                    
+                    <SelectItem value="hue">Hue</SelectItem>
+                    <SelectItem value="saturation">Saturation</SelectItem>
+                    <SelectItem value="color">Color</SelectItem>
+                    <SelectItem value="luminosity">Luminosity</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Label className="text-xs text-gray-500 mt-3 block">Opacity</Label>
+                <div className="flex items-center">
+                  <Slider
+                    value={[data.opacity * 100]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    className="flex-1 mr-2"
+                    onValueChange={handleOpacityChange}
+                    disabled={!data.enabled}
+                  />
+                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
+                    {Math.round(data.opacity * 100)}%
+                  </span>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+      
       <div className="px-3 pb-2 flex justify-between relative h-6">
         <Handle
           type="target"
