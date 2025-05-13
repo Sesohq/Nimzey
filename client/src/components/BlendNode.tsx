@@ -104,63 +104,44 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Background input (left side, bottom) */}
-      <div className="absolute left-0 top-[65%] flex items-center">
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="background"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '65%', transform: 'translateY(-50%)' }}
-        />
-        
-        {/* Small visual indicator for background input */}
-        <div className="absolute top-[65%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">B</div>
-        </div>
-        
-        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
-          Background
-        </Badge>
-      </div>
+      {/* Three inputs on the left side, stacked vertically */}
       
-      {/* Foreground input (left side, top) */}
-      <div className="absolute left-0 top-[35%] flex items-center">
+      {/* Foreground input (top) */}
+      <div className="absolute left-0 top-[25%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
           id="foreground"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '35%', transform: 'translateY(-50%)' }}
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
         />
-        
-        {/* Small visual indicator for foreground input */}
-        <div className="absolute top-[35%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">F</div>
-        </div>
-        
-        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
+        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
           Foreground
         </Badge>
       </div>
       
-      {/* Opacity/Mask input (top) */}
-      <div className="absolute top-0 left-[50%] flex flex-col items-center">
+      {/* Background input (middle) */}
+      <div className="absolute left-0 top-[50%] flex items-center">
         <Handle
           type="target"
-          position={Position.Top}
-          id="opacity"
-          className="w-9 h-9 rounded-full -mt-4 bg-amber-400"
-          style={{ left: '50%', transform: 'translateX(-50%)' }}
+          position={Position.Left}
+          id="background"
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
         />
-        
-        {/* Small visual indicator for opacity input */}
-        <div className="absolute top-[-10px] left-[50%] transform -translate-x-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">O</div>
-        </div>
-        
-        <Badge variant="outline" className="mt-6 text-[10px] bg-white shadow-sm">
-          Opacity Mask
+        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
+          Background
+        </Badge>
+      </div>
+      
+      {/* Opacity/Mask input (bottom) */}
+      <div className="absolute left-0 top-[75%] flex items-center">
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="opacity"
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
+        />
+        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
+          Opacity
         </Badge>
       </div>
       
@@ -352,49 +333,42 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
             </div>
             
             <div className="mt-4 bg-slate-50 -mx-4 -mb-4 p-3 rounded-b-lg border-t border-slate-100">
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
                   <div className="flex items-center">
                     <div className={cn(
-                      "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.foreground ? "bg-blue-500" : "bg-blue-200"
+                      "w-2 h-2 rounded-full mr-1",
+                      connectedInputs.foreground ? "bg-blue-500" : "bg-gray-300"
                     )}></div>
-                    <span className="text-xs text-slate-500">Foreground</span>
+                    <span className="text-[10px] text-slate-500">Foreground</span>
                   </div>
-                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
-                </div>
-                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
                   <div className="flex items-center">
                     <div className={cn(
-                      "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.background ? "bg-green-500" : "bg-green-200"
+                      "w-2 h-2 rounded-full mr-1",
+                      connectedInputs.background ? "bg-blue-500" : "bg-gray-300"
                     )}></div>
-                    <span className="text-xs text-slate-500">Background</span>
+                    <span className="text-[10px] text-slate-500">Background</span>
                   </div>
-                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
-                </div>
-                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
                   <div className="flex items-center">
                     <div className={cn(
-                      "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.opacity ? "bg-amber-500" : "bg-amber-200"
+                      "w-2 h-2 rounded-full mr-1",
+                      connectedInputs.opacity ? "bg-blue-500" : "bg-gray-300"
                     )}></div>
-                    <span className="text-xs text-slate-500">Opacity Mask</span>
+                    <span className="text-[10px] text-slate-500">Opacity</span>
                   </div>
-                  <ArrowDown className="w-3 h-3 text-slate-400" />
                 </div>
-                {(!connectedInputs.foreground || !connectedInputs.background) && (
-                  <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100">
-                    {!connectedInputs.foreground && !connectedInputs.background ? (
-                      "Connect foreground and background inputs for blending"
-                    ) : !connectedInputs.foreground ? (
-                      "Missing foreground input"
-                    ) : (
-                      "Missing background input"
-                    )}
-                  </div>
-                )}
               </div>
+              {(!connectedInputs.foreground || !connectedInputs.background) && (
+                <div className="text-xs text-amber-600 p-1 mt-2 bg-amber-50 rounded border border-amber-100">
+                  {!connectedInputs.foreground && !connectedInputs.background ? (
+                    "Connect foreground and background inputs for blending"
+                  ) : !connectedInputs.foreground ? (
+                    "Missing foreground input"
+                  ) : (
+                    "Missing background input"
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
