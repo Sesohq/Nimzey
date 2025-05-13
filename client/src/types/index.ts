@@ -16,7 +16,8 @@ export type FilterType =
   | 'halftone'
   | 'blend'
   | 'motionBlur'
-  | 'noiseDistortion';
+  | 'noiseDistortion'
+  | 'refraction';
 
 export type NodeType = 'filterNode' | 'imageNode';
 

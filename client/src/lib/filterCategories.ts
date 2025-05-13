@@ -577,6 +577,49 @@ export const filterCategories: Record<string, FilterCategory> = {
     name: 'Effects',
     filters: [
       {
+        name: 'Refraction',
+        type: 'refraction',
+        params: [
+          {
+            name: 'size',
+            label: 'Size',
+            type: 'range',
+            min: 1,
+            max: 100,
+            step: 1,
+            value: 30,
+            unit: 'px'
+          },
+          {
+            name: 'amount',
+            label: 'Refraction Amount',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 50,
+            unit: '%'
+          },
+          {
+            name: 'heightScale',
+            label: 'Height Scale',
+            type: 'range',
+            min: 1,
+            max: 100,
+            step: 1,
+            value: 50,
+            unit: '%'
+          },
+          {
+            name: 'precision',
+            label: 'Precision',
+            type: 'select',
+            options: ['Low', 'Medium', 'High'],
+            value: 'Medium'
+          }
+        ]
+      },
+      {
         name: 'Highlight Glow',
         type: 'glow',
         params: [
