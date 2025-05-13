@@ -1,0 +1,51 @@
+import { Node } from 'reactflow';
+
+export type FilterType = 
+  | 'blur' 
+  | 'sharpen' 
+  | 'grayscale' 
+  | 'invert' 
+  | 'noise' 
+  | 'dither' 
+  | 'texture' 
+  | 'extrude' 
+  | 'wave' 
+  | 'pixelate';
+
+export type NodeType = 'filterNode' | 'imageNode';
+
+export type FilterParam = {
+  name: string;
+  label: string;
+  type: 'range' | 'select';
+  min?: number;
+  max?: number;
+  step?: number;
+  value: number | string;
+  unit?: string;
+  options?: string[];
+};
+
+export type Filter = {
+  name: string;
+  type: FilterType;
+  params: FilterParam[];
+};
+
+export type FilterCategory = {
+  name: string;
+  filters: Filter[];
+};
+
+export type FilterNodeData = {
+  label: string;
+  filterType: FilterType;
+  params: FilterParam[];
+  onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
+};
+
+export type ImageNodeData = {
+  src: string | null;
+};
+
+export type NodeData = FilterNodeData | ImageNodeData;
