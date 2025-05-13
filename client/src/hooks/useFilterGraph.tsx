@@ -525,15 +525,16 @@ export function useFilterGraph() {
           // Find all nodes and edges in the chain leading to this node
           const nodeChain = getNodeChain(node.id, nodes, edges);
           
+          // For the noise generator, we'll create a special preview
+          const isNoiseGenerator = (node.data as FilterNodeData).filterType === 'noiseGenerator';
+          
           // Skip if the node has no input connections and it's not a texture source like noise generator
-          if (nodeChain.nodes.length <= 1 && 
-              !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
+          if (nodeChain.nodes.length <= 1 && !isNoiseGenerator) {
             console.log(`Skipping node ${node.id} as it has no inputs (and is not a texture source)`);
             continue;
           }
           
           // Handle noiseGenerator specially as it's a pure texture source with no inputs needed
-          const isNoiseGenerator = (node.data as FilterNodeData).filterType === 'noiseGenerator';
           if (isNoiseGenerator) {
             console.log(`Processing noise generator node ${node.id} as a standalone texture source`);
           }
@@ -618,6 +619,21 @@ export function useFilterGraph() {
             // If we got a valid result from applyFilters, use it
             nodeUpdates[node.id] = result;
             console.log(`Generated valid preview for node ${node.id} (length: ${result.length})`);
+            
+            // Also directly update the node's preview property to ensure it gets updated
+            setNodes(prevNodes => {
+              return prevNodes.map(prevNode => 
+                prevNode.id === node.id 
+                  ? {
+                      ...prevNode,
+                      data: {
+                        ...prevNode.data,
+                        preview: result
+                      }
+                    }
+                  : prevNode
+              );
+            });
           }
         } catch (error) {
           console.error(`Error generating preview for node ${node.id}:`, error);
