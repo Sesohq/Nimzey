@@ -402,6 +402,70 @@ export function useFilterGraph() {
   const zoomOut = useCallback(() => {
     setZoomLevel(prev => Math.max(prev - 10, 50));
   }, []);
+  
+  // Load a preset from saved configurations
+  const loadPreset = useCallback((presetNodes: Node[], presetEdges: Edge[]) => {
+    // If there's no source image, we can't apply filters
+    if (!sourceImageRef.current) {
+      alert("Please upload a source image first before loading a preset.");
+      return;
+    }
+    
+    // First clear the current graph
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+    
+    // Setup nodes with proper IDs and connections
+    const nodeIdMap = new Map<string, string>();
+    
+    // Create new nodes with fresh IDs while maintaining their original data
+    const newNodes = presetNodes.map(node => {
+      const oldId = node.id;
+      const newId = uuidv4();
+      nodeIdMap.set(oldId, newId);
+      
+      // Check if it's a source image node - we need to update it with the current image
+      if (node.type === 'imageNode' && (node.data as ImageNodeData).src !== sourceImage) {
+        return {
+          ...node,
+          id: newId,
+          data: {
+            ...node.data,
+            src: sourceImage
+          }
+        };
+      }
+      
+      return {
+        ...node,
+        id: newId,
+        selected: false
+      };
+    });
+    
+    // Create new edges with updated source and target IDs
+    const newEdges = presetEdges.map(edge => {
+      const newSourceId = nodeIdMap.get(edge.source) || edge.source;
+      const newTargetId = nodeIdMap.get(edge.target) || edge.target;
+      
+      return {
+        ...edge,
+        id: uuidv4(),
+        source: newSourceId,
+        target: newTargetId
+      };
+    });
+    
+    // Apply the new nodes and edges
+    setNodes(newNodes);
+    setEdges(newEdges);
+    
+    // Process the image with the new filter chain
+    setTimeout(() => {
+      processImage();
+    }, 100);
+  }, [sourceImage, sourceImageRef, processImage]);
 
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
@@ -424,6 +488,7 @@ export function useFilterGraph() {
     zoomIn,
     zoomOut,
     zoomLevel,
-    nodePreview
+    nodePreview,
+    loadPreset
   };
 }

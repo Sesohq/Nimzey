@@ -3,6 +3,7 @@ import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
+import PresetPanel from '@/components/PresetPanel';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
 
 export default function Home() {
@@ -24,7 +25,8 @@ export default function Home() {
     zoomIn,
     zoomOut,
     zoomLevel,
-    nodePreview
+    nodePreview,
+    loadPreset
   } = useFilterGraph();
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
