@@ -200,30 +200,19 @@ const CustomNode = ({ data, selected, id }: NodeProps<CustomNodeData>) => {
       </div>
       
       <div className="px-3 pb-2 flex justify-between relative h-6">
-        {/* Unlimited connection input area - covers left and top sides */}
-        <div 
-          className="absolute top-0 left-0 w-full h-full" 
-          style={{ 
-            clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)',
-            zIndex: 1 
-          }}
-        >
-          <Handle
-            type="target"
-            position={Position.Left}
-            id="dynamic-input"
-            className="w-full h-full bg-transparent"
-            style={{ 
-              top: 0, 
-              left: 0, 
-              transform: 'none',
-              opacity: 0 // Invisible but functional
-            }}
-          />
-        </div>
+        {/* Input handle */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="dynamic-input"
+          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
+        />
         
-        {/* Visual indicator for the connection area - golden glow effect */}
-        <div className="absolute top-0 left-0 w-12 h-12 rounded-tl-full pointer-events-none opacity-30 bg-gradient-to-br from-amber-300 via-amber-500 to-transparent" />
+        {/* Small visual indicator showing that this handle accepts multiple connections */}
+        <div className="absolute top-[50%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">∞</div>
+        </div>
         
         {/* Output handle */}
         <Handle
