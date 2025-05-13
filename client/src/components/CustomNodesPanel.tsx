@@ -125,17 +125,18 @@ export default function CustomNodesPanel({
           </Button>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-3">
+        <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-2">
           {customNodes.map((customNode) => (
             <Card 
               key={customNode.id}
-              className="relative group cursor-grab"
+              className="relative group cursor-grab bg-black border border-zinc-800"
               draggable
               onDragStart={(e) => handleNodeDragStart(e, customNode)}
             >
-              <div className="p-3 flex items-start gap-3">
+              <div className="flex items-center">
+                {/* Thumbnail on the left */}
                 <div 
-                  className="w-12 h-12 rounded bg-gray-100 flex-shrink-0"
+                  className="w-10 h-10 m-2 rounded flex-shrink-0 bg-white"
                   style={{
                     backgroundImage: customNode.thumbnail ? `url(${customNode.thumbnail})` : undefined,
                     backgroundSize: 'cover',
@@ -144,39 +145,41 @@ export default function CustomNodesPanel({
                 >
                   {!customNode.thumbnail && (
                     <div className="w-full h-full flex items-center justify-center">
-                      <StarIcon className="h-6 w-6 text-amber-400" />
+                      <StarIcon className="h-5 w-5 text-amber-400" />
                     </div>
                   )}
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium">
+                {/* Title and badge */}
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-medium text-white">
                     {customNode.name}
                   </h3>
-                  {customNode.description && (
-                    <p className="text-xs text-gray-500 line-clamp-2 mt-1">
-                      {customNode.description}
-                    </p>
-                  )}
-                  <div className="mt-1">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                      {customNode.category}
-                    </span>
-                  </div>
+                  <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 w-fit">
+                    Custom
+                  </span>
                 </div>
                 
+                {/* Delete button */}
                 <button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-50 text-red-500 absolute top-1 right-1"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-900 text-red-500 absolute top-1 right-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     confirmDelete(customNode.id);
                   }}
                 >
-                  <Trash2Icon className="h-4 w-4" />
+                  <Trash2Icon className="h-3 w-3" />
                 </button>
               </div>
               
-              <div className="bg-amber-50 px-3 py-1.5 text-xs text-amber-700 border-t border-amber-100 font-medium">
+              {/* Description area - fixed height and ellipsis for overflow */}
+              {customNode.description && (
+                <p className="text-xs text-white/60 px-2 pb-1 line-clamp-1 max-w-[200px]">
+                  {customNode.description}
+                </p>
+              )}
+              
+              <div className="bg-amber-100/90 px-3 py-1 text-xs text-amber-900 font-medium">
                 Custom Filter Node
               </div>
             </Card>
