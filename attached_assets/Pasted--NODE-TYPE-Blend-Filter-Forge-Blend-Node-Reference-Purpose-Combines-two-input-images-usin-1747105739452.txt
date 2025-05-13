@@ -1,0 +1,156 @@
+🔷 NODE TYPE: Blend
+📖 Filter Forge Blend Node Reference
+
+🎯 Purpose:
+Combines two input images using various blend modes like Multiply, Overlay, Soft Light, etc., with optional masking and opacity control.
+
+✅ Inputs:
+Foreground (A)
+
+Background (B)
+
+Opacity (0–1) or Mask (optional)
+
+Blend Mode (Normal, Multiply, Add, Overlay, Color Burn, etc.)
+
+🧠 How it works:
+Each blend mode has its own pixel math. You compute the result for every pixel from input A + B.
+
+Example – Multiply:
+
+js
+Copy
+Edit
+result = A * B;
+Overlay (Photoshop-style):
+
+js
+Copy
+Edit
+result = B < 0.5 ? (2 * A * B) : (1 - 2 * (1 - A) * (1 - B));
+Opacity (manual blend):
+
+js
+Copy
+Edit
+output = lerp(B, result, opacity); // Linear interpolate
+If Mask is present, use that instead of opacity to blend per-pixel.
+
+🛠️ Dev Implementation:
+js
+Copy
+Edit
+for (let i = 0; i < pixels.length; i++) {
+  let a = fg[i];
+  let b = bg[i];
+  let m = mask ? mask[i] : opacity;
+  let blended = blendModeFn(a, b, blendMode);
+  result[i] = lerp(b, blended, m); // Mix result based on mask or opacity
+}
+🧩 Suggested UI:
+🧠 Node title: Blend
+
+⬅️ Left inputs: A, B, Mask
+
+🎚 Slider: Opacity
+
+🧃 Dropdown: Blend Mode
+
+🟦 NODE TYPE: Motion Blur
+📖 Filter Forge Motion Blur Reference
+
+🎯 Purpose:
+Applies blur in a specific direction and distance, simulating movement or speed streaks.
+
+✅ Inputs:
+Source Image
+
+Distance (how far the blur stretches)
+
+Angle (0–360°)
+
+Center Bias (optional) — emphasizes center point
+
+🧠 How it works:
+You sample pixels along a line determined by the angle and distance, and average them.
+
+Dev Breakdown:
+js
+Copy
+Edit
+for each pixel (x, y):
+  colorSum = [0, 0, 0];
+  for (i = -blurSteps to blurSteps):
+    sampleX = x + cos(angle) * i * distance / blurSteps;
+    sampleY = y + sin(angle) * i * distance / blurSteps;
+    colorSum += sample(sampleX, sampleY);
+  result = colorSum / totalSamples;
+Use bilinear sampling if in-between pixels.
+
+Normalize the sum to prevent overexposure.
+
+🧩 Suggested UI:
+🎚 Distance (0–100)
+
+🎚 Angle (circular slider or 0–360°)
+
+🧃 Mode: Linear, Radial, Zoom (optional later)
+
+✅ Checkbox: Center Weighted blur
+
+🟨 NODE TYPE: Noise Distortion
+📖 Filter Forge Noise Distortion Node
+
+🎯 Purpose:
+Uses a noise map (Perlin, Simplex, cellular) to distort an image — great for liquid, smear, or ripple effects.
+
+✅ Inputs:
+Source Image
+
+Noise Parameters (scale, octaves, turbulence)
+
+Amplitude (how strong the distortion is)
+
+Direction Bias (X/Y axis weighting)
+
+Random Seed
+
+🧠 How it works:
+You offset each pixel's sampling position based on a noise map:
+
+js
+Copy
+Edit
+noiseX = perlin(x * scale, y * scale);
+noiseY = perlin((x+9999) * scale, (y+9999) * scale); // offset ensures X/Y independence
+
+newX = x + noiseX * amplitude * biasX;
+newY = y + noiseY * amplitude * biasY;
+
+resultPixel = getPixelAt(newX, newY);
+You’re essentially treating the noise as a displacement map.
+
+🧩 Suggested UI:
+🎚 Amplitude (how wild the distortion is)
+
+🎚 Scale (detail in the noise)
+
+🎚 Bias X / Y (direction control)
+
+🎲 Seed (optional RNG control)
+
+🧃 Noise Type: Perlin, Simplex, Worley, FBM, Ridged
+
+🧠 Node System Integration (UX Notes)
+Node Type	Inputs	Outputs	Group	Special Icon
+Blend	A, B, Mask	Image (blended)	Blending	🌓
+Motion Blur	Image	Image (blurred)	Effects	💨
+Noise Distortion	Image	Image (warped)	Distort	🌊
+
+✅ Summary of Dev Tasks
+Feature	Key Dev Note
+Blend node	Per-pixel math + blend modes
+Motion blur	Directional convolution
+Noise distortion	Sampling pixel offsets from noise map
+Layer system integration	Each node operates and blends atop previous
+Realtime preview	Optimize with canvas or WebGL if needed

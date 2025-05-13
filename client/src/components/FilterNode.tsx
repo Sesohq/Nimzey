@@ -40,7 +40,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   const handleOpacityChange = (values: number[]) => {
     if (data.onOpacityChange) {
-      data.onOpacityChange(id, values[0]);
+      data.onOpacityChange(id, values[0] / 100); // Convert percentage to 0-1 scale
     }
   };
 

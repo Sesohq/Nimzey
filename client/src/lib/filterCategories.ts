@@ -418,6 +418,161 @@ export const filterCategories: Record<string, FilterCategory> = {
       }
     ]
   },
+  blending: {
+    name: 'Blending',
+    filters: [
+      {
+        name: 'Blend',
+        type: 'blend',
+        params: [
+          {
+            name: 'blendMode',
+            label: 'Blend Mode',
+            type: 'select',
+            options: [
+              'Normal', 
+              'Multiply', 
+              'Screen', 
+              'Overlay', 
+              'Darken',
+              'Lighten',
+              'Color Dodge',
+              'Color Burn',
+              'Hard Light',
+              'Soft Light',
+              'Difference',
+              'Exclusion',
+              'Hue',
+              'Saturation',
+              'Color',
+              'Luminosity'
+            ],
+            value: 'Normal'
+          },
+          {
+            name: 'opacity',
+            label: 'Opacity',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'maskType',
+            label: 'Mask Type',
+            type: 'select',
+            options: ['None', 'Luminance', 'Alpha', 'Custom'],
+            value: 'None'
+          }
+        ]
+      },
+      {
+        name: 'Motion Blur',
+        type: 'motionBlur',
+        params: [
+          {
+            name: 'distance',
+            label: 'Distance',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 20,
+            unit: 'px'
+          },
+          {
+            name: 'angle',
+            label: 'Angle',
+            type: 'range',
+            min: 0,
+            max: 360,
+            step: 1,
+            value: 45,
+            unit: '°'
+          },
+          {
+            name: 'centerWeighted',
+            label: 'Center Weighted',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'Off'
+          },
+          {
+            name: 'blurMode',
+            label: 'Blur Mode',
+            type: 'select',
+            options: ['Linear', 'Radial', 'Zoom'],
+            value: 'Linear'
+          }
+        ]
+      },
+      {
+        name: 'Noise Distortion',
+        type: 'noiseDistortion',
+        params: [
+          {
+            name: 'amplitude',
+            label: 'Amplitude',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 20,
+            unit: 'px'
+          },
+          {
+            name: 'scale',
+            label: 'Scale',
+            type: 'range',
+            min: 0.01,
+            max: 1,
+            step: 0.01,
+            value: 0.1,
+            unit: ''
+          },
+          {
+            name: 'biasX',
+            label: 'Bias X',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'biasY',
+            label: 'Bias Y',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'seed',
+            label: 'Seed',
+            type: 'range',
+            min: 1,
+            max: 1000,
+            step: 1,
+            value: 42,
+            unit: ''
+          },
+          {
+            name: 'noiseType',
+            label: 'Noise Type',
+            type: 'select',
+            options: ['Perlin', 'Simplex', 'Worley', 'FBM', 'Ridged'],
+            value: 'Perlin'
+          }
+        ]
+      }
+    ]
+  },
   effects: {
     name: 'Effects',
     filters: [

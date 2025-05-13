@@ -368,6 +368,15 @@ const applyFilter = (
     case 'halftone':
       applyHalftoneFilter(data, canvas.width, canvas.height, ctx, params);
       break;
+    case 'blend':
+      applyBlendFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'motionBlur':
+      applyMotionBlurFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'noiseDistortion':
+      applyNoiseDistortionFilter(data, canvas.width, canvas.height, params);
+      break;
   }
   
   ctx.putImageData(imageData, 0, 0);
@@ -2559,4 +2568,332 @@ function applyBlendMode(
   
   // Put the modified pixels back on the destination canvas
   destCtx.putImageData(destData, 0, 0);
+}
+
+// Blend filter implementation
+function applyBlendFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const blendMode = paramsObj.blendMode || 'Normal';
+  const opacity = parseInt(String(paramsObj.opacity || 100)) / 100;
+  const maskType = paramsObj.maskType || 'None';
+  
+  // Note: In a real implementation, this filter would require two inputs
+  // Since we don't have a second input in this demo, we'll create a simple visual effect 
+  // to demonstrate the concept
+  
+  // Create a gradient as a fake second input
+  const tempData = new Uint8ClampedArray(data.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      
+      // Create a colored pattern as the second input
+      const red = (x * 255 / width);
+      const green = (y * 255 / height);
+      const blue = 128;
+      
+      tempData[i] = red;
+      tempData[i + 1] = green;
+      tempData[i + 2] = blue;
+      tempData[i + 3] = 255;
+    }
+  }
+  
+  // Apply the blend mode between original data and temp data
+  for (let i = 0; i < data.length; i += 4) {
+    // Source pixel (original image)
+    const srcR = data[i];
+    const srcG = data[i + 1];
+    const srcB = data[i + 2];
+    
+    // Blend pixel (our generated pattern)
+    const blendR = tempData[i];
+    const blendG = tempData[i + 1];
+    const blendB = tempData[i + 2];
+    
+    // Result values
+    let resultR = 0, resultG = 0, resultB = 0;
+    
+    // Apply the selected blend mode
+    switch (blendMode) {
+      case 'Normal':
+        resultR = blendR;
+        resultG = blendG;
+        resultB = blendB;
+        break;
+        
+      case 'Multiply':
+        resultR = (srcR * blendR) / 255;
+        resultG = (srcG * blendG) / 255;
+        resultB = (srcB * blendB) / 255;
+        break;
+        
+      case 'Screen':
+        resultR = 255 - ((255 - srcR) * (255 - blendR)) / 255;
+        resultG = 255 - ((255 - srcG) * (255 - blendG)) / 255;
+        resultB = 255 - ((255 - srcB) * (255 - blendB)) / 255;
+        break;
+        
+      case 'Overlay':
+        resultR = srcR < 128 ? (2 * srcR * blendR) / 255 : 255 - 2 * ((255 - srcR) * (255 - blendR)) / 255;
+        resultG = srcG < 128 ? (2 * srcG * blendG) / 255 : 255 - 2 * ((255 - srcG) * (255 - blendG)) / 255;
+        resultB = srcB < 128 ? (2 * srcB * blendB) / 255 : 255 - 2 * ((255 - srcB) * (255 - blendB)) / 255;
+        break;
+        
+      case 'Darken':
+        resultR = Math.min(srcR, blendR);
+        resultG = Math.min(srcG, blendG);
+        resultB = Math.min(srcB, blendB);
+        break;
+        
+      case 'Lighten':
+        resultR = Math.max(srcR, blendR);
+        resultG = Math.max(srcG, blendG);
+        resultB = Math.max(srcB, blendB);
+        break;
+        
+      // Implement other blend modes similar to those in applyBlendMode function
+      default:
+        resultR = blendR;
+        resultG = blendG;
+        resultB = blendB;
+        break;
+    }
+    
+    // Apply opacity
+    data[i] = Math.round(srcR + (resultR - srcR) * opacity);
+    data[i + 1] = Math.round(srcG + (resultG - srcG) * opacity);
+    data[i + 2] = Math.round(srcB + (resultB - srcB) * opacity);
+  }
+}
+
+// Motion Blur filter implementation
+function applyMotionBlurFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const distance = parseInt(String(paramsObj.distance || 20));
+  const angle = parseInt(String(paramsObj.angle || 45)) * Math.PI / 180; // Convert to radians
+  const centerWeighted = paramsObj.centerWeighted === 'On';
+  const blurMode = paramsObj.blurMode || 'Linear';
+  
+  // Make a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Number of samples to take along the motion path
+  const samples = Math.max(3, Math.ceil(distance / 2));
+  
+  // Apply motion blur
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      let sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
+      
+      // For each sample along the motion path
+      for (let s = -samples; s <= samples; s++) {
+        // Calculate sample position
+        let sampleX = x, sampleY = y;
+        const t = s / samples;
+        
+        if (blurMode === 'Linear') {
+          // Linear motion blur
+          sampleX = x + Math.cos(angle) * distance * t;
+          sampleY = y + Math.sin(angle) * distance * t;
+        } else if (blurMode === 'Radial') {
+          // Radial motion blur from center
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const sampleAngle = Math.atan2(dy, dx);
+          
+          sampleX = centerX + Math.cos(sampleAngle) * (dist + t * distance);
+          sampleY = centerY + Math.sin(sampleAngle) * (dist + t * distance);
+        } else if (blurMode === 'Zoom') {
+          // Zoom motion blur
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const dx = x - centerX;
+          const dy = y - centerY;
+          
+          sampleX = centerX + dx * (1 + t * distance / 100);
+          sampleY = centerY + dy * (1 + t * distance / 100);
+        }
+        
+        // Ensure sample is in bounds
+        if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
+          // Bilinear sampling would be better, but for simplicity use nearest-neighbor
+          const sx = Math.round(sampleX);
+          const sy = Math.round(sampleY);
+          const sampleIndex = (sy * width + sx) * 4;
+          
+          let weight = 1.0;
+          
+          // Center weighted blur decreases sample weight as we move away from center
+          if (centerWeighted) {
+            weight = 1.0 - Math.abs(t);
+          }
+          
+          sumR += originalData[sampleIndex] * weight;
+          sumG += originalData[sampleIndex + 1] * weight;
+          sumB += originalData[sampleIndex + 2] * weight;
+          weightSum += weight;
+        }
+      }
+      
+      // Write averaged result back to image
+      if (weightSum > 0) {
+        data[pixelIndex] = Math.round(sumR / weightSum);
+        data[pixelIndex + 1] = Math.round(sumG / weightSum);
+        data[pixelIndex + 2] = Math.round(sumB / weightSum);
+      }
+    }
+  }
+}
+
+// Noise Distortion filter implementation
+function applyNoiseDistortionFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const amplitude = parseInt(String(paramsObj.amplitude || 20));
+  const scale = parseFloat(String(paramsObj.scale || 0.1));
+  const biasX = parseInt(String(paramsObj.biasX || 100)) / 100;
+  const biasY = parseInt(String(paramsObj.biasY || 100)) / 100;
+  const seed = parseInt(String(paramsObj.seed || 42));
+  const noiseType = paramsObj.noiseType || 'Perlin';
+  
+  // Initialize noise generator with seed
+  const randomSeed = () => {
+    let s = seed;
+    return function() {
+      s = Math.sin(s) * 10000;
+      return s - Math.floor(s);
+    };
+  };
+  const random = randomSeed();
+  const noise2D = createNoise2D(() => random());
+  
+  // Make a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Create distortion map
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      // Generate two independent noise values for X and Y offsets
+      let noiseX, noiseY;
+      
+      if (noiseType === 'Perlin' || noiseType === 'Simplex') {
+        // Basic Perlin/Simplex noise
+        noiseX = noise2D(x * scale, y * scale);
+        noiseY = noise2D((x + 9999) * scale, (y + 9999) * scale); // Offset for independence
+      } else if (noiseType === 'Worley') {
+        // Simplified Worley (cellular) noise - using a kind of hash function
+        const cellSize = 1 / scale;
+        const cellX = Math.floor(x / cellSize);
+        const cellY = Math.floor(y / cellSize);
+        
+        // Find distance to nearest "feature point"
+        let minDist = 1.0;
+        for (let i = -1; i <= 1; i++) {
+          for (let j = -1; j <= 1; j++) {
+            // Pseudo-random position in each cell
+            const hash = Math.sin(cellX + i * 13.5 + (cellY + j * 17.7) * 31.1 + seed) * 43758.5453;
+            const fractHash = hash - Math.floor(hash);
+            
+            const featX = (cellX + i) * cellSize + fractHash * cellSize;
+            const featY = (cellY + j) * cellSize + fractHash * cellSize;
+            
+            const dx = featX - x;
+            const dy = featY - y;
+            const dist = Math.sqrt(dx * dx + dy * dy) / cellSize;
+            
+            minDist = Math.min(minDist, dist);
+          }
+        }
+        
+        noiseX = minDist * 2 - 1;
+        noiseY = (1 - minDist) * 2 - 1;
+      } else if (noiseType === 'FBM' || noiseType === 'Ridged') {
+        // Fractal Brownian Motion (FBM) noise
+        let valueX = 0, valueY = 0;
+        let amplitude = 1.0;
+        let frequency = scale;
+        
+        for (let o = 0; o < 4; o++) {
+          let noiseValueX = noise2D(x * frequency, y * frequency);
+          let noiseValueY = noise2D((x + 9999) * frequency, (y + 9999) * frequency);
+          
+          if (noiseType === 'Ridged') {
+            // Ridged multifractal: 1.0 - abs(noise)
+            noiseValueX = 1.0 - Math.abs(noiseValueX);
+            noiseValueY = 1.0 - Math.abs(noiseValueY);
+          }
+          
+          valueX += noiseValueX * amplitude;
+          valueY += noiseValueY * amplitude;
+          
+          amplitude *= 0.5;
+          frequency *= 2.0;
+        }
+        
+        noiseX = valueX;
+        noiseY = valueY;
+      } else {
+        // Fallback to simple Perlin
+        noiseX = noise2D(x * scale, y * scale);
+        noiseY = noise2D((x + 9999) * scale, (y + 9999) * scale);
+      }
+      
+      // Scale noise to appropriate displacement range
+      const displaceX = Math.round(noiseX * amplitude * biasX);
+      const displaceY = Math.round(noiseY * amplitude * biasY);
+      
+      // Calculate source pixel coordinates with displacement
+      const sourceX = Math.min(Math.max(0, x + displaceX), width - 1);
+      const sourceY = Math.min(Math.max(0, y + displaceY), height - 1);
+      const sourceIndex = (sourceY * width + sourceX) * 4;
+      
+      // Copy pixel from displaced position
+      data[pixelIndex] = originalData[sourceIndex];
+      data[pixelIndex + 1] = originalData[sourceIndex + 1];
+      data[pixelIndex + 2] = originalData[sourceIndex + 2];
+    }
+  }
 }
