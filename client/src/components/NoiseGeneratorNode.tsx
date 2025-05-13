@@ -122,14 +122,10 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showLargePreview, setShowLargePreview] = useState(false);
-  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
-  // Log when the component renders to debug preview data
-  console.log(`NoiseGeneratorNode [${id}] rendering, preview:`,  
-    data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
   
   // Function to generate the noise texture and return it as a data URL
   const generateNoiseTexture = () => {
@@ -335,22 +331,14 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
   
   // Generate texture when parameters change
   useEffect(() => {
-    console.log(`NoiseGenerator [${id}] parameters changed:`, { 
-      params: data.params.map(p => `${p.name}: ${p.value}`).join(', ') 
-    });
-    
-    // Always regenerate texture when parameters change
     const textureDataUrl = generateNoiseTexture();
+    setPreviewImage(textureDataUrl);
     
-    if (textureDataUrl) {
-      console.log(`Generated new texture for ${id} with updated parameters`);
-      setInternalPreviewUrl(textureDataUrl);
-      
-      // Also update the node data with the preview
-      if (data.onParamChange) {
-        // Store in official preview prop
-        data.onParamChange(id, 'preview', textureDataUrl);
-      }
+    // Also update the node data with the preview
+    if (data.onParamChange && textureDataUrl) {
+      // This is a workaround - we're using an existing callback to pass the preview
+      // In a real implementation, you'd add a dedicated method for setting preview
+      data.onParamChange(id, 'preview', textureDataUrl);
     }
   }, [data.params, id]);
   
@@ -371,19 +359,15 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Output Handle - This is the only connection point needed for the noise generator */}
+      {/* Output Handle */}
       <div className="absolute right-0 top-[50%] flex items-center">
         <Handle
           type="source"
           position={Position.Right}
           id="output"
-          className="w-3 h-3 rounded-full -mr-1.5 bg-purple-500"
+          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
-        <div className="absolute right-2 top-[50%] transform translate-y-[-50%]">
-          <Badge variant="outline" className="bg-white text-[10px] mr-2 shadow-sm">
-            Texture Output
-          </Badge>
-        </div>
       </div>
       
       <div className="p-4">
@@ -402,12 +386,6 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
           </div>
         </div>
         
-        {/* Texture Source description */}
-        <div className="mb-3 text-xs px-2 py-1 bg-purple-50 border border-purple-100 rounded text-purple-700">
-          <div className="font-semibold mb-1">Texture Source</div>
-          <div>Creates a procedural texture that can be connected to other nodes as an input source.</div>
-        </div>
-        
         {/* Hidden canvas for generating the texture */}
         <canvas 
           ref={canvasRef} 
@@ -417,53 +395,26 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
         {/* Node Preview Area */}
         <div 
           className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-          style={{ height: '100px' }}
+          style={{ height: '80px' }}
           onClick={() => setShowLargePreview(!showLargePreview)}
         >
-          {internalPreviewUrl ? (
-            <div className="relative w-full h-full">
-              <img 
-                src={internalPreviewUrl} 
-                alt="Noise preview" 
-                className="w-full h-full object-cover"
-                onLoad={() => console.log(`Preview image loaded successfully for ${id} (noiseGenerator)`)}
-                onError={(e) => console.error(`Preview image failed to load for ${id} (noiseGenerator)`, e)}
-              />
-              <div className="absolute bottom-1 right-1">
-                <Badge variant="secondary" className="text-[9px] bg-white/90 shadow-sm">
-                  Click to enlarge
-                </Badge>
-              </div>
-            </div>
+          {previewImage ? (
+            <img 
+              src={previewImage} 
+              alt="Noise preview" 
+              className="max-w-full max-h-full object-contain"
+            />
           ) : (
-            <div 
-              className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
-              onClick={(e) => {
-                // Prevent opening large preview
-                e.stopPropagation();
-                
-                // Try to manually refresh the preview
-                console.log(`Manually refreshing preview for ${id} (noiseGenerator)`);
-                
-                // If we have an onTriggerPreviewUpdate function, call it
-                if (data.onTriggerPreviewUpdate) {
-                  data.onTriggerPreviewUpdate(id);
-                }
-              }}
-            >
-              {/* Simple message, no loading animation */}
-              <div>No texture preview</div>
-              <div className="text-[9px] text-purple-500 mt-2">
-                Click to generate texture
-              </div>
+            <div className="text-xs text-gray-500 p-2 text-center">
+              Generating noise...
             </div>
           )}
         </div>
         
         {/* Large preview modal */}
-        {showLargePreview && internalPreviewUrl && (
+        {showLargePreview && previewImage && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">{data.label} Preview</h3>
                 <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
@@ -473,7 +424,7 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
                 </button>
               </div>
               <img 
-                src={internalPreviewUrl} 
+                src={previewImage} 
                 alt="Noise preview (large)" 
                 className="max-w-full" 
               />
@@ -482,19 +433,14 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
         )}
         
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <Label htmlFor={`${id}-enabled`} className="text-xs text-slate-500">
-              Enabled
-            </Label>
-            <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-100 text-purple-800">
-              Texture Source
-            </Badge>
-          </div>
+          <Label htmlFor={`${id}-enabled`} className="text-xs text-slate-500">
+            Enabled
+          </Label>
           <Switch 
             id={`${id}-enabled`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
-            className="data-[state=checked]:bg-purple-500"
+            className="data-[state=checked]:bg-blue-500"
           />
         </div>
         

@@ -33,6 +33,10 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     opacity: false
   });
   
+  // State for the node preview
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showLargePreview, setShowLargePreview] = useState(false);
+  
   // Check for connected edges when the component mounts or edges change
   useEffect(() => {
     const checkConnections = () => {
@@ -53,7 +57,13 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     // We could add a subscription to edge changes here if needed
   }, [nodeId, getEdges]);
   
-  // No preview image management needed
+  // Update preview image when data changes
+  useEffect(() => {
+    // Use any available preview data from the node data
+    if (data.preview) {
+      setPreviewImage(data.preview);
+    }
+  }, [data.preview]);
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
@@ -94,44 +104,63 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Three inputs on the left side, stacked vertically */}
-      
-      {/* Foreground input (top) */}
-      <div className="absolute left-0 top-[25%] flex items-center">
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="foreground"
-          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
-        />
-        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
-          Foreground
-        </Badge>
-      </div>
-      
-      {/* Background input (middle) */}
-      <div className="absolute left-0 top-[50%] flex items-center">
+      {/* Background input (left side, bottom) */}
+      <div className="absolute left-0 top-[65%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
           id="background"
-          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
+          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
+          style={{ top: '65%', transform: 'translateY(-50%)' }}
         />
-        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
+        
+        {/* Small visual indicator for background input */}
+        <div className="absolute top-[65%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">B</div>
+        </div>
+        
+        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
           Background
         </Badge>
       </div>
       
-      {/* Opacity/Mask input (bottom) */}
-      <div className="absolute left-0 top-[75%] flex items-center">
+      {/* Foreground input (left side, top) */}
+      <div className="absolute left-0 top-[35%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
-          id="opacity"
-          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
+          id="foreground"
+          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
+          style={{ top: '35%', transform: 'translateY(-50%)' }}
         />
-        <Badge variant="outline" className="ml-2 text-[10px] bg-white shadow-sm">
-          Opacity
+        
+        {/* Small visual indicator for foreground input */}
+        <div className="absolute top-[35%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">F</div>
+        </div>
+        
+        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
+          Foreground
+        </Badge>
+      </div>
+      
+      {/* Opacity/Mask input (top) */}
+      <div className="absolute top-0 left-[50%] flex flex-col items-center">
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="opacity"
+          className="w-9 h-9 rounded-full -mt-4 bg-amber-400"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
+        />
+        
+        {/* Small visual indicator for opacity input */}
+        <div className="absolute top-[-10px] left-[50%] transform -translate-x-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">O</div>
+        </div>
+        
+        <Badge variant="outline" className="mt-6 text-[10px] bg-white shadow-sm">
+          Opacity Mask
         </Badge>
       </div>
       
@@ -159,6 +188,46 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
             />
           </div>
         </div>
+        
+        {/* Node Preview Area */}
+        <div 
+          className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
+          style={{ height: '80px' }}
+          onClick={() => setShowLargePreview(!showLargePreview)}
+        >
+          {previewImage ? (
+            <img 
+              src={previewImage} 
+              alt="Node preview" 
+              className="max-w-full max-h-full object-contain"
+            />
+          ) : (
+            <div className="text-xs text-gray-500 p-2 text-center">
+              Preview will appear here
+            </div>
+          )}
+        </div>
+        
+        {/* Large preview modal */}
+        {showLargePreview && previewImage && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-medium">{data.label} Preview</h3>
+                <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <img 
+                src={previewImage} 
+                alt="Node preview (large)" 
+                className="max-w-full" 
+              />
+            </div>
+          </div>
+        )}
         
         <div className="flex items-center justify-between mb-3">
           <Label htmlFor={`${nodeId}-enabled`} className="text-xs text-slate-500">
@@ -225,46 +294,107 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                 </Select>
               </div>
               
-              {/* Filter parameters removed as requested, leaving only blend mode */}
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label htmlFor={`${nodeId}-opacity`} className="text-xs text-slate-500">
+                    Opacity: {data.opacity}%
+                  </Label>
+                </div>
+                <Slider
+                  id={`${nodeId}-opacity`}
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={[data.opacity || 100]}
+                  onValueChange={(values) => handleOpacityChange(values[0])}
+                  className="my-1 bg-opacity-100"
+                  aria-label="Opacity"
+                />
+              </div>
+              
+              {/* Filter-specific parameters */}
+              {data.params.map((param) => (
+                <div key={param.name} className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label htmlFor={`${nodeId}-${param.name}`} className="text-xs text-slate-500">
+                      {param.label}: {param.value}{param.unit || ''}
+                    </Label>
+                  </div>
+                  {param.type === 'range' ? (
+                    <Slider
+                      id={`${nodeId}-${param.name}`}
+                      min={param.min || 0}
+                      max={param.max || 100}
+                      step={param.step || 1}
+                      value={[Number(param.value)]}
+                      onValueChange={(values) => handleParamChange(param.name, values[0])}
+                      className="my-1"
+                    />
+                  ) : param.type === 'select' && param.options ? (
+                    <Select
+                      value={String(param.value)}
+                      onValueChange={(value) => handleParamChange(param.name, value)}
+                    >
+                      <SelectTrigger id={`${nodeId}-${param.name}`} className="w-full">
+                        <SelectValue placeholder={`Select ${param.label}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {param.options.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                </div>
+              ))}
             </div>
             
             <div className="mt-4 bg-slate-50 -mx-4 -mb-4 p-3 rounded-b-lg border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
                   <div className="flex items-center">
                     <div className={cn(
-                      "w-2 h-2 rounded-full mr-1",
-                      connectedInputs.foreground ? "bg-blue-500" : "bg-gray-300"
+                      "w-3 h-3 rounded-full mr-2",
+                      connectedInputs.foreground ? "bg-blue-500" : "bg-blue-200"
                     )}></div>
-                    <span className="text-[10px] text-slate-500">Foreground</span>
+                    <span className="text-xs text-slate-500">Foreground</span>
                   </div>
-                  <div className="flex items-center">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full mr-1",
-                      connectedInputs.background ? "bg-blue-500" : "bg-gray-300"
-                    )}></div>
-                    <span className="text-[10px] text-slate-500">Background</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full mr-1",
-                      connectedInputs.opacity ? "bg-blue-500" : "bg-gray-300"
-                    )}></div>
-                    <span className="text-[10px] text-slate-500">Opacity</span>
-                  </div>
+                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
                 </div>
+                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
+                  <div className="flex items-center">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full mr-2",
+                      connectedInputs.background ? "bg-green-500" : "bg-green-200"
+                    )}></div>
+                    <span className="text-xs text-slate-500">Background</span>
+                  </div>
+                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
+                </div>
+                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
+                  <div className="flex items-center">
+                    <div className={cn(
+                      "w-3 h-3 rounded-full mr-2",
+                      connectedInputs.opacity ? "bg-amber-500" : "bg-amber-200"
+                    )}></div>
+                    <span className="text-xs text-slate-500">Opacity Mask</span>
+                  </div>
+                  <ArrowDown className="w-3 h-3 text-slate-400" />
+                </div>
+                {(!connectedInputs.foreground || !connectedInputs.background) && (
+                  <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100">
+                    {!connectedInputs.foreground && !connectedInputs.background ? (
+                      "Connect foreground and background inputs for blending"
+                    ) : !connectedInputs.foreground ? (
+                      "Missing foreground input"
+                    ) : (
+                      "Missing background input"
+                    )}
+                  </div>
+                )}
               </div>
-              {(!connectedInputs.foreground || !connectedInputs.background) && (
-                <div className="text-xs text-amber-600 p-1 mt-2 bg-amber-50 rounded border border-amber-100">
-                  {!connectedInputs.foreground && !connectedInputs.background ? (
-                    "Connect foreground and background inputs for blending"
-                  ) : !connectedInputs.foreground ? (
-                    "Missing foreground input"
-                  ) : (
-                    "Missing background input"
-                  )}
-                </div>
-              )}
             </div>
           </>
         )}

@@ -4,7 +4,7 @@ import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { applyFilterGPU, isGPUAccelerationAvailable, gpuAcceleratedFilters } from './gpuFilters';
 
 // Refraction filter implementation - mimics optical refraction phenomenon
-export function applyRefractionFilter(
+function applyRefractionFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
@@ -1298,14 +1298,11 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
 };
 
 // Highlight Glow filter implementation
-export function applyGlowFilter(
+function applyGlowFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  params: any[] = [],
-  filterType?: FilterType,
-  ctx?: CanvasRenderingContext2D,
-  canvas?: HTMLCanvasElement
+  params: any[] = []
 ): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
@@ -1553,12 +1550,80 @@ const showReplitPreviewModeNotice = () => {
 // Track active filters for display purposes
 const activeGPUFilters: Record<string, boolean> = {};
 
-// Helper function to show which filters are using GPU acceleration - disabled as per user request
+// Helper function to show which filters are using GPU acceleration
 const showGPUStatusIndicator = (filterType: string, isGPU: boolean) => {
-  // Update the active filters record but don't show UI indicator
+  if (typeof document === 'undefined') return;
+  
+  // Update the active filters record
   activeGPUFilters[filterType] = isGPU;
   
-  // Indicator UI disabled
+  // Get or create the status container
+  let statusContainer = document.getElementById('gpu-status-container');
+  if (!statusContainer) {
+    statusContainer = document.createElement('div');
+    statusContainer.id = 'gpu-status-container';
+    statusContainer.style.position = 'fixed';
+    statusContainer.style.top = '10px';
+    statusContainer.style.right = '10px';
+    statusContainer.style.padding = '10px';
+    statusContainer.style.background = 'rgba(0, 0, 0, 0.7)';
+    statusContainer.style.color = 'white';
+    statusContainer.style.fontFamily = 'sans-serif';
+    statusContainer.style.fontSize = '12px';
+    statusContainer.style.borderRadius = '5px';
+    statusContainer.style.zIndex = '9999';
+    statusContainer.style.maxWidth = '250px';
+    statusContainer.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+    document.body.appendChild(statusContainer);
+  }
+  
+  // Update the content
+  let content = '<div style="font-weight: bold; margin-bottom: 5px; text-align: center;">Filter Processing Status</div>';
+  
+  // Get all filter types being processed
+  const filterTypes = Object.keys(activeGPUFilters);
+  
+  if (filterTypes.length === 0) {
+    content += '<div>No filters applied yet</div>';
+  } else {
+    content += '<ul style="margin: 0; padding: 0 0 0 20px;">';
+    filterTypes.forEach(type => {
+      const isUsingGPU = activeGPUFilters[type];
+      const icon = isUsingGPU ? '✅' : '🔄';
+      const processorText = isUsingGPU ? 'GPU' : 'CPU';
+      const processorStyle = isUsingGPU ? 'color: #4CAF50' : 'color: #FFC107';
+      
+      content += `<li style="margin-bottom: 4px;">
+        ${icon} ${type.charAt(0).toUpperCase() + type.slice(1)}: 
+        <span style="${processorStyle}; font-weight: bold;">${processorText}</span>
+      </li>`;
+    });
+    content += '</ul>';
+  }
+  
+  // Add a performance tip
+  content += '<div style="margin-top: 10px; font-size: 10px; color: #BBB; font-style: italic;">';
+  if (gpuAccelerationAvailable) {
+    const cpuFilters = filterTypes.filter(type => !activeGPUFilters[type]);
+    if (cpuFilters.length > 0) {
+      content += `Tip: ${cpuFilters.join(', ')} ${cpuFilters.length === 1 ? 'is' : 'are'} running on CPU. Simpler filters may not need GPU acceleration.`;
+    } else {
+      content += 'All filters are GPU-accelerated for maximum performance!';
+    }
+  } else {
+    content += 'WebGL not available - all filters using CPU processing.';
+  }
+  content += '</div>';
+  
+  statusContainer.innerHTML = content;
+  
+  // Make sure the indicator is visible for at least 5 seconds after the last filter process
+  clearTimeout((statusContainer as any)._timeout);
+  (statusContainer as any)._timeout = setTimeout(() => {
+    if (statusContainer && statusContainer.parentNode) {
+      statusContainer.parentNode.removeChild(statusContainer);
+    }
+  }, 5000);
 };
 
 // Helper to check GPU availability with caching
@@ -1580,12 +1645,71 @@ const isGPUAvailable = (): boolean => {
       console.log('GPU acceleration ' + (gpuAccelerationAvailable ? 'enabled ✅' : 'not available ❌'));
     }
     
-    // Notification temporarily disabled as per user request
-    /*
+    // Display a notification to the user about GPU acceleration status (skip if in Replit preview)
     if (typeof document !== 'undefined' && !isReplitPreviewMode) {
-      // Create notification element (disabled)
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.style.position = 'fixed';
+      notification.style.bottom = '20px';
+      notification.style.right = '20px';
+      notification.style.padding = '15px';
+      notification.style.background = gpuAccelerationAvailable ? 'rgba(0, 128, 0, 0.85)' : 'rgba(128, 0, 0, 0.85)';
+      notification.style.color = 'white';
+      notification.style.borderRadius = '5px';
+      notification.style.zIndex = '9999';
+      notification.style.fontFamily = 'sans-serif';
+      notification.style.fontSize = '14px';
+      notification.style.fontWeight = 'bold';
+      notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+      
+      // Create more detailed notification with HTML
+      let content = gpuAccelerationAvailable 
+        ? '<div style="display: flex; align-items: center; gap: 10px;">' +
+          '<div style="font-size: 24px;">✅</div>' +
+          '<div>' +
+          '<div style="font-weight: bold;">GPU Acceleration Enabled</div>' +
+          '<div style="font-size: 12px; opacity: 0.9; font-weight: normal; margin-top: 4px;">Performance boost available for:</div>' +
+          '</div></div>'
+        : '<div style="display: flex; align-items: center; gap: 10px;">' +
+          '<div style="font-size: 24px;">⚠️</div>' +
+          '<div>' +
+          '<div style="font-weight: bold;">Using CPU Processing</div>' +
+          '<div style="font-size: 12px; opacity: 0.9; font-weight: normal; margin-top: 4px;">WebGL not available in your browser</div>' +
+          '</div></div>';
+      
+      // Add filter support details if GPU is available
+      if (gpuAccelerationAvailable) {
+        content += '<div style="margin-top: 10px; font-size: 12px; font-weight: normal;">';
+        content += '<ul style="margin: 0; padding-left: 20px;">';
+        
+        // List of accelerated filters with icons
+        const filters = [
+          { name: 'Blur', icon: '🌫️' },
+          { name: 'Noise (Perlin/Simplex)', icon: '🔄' },
+          { name: 'Halftone', icon: '🔍' },
+          { name: 'Glow', icon: '✨' },
+          { name: 'Sharpen', icon: '🔪' }
+        ];
+        
+        filters.forEach(filter => {
+          content += `<li>${filter.icon} ${filter.name}</li>`;
+        });
+        
+        content += '</ul></div>';
+      }
+      
+      notification.innerHTML = content;
+      
+      // Add to document
+      document.body.appendChild(notification);
+      
+      // Remove after 8 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 8000);
     }
-    */
   }
   // Always return false for Replit preview mode to force CPU processing
   if (isReplitPreviewMode) {
@@ -1715,10 +1839,10 @@ const applyCPUFilter = (
       applyFindEdgesFilter(data, canvas.width, canvas.height, params);
       break;
     case 'glow':
-      applyGlowFilter(data, canvas.width, canvas.height, params, filterType, ctx, canvas);
+      applyGlowFilter(data, canvas.width, canvas.height, params);
       break;
     case 'halftone':
-      applyHalftoneFilter(data, canvas.width, canvas.height, params, ctx, canvas);
+      applyHalftoneFilter(data, canvas.width, canvas.height, ctx, params);
       break;
     case 'blend':
       applyBlendFilter(data, canvas.width, canvas.height, params);
@@ -1765,7 +1889,7 @@ const getParamValue = (params: { name: string; value: number | string }[], name:
 // Filter implementations
 
 // Blur filter using box blur technique
-export function applyBlurFilter(data: Uint8ClampedArray, width: number, height: number, radius: number): void {
+function applyBlurFilter(data: Uint8ClampedArray, width: number, height: number, radius: number): void {
   // Simple box blur implementation
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = width;
@@ -1831,7 +1955,7 @@ export function applyBlurFilter(data: Uint8ClampedArray, width: number, height: 
 }
 
 // Sharpen filter using simple convolution
-export function applySharpenFilter(data: Uint8ClampedArray, width: number, height: number, amount: number): void {
+function applySharpenFilter(data: Uint8ClampedArray, width: number, height: number, amount: number): void {
   const factor = amount / 100;
   const tempData = new Uint8ClampedArray(data.length);
   tempData.set(data);
@@ -1860,7 +1984,7 @@ export function applySharpenFilter(data: Uint8ClampedArray, width: number, heigh
 }
 
 // Grayscale filter
-export function applyGrayscaleFilter(data: Uint8ClampedArray): void {
+function applyGrayscaleFilter(data: Uint8ClampedArray): void {
   for (let i = 0; i < data.length; i += 4) {
     const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
     data[i] = avg;
@@ -1870,7 +1994,7 @@ export function applyGrayscaleFilter(data: Uint8ClampedArray): void {
 }
 
 // Invert filter
-export function applyInvertFilter(data: Uint8ClampedArray): void {
+function applyInvertFilter(data: Uint8ClampedArray): void {
   for (let i = 0; i < data.length; i += 4) {
     data[i] = 255 - data[i];
     data[i + 1] = 255 - data[i + 1];
@@ -2234,7 +2358,7 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 // Processor function for the texture generator node
 // This function is called when a noiseGenerator node is being processed
-export function processNoiseGeneratorFilter(
+function processNoiseGeneratorFilter(
   inputs: Record<string, HTMLCanvasElement | null>,
   resultCtx: CanvasRenderingContext2D,
   resultCanvas: HTMLCanvasElement,
@@ -2318,23 +2442,23 @@ function getCompositeOperation(blendMode: string): GlobalCompositeOperation {
 
 // Noise filter with Perlin and Simplex noise support
 
-export function applyNoiseFilter(
+function applyNoiseFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 
   params: any[] = [], 
   noiseTypeOverride?: string
 ): void {
-  // Extract parameters 
+  // Extract parameters
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
     paramsObj[param.name] = param.value;
   });
   
-  // Get parameters with default fallbacks
+  // If noiseTypeOverride is provided (from GPU acceleration code), use that instead of the parameter
+  // This allows us to use the same noise algorithms from both CPU and GPU pathways
   const noiseType = noiseTypeOverride || paramsObj.noiseType || 'Uniform';
-  // Scale up amount for more visible effect (0-100% becomes 0-255)
-  const amount = Math.min(255, parseInt(String(paramsObj.amount || 25)) / 100 * 255 * 3);
+  const amount = parseInt(String(paramsObj.amount || 25)) / 100 * 255;
   const scale = parseFloat(String(paramsObj.scale || 0.1));
   const octaves = parseInt(String(paramsObj.octaves || 4));
   const persistence = parseFloat(String(paramsObj.persistence || 0.5));
@@ -2342,27 +2466,23 @@ export function applyNoiseFilter(
   const seed = parseInt(String(paramsObj.seed || 42));
   const colorize = paramsObj.colorize || 'Off';
   
-  console.log(`Applying noise filter: type=${noiseType}, amount=${amount}, scale=${scale}, seed=${seed}`);
-  
-  // Create a seeded random function based on the seed
-  function createSeededRandom(seed: number) {
+  // Generate random seed from the given number
+  const randomSeed = () => {
+    let s = seed;
     return function() {
-      const x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
+      s = Math.sin(s) * 10000;
+      return s - Math.floor(s);
     };
-  }
+  };
+  const random = randomSeed();
   
-  const random = createSeededRandom(seed);
+  // Initialize simplex noise generator
+  const noise2D = createNoise2D(() => random());
   
-  // Create simplex noise generator with our seeded random
-  const noise2D = createNoise2D(random);
-  
-  // For uniform noise (basic, uniform distribution)
+  // For uniform noise (original implementation)
   if (noiseType === 'Uniform') {
-    console.log("Applying uniform noise");
     for (let i = 0; i < data.length; i += 4) {
-      // More dramatic noise effect
-      const noise = (random() * 2 - 1) * amount;
+      const noise = Math.random() * amount - amount / 2;
       
       // Apply noise to RGB channels
       for (let j = 0; j < 3; j++) {
@@ -2374,21 +2494,17 @@ export function applyNoiseFilter(
   
   // For Gaussian noise
   if (noiseType === 'Gaussian') {
-    console.log("Applying gaussian noise");
     for (let i = 0; i < data.length; i += 4) {
       // Box-Muller transform for Gaussian distribution
-      const u1 = random();
-      const u2 = random();
-      // Avoid log(0)
-      if (u1 > 0.001) {
-        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-        // Stronger effect
-        const noise = z0 * amount;
-        
-        // Apply noise to RGB channels
-        for (let j = 0; j < 3; j++) {
-          data[i + j] = Math.min(255, Math.max(0, Math.round(data[i + j] + noise)));
-        }
+      const u1 = Math.random();
+      const u2 = Math.random();
+      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      
+      const noise = z0 * amount / 3; // Divide by 3 to scale appropriately
+      
+      // Apply noise to RGB channels
+      for (let j = 0; j < 3; j++) {
+        data[i + j] = Math.min(255, Math.max(0, data[i + j] + noise));
       }
     }
     return;
@@ -2396,13 +2512,11 @@ export function applyNoiseFilter(
   
   // For Salt & Pepper noise
   if (noiseType === 'Salt & Pepper') {
-    console.log("Applying salt & pepper noise");
-    // Divide by larger number for more reasonable threshold
-    const threshold = Math.min(0.5, amount / 510);
+    const threshold = amount / 255;
     for (let i = 0; i < data.length; i += 4) {
-      if (random() < threshold) {
+      if (Math.random() < threshold) {
         // Add salt or pepper randomly
-        const value = random() < 0.5 ? 0 : 255;
+        const value = Math.random() < 0.5 ? 0 : 255;
         
         data[i] = value;
         data[i + 1] = value;
@@ -2414,7 +2528,6 @@ export function applyNoiseFilter(
   
   // For Perlin and Simplex noise
   if (noiseType.includes('Perlin') || noiseType.includes('Simplex')) {
-    console.log(`Applying ${noiseType} noise`);
     // Determine if we're using fractal noise
     const isFractal = noiseType.includes('Fractal');
     
@@ -2465,11 +2578,13 @@ export function applyNoiseFilter(
         const i = (y * width + x) * 4;
         const noiseValue = noiseData[y * width + x];
         
+        // Scale noise value by amount
+        const scaledNoise = noiseValue * amount / 128;
+        
         if (colorize === 'Off') {
-          // Just add noise to existing pixels (more dramatic effect)
-          const scaledNoise = (noiseValue * 2 - 1) * amount;
+          // Just add noise to existing pixels
           for (let j = 0; j < 3; j++) {
-            data[i + j] = Math.min(255, Math.max(0, Math.round(data[i + j] + scaledNoise)));
+            data[i + j] = Math.min(255, Math.max(0, data[i + j] + scaledNoise - amount / 256));
           }
         } else if (colorize === 'Grayscale') {
           // Grayscale noise
@@ -2479,18 +2594,33 @@ export function applyNoiseFilter(
           data[i + 2] = grayValue;
         } else if (colorize === 'Rainbow') {
           // Rainbow colorization (HSV to RGB)
-          const h = noiseValue * 360; // Hue from noise (0 to 360)
+          const h = noiseValue; // Hue from noise (0 to 1)
           const s = 1.0; // Saturation
           const v = 1.0; // Value
           
-          // Use our HSV to RGB conversion function
-          const [r, g, b] = hsvToRgb(h, s, v);
+          // HSV to RGB conversion
+          const i_hsv = Math.floor(h * 6);
+          const f = h * 6 - i_hsv;
+          const p = v * (1 - s);
+          const q = v * (1 - f * s);
+          const t = v * (1 - (1 - f) * s);
           
-          data[i] = r;
-          data[i + 1] = g;
-          data[i + 2] = b;
+          let r, g, b;
+          switch (i_hsv % 6) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+            default: r = v; g = t; b = p;
+          }
+          
+          data[i] = Math.floor(r * 255);
+          data[i + 1] = Math.floor(g * 255);
+          data[i + 2] = Math.floor(b * 255);
         } else if (colorize === 'Fire') {
-          // Fire colorization 
+          // Fire colorization
           const temp = noiseValue;
           data[i] = Math.floor(255 * Math.min(1.0, temp * 2));
           data[i + 1] = Math.floor(255 * Math.min(1.0, temp * 1.5));
@@ -2508,7 +2638,7 @@ export function applyNoiseFilter(
 }
 
 // Enhanced dither filter with multiple algorithms and parameters based on detailed requirements
-export function applyDitherFilter(
+function applyDitherFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 
@@ -2898,7 +3028,7 @@ function applyErrorDiffusionDithering(
 }
 
 // Texture filter
-export function applyTextureFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+function applyTextureFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
   // Extract parameters from params array
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
@@ -2955,7 +3085,7 @@ export function applyTextureFilter(data: Uint8ClampedArray, width: number, heigh
 }
 
 // Advanced Extrude filter
-export function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
@@ -3266,7 +3396,7 @@ export function applyExtrudeFilter(data: Uint8ClampedArray, width: number, heigh
 }
 
 // Wave filter
-export function applyWaveFilter(data: Uint8ClampedArray, width: number, height: number, amplitude: number): void {
+function applyWaveFilter(data: Uint8ClampedArray, width: number, height: number, amplitude: number): void {
   const tempData = new Uint8ClampedArray(data.length);
   tempData.set(data);
   
@@ -3286,7 +3416,7 @@ export function applyWaveFilter(data: Uint8ClampedArray, width: number, height: 
 }
 
 // Pixelate filter
-export function applyPixelateFilter(data: Uint8ClampedArray, width: number, height: number, pixelSize: number): void {
+function applyPixelateFilter(data: Uint8ClampedArray, width: number, height: number, pixelSize: number): void {
   for (let y = 0; y < height; y += pixelSize) {
     for (let x = 0; x < width; x += pixelSize) {
       // Get color from the center of the pixel block
@@ -3309,7 +3439,7 @@ export function applyPixelateFilter(data: Uint8ClampedArray, width: number, heig
 }
 
 // Find Edges filter implementation based on Photoshop-like edge detection
-export function applyFindEdgesFilter(
+function applyFindEdgesFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 
@@ -3678,13 +3808,12 @@ function applyPrewittOperator(
 }
 
 // Halftone filter implementation based on the provided requirements
-export function applyHalftoneFilter(
+function applyHalftoneFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  params: any[] = [],
-  providedCtx?: CanvasRenderingContext2D,
-  providedCanvas?: HTMLCanvasElement
+  ctx: CanvasRenderingContext2D,
+  params: any[] = []
 ): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
@@ -3707,19 +3836,11 @@ export function applyHalftoneFilter(
     originalData[i] = data[i];
   }
   
-  // Use provided canvas/context if available, otherwise create temporary ones
-  let tempCanvas: HTMLCanvasElement;
-  let tempCtx: CanvasRenderingContext2D;
-  
-  if (providedCanvas && providedCtx) {
-    tempCanvas = providedCanvas;
-    tempCtx = providedCtx;
-  } else {
-    tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
-  }
+  // Create a temporary canvas for drawing the halftone pattern
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
   
   // Fill with a background color - will be visible between dots
   if (dotColor === 'Black') {
