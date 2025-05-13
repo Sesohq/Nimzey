@@ -232,6 +232,26 @@ export function useFilterGraph() {
     }
     return null;
   }, []);
+  
+  // Function to remove a node and its connections
+  const removeNode = useCallback((nodeId: string) => {
+    // Remove any edges connected to this node
+    setEdges(eds => eds.filter(edge => 
+      edge.source !== nodeId && edge.target !== nodeId
+    ));
+    
+    // Remove the node itself
+    setNodes(nds => nds.filter(node => node.id !== nodeId));
+    
+    // If this was the selected node, clear the selection
+    if (selectedNodeId === nodeId) {
+      setSelectedNodeId(null);
+      setNodePreview(null);
+    }
+    
+    // Re-process the image
+    processImage();
+  }, [selectedNodeId, processImage]);
 
   // Function to add a new filter node
   const addNode = useCallback((filterType: FilterType) => {
@@ -274,7 +294,7 @@ export function useFilterGraph() {
 
     // Select the new node
     setSelectedNodeId(newNodeId);
-  }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
+  }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, removeNode]);
 
   // Handle nodes changes
   const onNodesChange = useCallback((changes: NodeChange[]) => {
