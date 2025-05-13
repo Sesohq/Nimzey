@@ -57,14 +57,24 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
   };
   
   const handleBlendModeChange = (value: string) => {
+    // Log the change for debugging
+    console.log(`Changing blend mode for node ${nodeId} to:`, value);
+    
     if (data.onBlendModeChange) {
       data.onBlendModeChange(nodeId, value as any);
+    } else {
+      console.error(`Missing onBlendModeChange handler for node ${nodeId}`);
     }
   };
   
   const handleOpacityChange = (value: number) => {
+    // Log the change for debugging
+    console.log(`Changing opacity for node ${nodeId} to:`, value);
+    
     if (data.onOpacityChange) {
       data.onOpacityChange(nodeId, value);
+    } else {
+      console.error(`Missing onOpacityChange handler for node ${nodeId}`);
     }
   };
   
@@ -158,13 +168,14 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   Blend Mode
                 </Label>
                 <Select
-                  value={data.blendMode}
+                  value={data.blendMode || "normal"}
                   onValueChange={handleBlendModeChange}
+                  defaultValue="normal"
                 >
-                  <SelectTrigger id={`${nodeId}-blend-mode`} className="w-full">
+                  <SelectTrigger id={`${nodeId}-blend-mode`} className="w-full bg-white">
                     <SelectValue placeholder="Select blend mode" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" className="bg-white z-50 shadow-xl border border-gray-200">
                     <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="multiply">Multiply</SelectItem>
                     <SelectItem value="screen">Screen</SelectItem>
@@ -196,9 +207,10 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   min={0}
                   max={100}
                   step={1}
-                  value={[data.opacity]}
+                  value={[data.opacity || 100]}
                   onValueChange={(values) => handleOpacityChange(values[0])}
-                  className="my-1"
+                  className="my-1 bg-opacity-100"
+                  aria-label="Opacity"
                 />
               </div>
               
