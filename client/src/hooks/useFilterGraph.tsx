@@ -33,6 +33,10 @@ export function useFilterGraph() {
   // State for tracking zoom level
   const [zoomLevel, setZoomLevel] = useState(1);
   
+  // State for clipboard operations
+  const [clipboardNodes, setClipboardNodes] = useState<Node[]>([]);
+  const [clipboardEdges, setClipboardEdges] = useState<Edge[]>([]);
+  
   // Refs for elements we need to track
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -682,6 +686,137 @@ export function useFilterGraph() {
     uploadImage, processImage
   ]);
   
+  // Copy selected nodes to clipboard
+  const copySelectedNodes = useCallback(() => {
+    // Get all selected nodes
+    const selectedNodes = nodes.filter(node => node.selected);
+    
+    if (selectedNodes.length === 0) {
+      console.log("No nodes selected to copy");
+      return;
+    }
+    
+    console.log(`Copying ${selectedNodes.length} node(s) to clipboard`);
+    
+    // Deep clone the selected nodes to avoid reference issues
+    const nodesToCopy = selectedNodes.map(node => ({
+      ...node,
+      // Generate a mapping of original IDs to new IDs for when we paste
+      originalId: node.id
+    }));
+    
+    // Find edges between selected nodes
+    const relevantEdges = edges.filter(edge => {
+      const sourceSelected = selectedNodes.some(n => n.id === edge.source);
+      const targetSelected = selectedNodes.some(n => n.id === edge.target);
+      // Only include edges where both source and target are selected
+      return sourceSelected && targetSelected;
+    }).map(edge => ({
+      ...edge,
+      originalSource: edge.source,
+      originalTarget: edge.target
+    }));
+    
+    // Store in clipboard state
+    setClipboardNodes(nodesToCopy);
+    setClipboardEdges(relevantEdges);
+    
+    console.log("Copied to clipboard:", {
+      nodes: nodesToCopy,
+      edges: relevantEdges
+    });
+  }, [nodes, edges]);
+  
+  // Paste nodes from clipboard
+  const pasteNodes = useCallback(() => {
+    if (clipboardNodes.length === 0) {
+      console.log("Nothing to paste");
+      return;
+    }
+    
+    console.log(`Pasting ${clipboardNodes.length} node(s) from clipboard`);
+    
+    // Generate new IDs for all nodes
+    const idMap = new Map<string, string>();
+    
+    // Create new nodes with new IDs at slightly offset positions
+    const newNodes = clipboardNodes.map(node => {
+      const originalId = node.originalId || node.id;
+      const newId = `${node.type.replace('Node', '')}-${uuidv4().substring(0, 8)}`;
+      
+      // Store the mapping of original to new ID
+      idMap.set(originalId, newId);
+      
+      // Create a new node with offset position
+      return {
+        ...node,
+        id: newId,
+        position: {
+          x: node.position.x + 50, // Offset to make it clear it's a copy
+          y: node.position.y + 50
+        },
+        selected: true, // Select the newly pasted nodes
+        originalId: undefined // Remove the temporary property
+      };
+    });
+    
+    // Create new edges with updated source/target IDs
+    const newEdges = clipboardEdges.map(edge => {
+      const originalSource = edge.originalSource || edge.source;
+      const originalTarget = edge.originalTarget || edge.target;
+      
+      // Get the new IDs for the source and target
+      const newSource = idMap.get(originalSource);
+      const newTarget = idMap.get(originalTarget);
+      
+      // Only create edge if both nodes exist in the paste operation
+      if (newSource && newTarget) {
+        return {
+          ...edge,
+          id: `edge-${newSource}-${newTarget}-${Date.now()}`,
+          source: newSource,
+          target: newTarget,
+          originalSource: undefined, // Remove the temporary property
+          originalTarget: undefined  // Remove the temporary property
+        };
+      }
+      return null;
+    }).filter(Boolean) as Edge[];
+    
+    // Add the new nodes and edges to the graph
+    setNodes(prevNodes => [...prevNodes, ...newNodes]);
+    setEdges(prevEdges => [...prevEdges, ...newEdges]);
+    
+    // Process the image with the updated graph
+    processImage();
+  }, [clipboardNodes, clipboardEdges, processImage]);
+  
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Check for Copy (Ctrl+C or Cmd+C)
+    if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+      event.preventDefault();
+      copySelectedNodes();
+    }
+    
+    // Check for Paste (Ctrl+V or Cmd+V)
+    if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+      event.preventDefault();
+      pasteNodes();
+    }
+  }, [copySelectedNodes, pasteNodes]);
+  
+  // Set up keyboard event listeners
+  useEffect(() => {
+    // Add event listener for keyboard shortcuts
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+  
   return {
     nodes,
     edges,
@@ -703,6 +838,8 @@ export function useFilterGraph() {
     zoomIn,
     zoomOut,
     createCustomNode,
-    addCustomNode
+    addCustomNode,
+    copySelectedNodes,
+    pasteNodes
   };
 }
