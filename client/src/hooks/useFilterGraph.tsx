@@ -51,6 +51,8 @@ export function useFilterGraph() {
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
+  // Reference to processImage function to avoid circular dependencies
+  const processImageRef = useRef<(() => void) | null>(null);
   
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -308,7 +310,7 @@ export function useFilterGraph() {
       console.error('Failed to add custom node:', error);
       return null;
     }
-  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode, processImage]);
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
 
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
@@ -409,6 +411,9 @@ export function useFilterGraph() {
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
+    
+    // Store reference to this function
+    processImageRef.current = processImage;
     
     // Create a canvas for the processed image
     if (!exportCanvasRef.current) {
@@ -807,13 +812,12 @@ export function useFilterGraph() {
     setNodes(prevNodes => [...prevNodes, ...newNodes]);
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
     
-    // We'll need to process the image, but to avoid circular references,
-    // we'll use setTimeout to ensure processImage is defined
+    // Process the image with the updated graph using the processImageRef
     setTimeout(() => {
-      // By this time, processImage will be defined
       try {
-        // @ts-ignore - TypeScript doesn't know processImage will be defined by now
-        processImage();
+        if (processImageRef.current) {
+          processImageRef.current();
+        }
       } catch (e) {
         console.error("Error processing image after paste:", e);
       }
