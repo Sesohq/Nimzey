@@ -3884,3 +3884,368 @@ function applyNoiseDistortionFilter(
     }
   }
 }
+
+// ==== COMPOSITING FILTER IMPLEMENTATIONS ====
+
+// Apply a mask using a grayscale or alpha image
+function applyMaskFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const maskChannel = paramsObj.maskChannel || 'Alpha';
+  const strength = parseInt(String(paramsObj.strength || 100)) / 100;
+  const feather = parseInt(String(paramsObj.feather || 0));
+  
+  // Create a copy of the original data to use as the mask source
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Apply the mask based on channel
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      // Calculate mask value from grayscale or alpha
+      let maskValue = 0;
+      
+      if (maskChannel === 'Alpha') {
+        // Use alpha channel as mask
+        maskValue = originalData[pixelIndex + 3] / 255;
+      } else if (maskChannel === 'Luminance') {
+        // Use luminance (grayscale) as mask
+        const r = originalData[pixelIndex];
+        const g = originalData[pixelIndex + 1];
+        const b = originalData[pixelIndex + 2];
+        maskValue = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      } else if (maskChannel === 'Inverted') {
+        // Use inverted luminance as mask
+        const r = originalData[pixelIndex];
+        const g = originalData[pixelIndex + 1];
+        const b = originalData[pixelIndex + 2];
+        maskValue = 1 - (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      }
+      
+      // Apply feathering if needed
+      if (feather > 0 && x > 0 && y > 0 && x < width - 1 && y < height - 1) {
+        let sum = maskValue;
+        let count = 1;
+        
+        // Simple box blur for feathering
+        for (let fy = -feather; fy <= feather; fy++) {
+          for (let fx = -feather; fx <= feather; fx++) {
+            if (fx === 0 && fy === 0) continue;
+            
+            const nx = x + fx;
+            const ny = y + fy;
+            
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              const neighborIndex = (ny * width + nx) * 4;
+              let neighborValue = 0;
+              
+              if (maskChannel === 'Alpha') {
+                neighborValue = originalData[neighborIndex + 3] / 255;
+              } else if (maskChannel === 'Luminance') {
+                const r = originalData[neighborIndex];
+                const g = originalData[neighborIndex + 1];
+                const b = originalData[neighborIndex + 2];
+                neighborValue = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              } else if (maskChannel === 'Inverted') {
+                const r = originalData[neighborIndex];
+                const g = originalData[neighborIndex + 1];
+                const b = originalData[neighborIndex + 2];
+                neighborValue = 1 - (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              }
+              
+              sum += neighborValue;
+              count++;
+            }
+          }
+        }
+        
+        // Average the values
+        maskValue = sum / count;
+      }
+      
+      // Apply mask strength
+      maskValue *= strength;
+      
+      // Apply the mask to the alpha channel
+      data[pixelIndex + 3] = Math.round(data[pixelIndex + 3] * maskValue);
+    }
+  }
+}
+
+// Apply a multiply compositing operation
+function applyMultiplyFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const strength = parseInt(String(paramsObj.strength || 100)) / 100;
+  
+  // Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Apply multiply operation
+  for (let i = 0; i < data.length; i += 4) {
+    // Get original pixel values
+    const srcR = originalData[i];
+    const srcG = originalData[i + 1];
+    const srcB = originalData[i + 2];
+    
+    // Multiply operation (same as in the multiply blend mode)
+    const resultR = (srcR * srcR) / 255;
+    const resultG = (srcG * srcG) / 255;
+    const resultB = (srcB * srcB) / 255;
+    
+    // Apply strength factor
+    data[i] = Math.round(srcR + (resultR - srcR) * strength);
+    data[i + 1] = Math.round(srcG + (resultG - srcG) * strength);
+    data[i + 2] = Math.round(srcB + (resultB - srcB) * strength);
+  }
+}
+
+// Apply a screen compositing operation
+function applyScreenFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const strength = parseInt(String(paramsObj.strength || 100)) / 100;
+  
+  // Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Apply screen operation
+  for (let i = 0; i < data.length; i += 4) {
+    // Get original pixel values
+    const srcR = originalData[i];
+    const srcG = originalData[i + 1];
+    const srcB = originalData[i + 2];
+    
+    // Screen operation (same as in the screen blend mode)
+    const resultR = 255 - ((255 - srcR) * (255 - srcR)) / 255;
+    const resultG = 255 - ((255 - srcG) * (255 - srcG)) / 255;
+    const resultB = 255 - ((255 - srcB) * (255 - srcB)) / 255;
+    
+    // Apply strength factor
+    data[i] = Math.round(srcR + (resultR - srcR) * strength);
+    data[i + 1] = Math.round(srcG + (resultG - srcG) * strength);
+    data[i + 2] = Math.round(srcB + (resultB - srcB) * strength);
+  }
+}
+
+// Apply a mix filter (linear interpolation)
+function applyMixFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // This is a placeholder implementation since the Mix node
+  // is primarily designed to work with two inputs, which would be
+  // handled by the processBlendNode function similar to the Blend node
+  
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const factor = parseInt(String(paramsObj.factor || 50)) / 100;
+  const method = paramsObj.method || 'Linear';
+  
+  // Add a subtle visual indicator that the mix filter is applied
+  // (only visible when this filter is used alone)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      // Apply a subtle gradient based on position to show the filter is active
+      const gradientX = x / width;
+      const gradientValue = Math.sin(gradientX * Math.PI) * 10; // Subtle 10-value variation
+      
+      if (method === 'Curved') {
+        // Curved gradient (stronger in middle)
+        const curve = Math.sin(gradientX * Math.PI);
+        data[pixelIndex] = Math.min(255, Math.max(0, data[pixelIndex] + curve * 15 * factor));
+        data[pixelIndex + 1] = Math.min(255, Math.max(0, data[pixelIndex + 1] + curve * 10 * factor));
+        data[pixelIndex + 2] = Math.min(255, Math.max(0, data[pixelIndex + 2]));
+      } else if (method === 'Stepped') {
+        // Stepped gradient (bands)
+        const step = Math.floor(gradientX * 5) / 5;
+        data[pixelIndex] = Math.min(255, Math.max(0, data[pixelIndex] + step * 20 * factor));
+        data[pixelIndex + 1] = Math.min(255, Math.max(0, data[pixelIndex + 1]));
+        data[pixelIndex + 2] = Math.min(255, Math.max(0, data[pixelIndex + 2] + (1 - step) * 20 * factor));
+      } else {
+        // Linear gradient (default)
+        data[pixelIndex] = Math.min(255, Math.max(0, data[pixelIndex] + gradientValue * factor));
+        data[pixelIndex + 1] = Math.min(255, Math.max(0, data[pixelIndex + 1]));
+        data[pixelIndex + 2] = Math.min(255, Math.max(0, data[pixelIndex + 2] - gradientValue * factor));
+      }
+    }
+  }
+}
+
+// Apply a transform filter
+function applyTransformFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const translateX = parseInt(String(paramsObj.translateX || 0));
+  const translateY = parseInt(String(paramsObj.translateY || 0));
+  const rotate = parseInt(String(paramsObj.rotate || 0)) * (Math.PI / 180); // Convert to radians
+  const scale = parseInt(String(paramsObj.scale || 100)) / 100;
+  
+  // Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Clear the destination data (transparent black)
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 0;
+    data[i + 1] = 0;
+    data[i + 2] = 0;
+    data[i + 3] = 0;
+  }
+  
+  // Calculate center of image for rotation
+  const centerX = width / 2;
+  const centerY = height / 2;
+  
+  // Apply transform
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      // Step 1: Translate coordinates to center for rotation and scaling
+      let xRelCenter = x - centerX;
+      let yRelCenter = y - centerY;
+      
+      // Step 2: Apply rotation
+      const xRot = xRelCenter * Math.cos(rotate) - yRelCenter * Math.sin(rotate);
+      const yRot = xRelCenter * Math.sin(rotate) + yRelCenter * Math.cos(rotate);
+      
+      // Step 3: Apply scaling
+      const xScaled = xRot / scale;
+      const yScaled = yRot / scale;
+      
+      // Step 4: Translate back and apply translation
+      const srcX = Math.round(xScaled + centerX - translateX);
+      const srcY = Math.round(yScaled + centerY - translateY);
+      
+      // Check if source coordinates are in bounds
+      if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+        const sourceIndex = (srcY * width + srcX) * 4;
+        
+        // Copy pixel from source position
+        data[pixelIndex] = originalData[sourceIndex];
+        data[pixelIndex + 1] = originalData[sourceIndex + 1];
+        data[pixelIndex + 2] = originalData[sourceIndex + 2];
+        data[pixelIndex + 3] = originalData[sourceIndex + 3];
+      }
+    }
+  }
+}
+
+// Apply a setAlpha filter
+function applySetAlphaFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const mode = paramsObj.mode || 'Replace';
+  const invert = paramsObj.invert === 'On';
+  
+  // Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Apply set alpha operation
+  for (let i = 0; i < data.length; i += 4) {
+    // Calculate grayscale/luminance from RGB
+    const r = originalData[i];
+    const g = originalData[i + 1];
+    const b = originalData[i + 2];
+    
+    // Calculate luminance using perceived brightness formula
+    let luminance = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    
+    // Apply inversion if needed
+    if (invert) {
+      luminance = 255 - luminance;
+    }
+    
+    // Apply mode
+    switch (mode) {
+      case 'Replace':
+        // Replace alpha with luminance
+        data[i + 3] = luminance;
+        break;
+        
+      case 'Add':
+        // Add luminance to existing alpha (clamped to 255)
+        data[i + 3] = Math.min(255, data[i + 3] + luminance);
+        break;
+        
+      case 'Subtract':
+        // Subtract luminance from existing alpha (clamped to 0)
+        data[i + 3] = Math.max(0, data[i + 3] - luminance);
+        break;
+        
+      case 'Multiply':
+        // Multiply existing alpha by normalized luminance
+        data[i + 3] = Math.round((data[i + 3] * luminance) / 255);
+        break;
+    }
+  }
+}
