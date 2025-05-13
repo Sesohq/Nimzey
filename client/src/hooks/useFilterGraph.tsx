@@ -11,7 +11,7 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '@/types';
+import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '../types';
 import { 
   applyFilters, 
   nodeResultCache,
@@ -30,8 +30,8 @@ import {
   applyHalftoneFilter,
   applyRefractionFilter,
   processNoiseGeneratorFilter
-} from '@/lib/filterAlgorithms';
-import { filterCategories } from '@/lib/filterCategories';
+} from '../lib/filterAlgorithms';
+import { filterCategories } from '../lib/filterCategories';
 
 export function useFilterGraph() {
   // State for nodes and edges
