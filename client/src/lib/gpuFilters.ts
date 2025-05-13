@@ -1,7 +1,5 @@
 import { FilterType } from '@/types';
 
-// Define shader sources first to avoid declaration order issues
-
 // Vertex shader for all filters - simply passes coordinates
 const vertexShaderSource = `
   attribute vec2 a_position;
@@ -223,6 +221,121 @@ const simplexNoiseShaderSource = `
     
     // Blend with original image
     gl_FragColor = mix(color, vec4(noiseColor, 1.0), amount);
+  }
+`;
+
+// Fragment shader for halftone filter
+const halftoneFragmentShaderSource = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_textureSize;
+  uniform float u_dotSize;
+  uniform float u_spacing;
+  uniform float u_angle;
+  uniform float u_brightness;
+  varying vec2 v_texCoord;
+  
+  // Function to convert RGB to grayscale
+  float toGrayscale(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+  }
+  
+  void main() {
+    // Get original pixel color
+    vec4 texColor = texture2D(u_image, v_texCoord);
+    
+    // Convert to grayscale and apply brightness adjustment
+    float brightness = toGrayscale(texColor.rgb);
+    brightness = clamp(brightness + u_brightness / 100.0 - 0.5, 0.0, 1.0);
+    
+    // Calculate grid coordinates
+    float spacing = max(2.0, u_spacing);
+    float angle = radians(u_angle);
+    
+    // Rotate coordinates
+    vec2 rotatedCoord = vec2(
+      v_texCoord.x * cos(angle) - v_texCoord.y * sin(angle),
+      v_texCoord.x * sin(angle) + v_texCoord.y * cos(angle)
+    );
+    
+    // Scale to grid
+    vec2 scaledCoord = rotatedCoord * u_textureSize / spacing;
+    
+    // Calculate grid cell center
+    vec2 cell = floor(scaledCoord) + 0.5;
+    
+    // Distance from center
+    float dist = distance(scaledCoord, cell);
+    
+    // Calculate dot size based on brightness and max dot size
+    float maxRadius = u_dotSize / 100.0 * spacing / 2.0;
+    float radius = maxRadius * brightness;
+    
+    // Determine if we're inside a dot
+    float inDot = step(dist, radius);
+    
+    // Final color
+    gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 1.0), texColor, inDot);
+  }
+`;
+
+// Fragment shader for glow filter
+const glowFragmentShaderSource = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_textureSize;
+  uniform float u_intensity;
+  uniform float u_threshold;
+  uniform float u_radius;
+  varying vec2 v_texCoord;
+  
+  // Function to convert RGB to luminance
+  float luminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+  }
+  
+  // Gaussian blur function
+  vec4 blur(sampler2D image, vec2 uv, vec2 resolution, float radius) {
+    vec4 color = vec4(0.0);
+    float total = 0.0;
+    
+    // Blur size in pixels
+    float blurSize = radius / 2.0;
+    
+    // Number of samples for a reasonable quality
+    float samples = 9.0;
+    
+    for (float x = -samples; x <= samples; x++) {
+      for (float y = -samples; y <= samples; y++) {
+        vec2 offset = vec2(x, y) * blurSize / resolution;
+        // Calculate Gaussian weight
+        float weight = exp(-(x*x + y*y) / (2.0 * radius * radius));
+        color += texture2D(image, uv + offset) * weight;
+        total += weight;
+      }
+    }
+    
+    return color / total;
+  }
+  
+  void main() {
+    // Get original pixel color
+    vec4 originalColor = texture2D(u_image, v_texCoord);
+    
+    // Calculate luminance for threshold check
+    float lum = luminance(originalColor.rgb);
+    
+    // Create a blurred version of the image for the glow
+    vec4 blurredColor = blur(u_image, v_texCoord, u_textureSize, u_radius);
+    
+    // Only apply glow to highlights above threshold
+    float highlightMask = smoothstep(u_threshold, 1.0, lum);
+    
+    // Calculate the glow color - make it stronger in highlights
+    vec4 glowColor = blurredColor * highlightMask * u_intensity;
+    
+    // Combine original color with glow
+    gl_FragColor = originalColor + glowColor;
   }
 `;
 
@@ -540,142 +653,25 @@ export function isGPUAccelerationAvailable(): boolean {
       canvas.getContext('experimental-webgl')
     ) as WebGLRenderingContext | null;
     
-    // Test if WebGL actually works by creating a simple shader
-    if (gl) {
-      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-      if (vertexShader) {
-        gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }');
-        gl.compileShader(vertexShader);
-        
-        // If compilation succeeded, WebGL is truly available
-        const compileStatus = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
-        gl.deleteShader(vertexShader);
-        
-        return !!compileStatus;
-      }
-    }
+    if (!gl) return false;
     
-    return false;
+    // Test if WebGL actually works by creating a simple shader
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    if (!vertexShader) return false;
+    
+    gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }');
+    gl.compileShader(vertexShader);
+    
+    // If compilation succeeded, WebGL is truly available
+    const compileStatus = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+    gl.deleteShader(vertexShader);
+    
+    return !!compileStatus;
   } catch (e) {
     console.warn('Error checking WebGL availability:', e);
     return false;
   }
 }
-
-// Fragment shader for halftone filter
-const halftoneFragmentShaderSource = `
-  precision mediump float;
-  uniform sampler2D u_image;
-  uniform vec2 u_textureSize;
-  uniform float u_dotSize;
-  uniform float u_spacing;
-  uniform float u_angle;
-  uniform float u_brightness;
-  varying vec2 v_texCoord;
-  
-  // Function to convert RGB to grayscale
-  float toGrayscale(vec3 color) {
-    return dot(color, vec3(0.299, 0.587, 0.114));
-  }
-  
-  void main() {
-    // Get original pixel color
-    vec4 texColor = texture2D(u_image, v_texCoord);
-    
-    // Convert to grayscale and apply brightness adjustment
-    float brightness = toGrayscale(texColor.rgb);
-    brightness = clamp(brightness + u_brightness / 100.0 - 0.5, 0.0, 1.0);
-    
-    // Calculate grid coordinates
-    float spacing = max(2.0, u_spacing);
-    float angle = radians(u_angle);
-    
-    // Rotate coordinates
-    vec2 rotatedCoord = vec2(
-      v_texCoord.x * cos(angle) - v_texCoord.y * sin(angle),
-      v_texCoord.x * sin(angle) + v_texCoord.y * cos(angle)
-    );
-    
-    // Scale to grid
-    vec2 scaledCoord = rotatedCoord * u_textureSize / spacing;
-    
-    // Calculate grid cell center
-    vec2 cell = floor(scaledCoord) + 0.5;
-    
-    // Distance from center
-    float dist = distance(scaledCoord, cell);
-    
-    // Calculate dot size based on brightness and max dot size
-    float maxRadius = u_dotSize / 100.0 * spacing / 2.0;
-    float radius = maxRadius * brightness;
-    
-    // Determine if we're inside a dot
-    float inDot = step(dist, radius);
-    
-    // Final color
-    gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 1.0), texColor, inDot);
-  }
-`;
-
-// Fragment shader for glow filter
-const glowFragmentShaderSource = `
-  precision mediump float;
-  uniform sampler2D u_image;
-  uniform vec2 u_textureSize;
-  uniform float u_intensity;
-  uniform float u_threshold;
-  uniform float u_radius;
-  varying vec2 v_texCoord;
-  
-  // Function to convert RGB to luminance
-  float luminance(vec3 color) {
-    return dot(color, vec3(0.299, 0.587, 0.114));
-  }
-  
-  // Gaussian blur function
-  vec4 blur(sampler2D image, vec2 uv, vec2 resolution, float radius) {
-    vec4 color = vec4(0.0);
-    float total = 0.0;
-    
-    // Blur size in pixels
-    float blurSize = radius / 2.0;
-    
-    // Number of samples for a reasonable quality
-    float samples = 9.0;
-    
-    for (float x = -samples; x <= samples; x++) {
-      for (float y = -samples; y <= samples; y++) {
-        vec2 offset = vec2(x, y) * blurSize / resolution;
-        // Calculate Gaussian weight
-        float weight = exp(-(x*x + y*y) / (2.0 * radius * radius));
-        color += texture2D(image, uv + offset) * weight;
-        total += weight;
-      }
-    }
-    
-    return color / total;
-  }
-  
-  void main() {
-    // Get original pixel color
-    vec4 originalColor = texture2D(u_image, v_texCoord);
-    
-    // Calculate luminance for threshold check
-    float lum = luminance(originalColor.rgb);
-    
-    // Create a blurred version of the image for the glow
-    vec4 blurredColor = blur(u_image, v_texCoord, u_textureSize, u_radius);
-    
-    // Only apply glow to highlights above threshold
-    float highlightMask = smoothstep(u_threshold, 1.0, lum);
-    
-    // Calculate the glow color - make it stronger in highlights
-    vec4 glowColor = blurredColor * highlightMask * u_intensity;
-    
-    // Combine original color with glow
-    gl_FragColor = originalColor + glowColor;
-  }
-`;
 
 // List of filters that support GPU acceleration
 export const gpuAcceleratedFilters: FilterType[] = [
@@ -683,6 +679,5 @@ export const gpuAcceleratedFilters: FilterType[] = [
   'sharpen',
   'noise',
   'halftone',
-  'glow',
-  // We'll expand this list as we add more GPU-accelerated filters
+  'glow'
 ];
