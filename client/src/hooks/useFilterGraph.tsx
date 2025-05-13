@@ -480,31 +480,21 @@ export function useFilterGraph() {
         
         setProcessedImage(result);
       }
-    } catch (error) {
-      console.error('Error processing image:', error);
-      setProcessedImage(null);
-    }
-  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
-  
-  // Effect to generate previews for all nodes
-  useEffect(() => {
-    if (sourceImageRef.current) {
-      // Generate preview for selected node (for the preview panel)
-      if (selectedNodeId) {
-        const node = nodes.find(n => n.id === selectedNodeId);
-        if (node) {
-          generateNodePreview(node);
-        }
-      } else {
-        setNodePreview(null);
-      }
       
-      // Generate previews for all filter nodes
+      // Generate previews for all filter nodes after processing the image
+      console.log("Updating all node previews after processing");
+      
       nodes.forEach(node => {
-        if (node.type !== 'imageNode') {
+        if (node.type !== 'imageNode' && node.type !== 'customNode') {
           try {
             // Find all nodes and edges in the chain leading to this node
             const nodeChain = getNodeChain(node.id, nodes, edges);
+            
+            // Skip if the node has no input connections and it's not a noise generator
+            if (nodeChain.nodes.length <= 1 && 
+                !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
+              return;
+            }
             
             // Create a temporary canvas for the preview
             const tempCanvas = document.createElement('canvas');
@@ -512,22 +502,104 @@ export function useFilterGraph() {
             tempCanvas.height = 150;
             
             // Process the image through the node chain
-            const result = applyFilters(
+            const previewResult = applyFilters(
               sourceImageRef.current!, 
               nodeChain.nodes, 
               nodeChain.edges, 
               tempCanvas
             );
             
-            // Update the node's preview
-            handleParamChange(node.id, 'preview', result);
+            // Update the node's preview directly
+            setNodes(prevNodes => prevNodes.map(n => {
+              if (n.id === node.id) {
+                return {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    preview: previewResult
+                  }
+                };
+              }
+              return n;
+            }));
           } catch (error) {
             console.error(`Error generating preview for node ${node.id}:`, error);
           }
         }
       });
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setProcessedImage(null);
     }
-  }, [nodes, edges, selectedNodeId, sourceImageRef, generateNodePreview, handleParamChange]);
+  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef, setNodes]);
+  
+  // Effect to generate previews for all nodes
+  useEffect(() => {
+    // Don't attempt to generate previews if there's no source image
+    if (!sourceImageRef.current) return;
+    
+    console.log("Generating previews for all nodes...");
+    
+    // Generate preview for selected node (for the preview panel)
+    if (selectedNodeId) {
+      const node = nodes.find(n => n.id === selectedNodeId);
+      if (node) {
+        generateNodePreview(node);
+      }
+    } else {
+      setNodePreview(null);
+    }
+    
+    // Generate previews for all filter nodes
+    nodes.forEach(node => {
+      if (node.type !== 'imageNode' && node.type !== 'customNode') {
+        try {
+          console.log(`Generating preview for node ${node.id} (${node.type})...`);
+          
+          // Find all nodes and edges in the chain leading to this node
+          const nodeChain = getNodeChain(node.id, nodes, edges);
+          
+          // Skip if the node has no input connections and it's not a noise generator
+          if (nodeChain.nodes.length <= 1 && !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
+            console.log(`Skipping node ${node.id} as it has no inputs`);
+            return;
+          }
+          
+          // Create a temporary canvas for the preview
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = 150; // Smaller for embedded preview
+          tempCanvas.height = 150;
+          
+          // Process the image through the node chain
+          const result = applyFilters(
+            sourceImageRef.current!, 
+            nodeChain.nodes, 
+            nodeChain.edges, 
+            tempCanvas
+          );
+          
+          // Update the node's preview directly to avoid circular updates
+          setNodes(prevNodes => prevNodes.map(n => {
+            if (n.id === node.id) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  preview: result
+                }
+              };
+            }
+            return n;
+          }));
+          
+          console.log(`Set preview for node ${node.id}`);
+        } catch (error) {
+          console.error(`Error generating preview for node ${node.id}:`, error);
+        }
+      }
+    });
+  }, [nodes, edges, selectedNodeId, sourceImageRef, generateNodePreview, setNodes]);
   
   // Effect to update the source image ref when the image changes
   useEffect(() => {
