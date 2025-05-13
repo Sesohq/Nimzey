@@ -4,6 +4,8 @@ import {
   filterPresets, type FilterPreset, type InsertFilterPreset,
   customNodes, type CustomNode, type InsertCustomNode
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // Interface with CRUD methods for all entities
 export interface IStorage {
@@ -282,7 +284,7 @@ export class DatabaseStorage implements IStorage {
     if (userId !== undefined) {
       query = query.where(eq(projects.userId, userId));
     }
-    return query;
+    return await query;
   }
 
   async getProject(id: number): Promise<Project | undefined> {
@@ -311,11 +313,11 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(projects)
       .where(eq(projects.id, id));
-    return result.rowCount > 0;
+    return result.rowCount !== null && result.rowCount > 0;
   }
   
   async getAllFilterPresets(): Promise<FilterPreset[]> {
-    return db.select().from(filterPresets);
+    return await db.select().from(filterPresets);
   }
 
   async getFilterPreset(id: number): Promise<FilterPreset | undefined> {
@@ -344,15 +346,15 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(filterPresets)
       .where(eq(filterPresets.id, id));
-    return result.rowCount > 0;
+    return result.rowCount !== null && result.rowCount > 0;
   }
   
   async getAllCustomNodes(): Promise<CustomNode[]> {
-    return db.select().from(customNodes);
+    return await db.select().from(customNodes);
   }
 
   async getCustomNodesByCategory(category: string): Promise<CustomNode[]> {
-    return db.select().from(customNodes).where(eq(customNodes.category, category));
+    return await db.select().from(customNodes).where(eq(customNodes.category, category));
   }
 
   async getCustomNode(id: number): Promise<CustomNode | undefined> {
@@ -381,7 +383,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(customNodes)
       .where(eq(customNodes.id, id));
-    return result.rowCount > 0;
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 

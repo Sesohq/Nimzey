@@ -73,7 +73,7 @@ export default function CreateCustomNodeDialog({
     const params = selectedNodes.flatMap(node => {
       if ('params' in node.data) {
         // Take the top 3 parameters from each node to keep it manageable
-        return node.data.params.slice(0, 3).map(param => ({
+        return node.data.params.slice(0, 3).map((param: any) => ({
           ...param,
           name: `${node.id}_${param.name}`, // Make the param name unique
           label: `${node.data.label || 'Node'} - ${param.label}` // Include node name in label
