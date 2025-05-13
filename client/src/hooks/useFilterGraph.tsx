@@ -511,171 +511,269 @@ export function useFilterGraph() {
       return;
     }
     
-    console.log("Forcing update of all node previews");
+    console.log("=== Forcing update of all node previews ===");
     
-    // Track all nodes we need to update with their new preview data
+    // Clear the node cache first for fresh previews
+    nodeResultCache.clear();
+    
+    // Find the source node - we need to process this first
+    const sourceNode = nodes.find(node => node.type === 'imageNode');
+    if (!sourceNode) {
+      console.warn('No source image node found for previews!');
+      return;
+    }
+    
+    // Create a source image canvas and cache it
+    const sourceCanvas = document.createElement('canvas');
+    sourceCanvas.width = sourceImageRef.current.width;
+    sourceCanvas.height = sourceImageRef.current.height;
+    const sourceCtx = sourceCanvas.getContext('2d');
+    if (!sourceCtx) {
+      console.error('Failed to get 2D context for source canvas');
+      return;
+    }
+    
+    // Draw the source image to the source canvas
+    sourceCtx.drawImage(sourceImageRef.current, 0, 0);
+    
+    // Store the source node result in the cache
+    nodeResultCache.set(sourceNode.id, sourceCanvas);
+    
+    // Process all filter nodes
+    const processedNodesMap: Record<string, boolean> = {};
     const nodeUpdates: Record<string, string> = {};
     
-    // Process each node one at a time
+    // We need to process in a topological order - first get all paths
+    // Build a graph of nodes and their dependencies
+    const dependencyGraph: Record<string, string[]> = {};
+    
+    // Initialize graph
     for (const node of nodes) {
-      if (node.type !== 'imageNode' && node.type !== 'customNode') {
-        try {
-          console.log(`Generating preview for node ${node.id} (${node.type})...`);
-          
-          // Find all nodes and edges in the chain leading to this node
-          const nodeChain = getNodeChain(node.id, nodes, edges);
-          
-          // For the noise generator, we'll create a special preview
-          const isNoiseGenerator = (node.data as FilterNodeData).filterType === 'noiseGenerator';
-          
-          // Skip if the node has no input connections and it's not a texture source like noise generator
-          if (nodeChain.nodes.length <= 1 && !isNoiseGenerator) {
-            console.log(`Skipping node ${node.id} as it has no inputs (and is not a texture source)`);
-            continue;
-          }
-          
-          // Handle noiseGenerator specially as it's a pure texture source with no inputs needed
-          if (isNoiseGenerator) {
-            console.log(`Processing noise generator node ${node.id} as a standalone texture source`);
-          }
-          
-          // Create a temporary canvas for the preview
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = 150; // Smaller for embedded preview
-          tempCanvas.height = 150;
-          
-          // Make sure we have a 2D context
-          const ctx = tempCanvas.getContext('2d');
-          if (!ctx) {
-            console.error(`Failed to get 2D context for preview canvas for node ${node.id}`);
-            continue;
-          }
-          
-          // Process the image through the node chain
-          // Important: Do not clear cache during preview generation to maintain other nodes' previews
-          const result = applyFilters(
-            sourceImageRef.current!, 
-            nodeChain.nodes, 
-            nodeChain.edges, 
-            tempCanvas,
-            undefined, // no targetNodeId
-            false // do not clear cache
-          );
-          
-          // If applyFilters failed, try using the nodeResultCache directly
-          if (!result || !result.startsWith('data:image/')) {
-            console.warn(`Using direct nodeResultCache for node ${node.id} preview`);
-            
-            try {
-              // Try to get the cached result directly
-              const cachedCanvas = nodeResultCache.get(node.id);
-              
-              if (cachedCanvas) {
-                // Clear our canvas
-                ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                
-                // Draw the cached result to our temporary canvas
-                ctx.drawImage(cachedCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
-                
-                // Generate a data URL directly from this canvas
-                const fallbackResult = tempCanvas.toDataURL('image/png');
-                
-                if (fallbackResult && fallbackResult.startsWith('data:image/')) {
-                  console.log(`Generated direct cache preview for node ${node.id}`);
-                  nodeUpdates[node.id] = fallbackResult;
-                } else {
-                  throw new Error("Failed to create valid data URL from cached canvas");
-                }
-              } else {
-                // Last resort - create a simple preview
-                console.warn(`No cached canvas for node ${node.id}, creating placeholder`);
-                
-                // Clear canvas
-                ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                
-                if (sourceImageRef.current) {
-                  // Draw the source image with filter name
-                  ctx.drawImage(sourceImageRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
-                  
-                  // Add filter type label
-                  if (node.type === 'filterNode') {
-                    const filterType = (node.data as FilterNodeData).filterType;
-                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                    ctx.fillRect(0, 0, tempCanvas.width, 20);
-                    ctx.fillStyle = '#000';
-                    ctx.font = '10px sans-serif';
-                    ctx.fillText(filterType, 5, 12);
-                  }
-                  
-                  const placeholderResult = tempCanvas.toDataURL('image/png');
-                  console.log(`Created placeholder preview for node ${node.id}`);
-                  nodeUpdates[node.id] = placeholderResult;
-                }
-              }
-            } catch (fallbackError) {
-              console.error('All fallback preview methods failed:', fallbackError);
-            }
-          } else {
-            // If we got a valid result from applyFilters, use it
-            nodeUpdates[node.id] = result;
-            console.log(`Generated valid preview for node ${node.id} (length: ${result.length})`);
-            
-            // Also directly update the node's preview property to ensure it gets updated
-            setNodes(prevNodes => {
-              return prevNodes.map(prevNode => 
-                prevNode.id === node.id 
-                  ? {
-                      ...prevNode,
-                      data: {
-                        ...prevNode.data,
-                        preview: result
-                      }
-                    }
-                  : prevNode
-              );
-            });
-          }
-        } catch (error) {
-          console.error(`Error generating preview for node ${node.id}:`, error);
-        }
+      dependencyGraph[node.id] = [];
+    }
+    
+    // Add dependencies
+    for (const edge of edges) {
+      if (dependencyGraph[edge.target]) {
+        dependencyGraph[edge.target].push(edge.source);
       }
     }
     
-    // Batch update all nodes at once
-    if (Object.keys(nodeUpdates).length > 0) {
-      console.log(`Applying batch update to ${Object.keys(nodeUpdates).length} nodes:`, Object.keys(nodeUpdates));
+    // Helper function for topological sort
+    const topologicalSort = () => {
+      const visited: Record<string, boolean> = {};
+      const temp: Record<string, boolean> = {};
+      const order: string[] = [];
       
-      // Track previews we're applying for debug purposes
-      const updatedPreviews: Record<string, boolean> = {};
+      const visit = (nodeId: string) => {
+        // Already completely processed this node
+        if (visited[nodeId]) return;
+        
+        // Detect cycles (not handling them specially here)
+        if (temp[nodeId]) return;
+        
+        // Mark node as temporarily visited
+        temp[nodeId] = true;
+        
+        // Visit all dependencies first
+        if (dependencyGraph[nodeId]) {
+          for (const dependency of dependencyGraph[nodeId]) {
+            visit(dependency);
+          }
+        }
+        
+        // Mark as completely visited and add to result
+        temp[nodeId] = false;
+        visited[nodeId] = true;
+        order.push(nodeId);
+      };
       
-      setNodes(prevNodes => {
-        const newNodes = prevNodes.map(node => {
-          if (nodeUpdates[node.id]) {
-            console.log(`Setting preview for node ${node.id} with data URL length: ${nodeUpdates[node.id].length}`);
-            updatedPreviews[node.id] = true;
+      // Visit all nodes
+      for (const nodeId of Object.keys(dependencyGraph)) {
+        if (!visited[nodeId]) {
+          visit(nodeId);
+        }
+      }
+      
+      return order;
+    };
+    
+    // Get the processing order - from dependencies to dependents
+    const processingOrder = topologicalSort();
+    console.log(`Processing ${processingOrder.length} nodes in topological order:`, processingOrder);
+    
+    // Process nodes in the right order
+    for (const nodeId of processingOrder) {
+      const node = nodes.find(n => n.id === nodeId);
+      
+      if (!node || node.type === 'imageNode' || node.type === 'customNode') {
+        continue; // Skip nodes we don't generate previews for
+      }
+      
+      try {
+        console.log(`Generating preview for node ${nodeId} (${node.type})...`);
+        
+        // Create a temporary canvas for processing at the right size
+        const processCanvas = document.createElement('canvas');
+        const tempCanvas = document.createElement('canvas');
+        
+        processCanvas.width = sourceImageRef.current.width;
+        processCanvas.height = sourceImageRef.current.height;
+        tempCanvas.width = 150;  // Small size for embedded preview
+        tempCanvas.height = 150; 
+        
+        const processCtx = processCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (!processCtx || !tempCtx) {
+          console.error(`Failed to get 2D context for canvas for node ${nodeId}`);
+          continue;
+        }
+        
+        // Special case for noiseGenerator nodes - they don't need inputs
+        const isNoiseGenerator = node.type === 'filterNode' && 
+          (node.data as FilterNodeData).filterType === 'noiseGenerator';
+          
+        // Skip nodes with no inputs unless they're standalone generators
+        const incomingEdges = edges.filter(e => e.target === nodeId);
+        if (incomingEdges.length === 0 && !isNoiseGenerator) {
+          console.log(`Node ${nodeId} has no inputs, skipping`);
+          continue;
+        }
+        
+        // For regular nodes, process based on node type
+        let result: string | null = null;
+        
+        if (node.type === 'filterNode') {
+          // Get all incoming nodes for this node
+          const inputs = getSourceNodesForNode(nodeId, nodes, edges);
+          
+          // Get the first input image for basic filters
+          let inputImage: HTMLCanvasElement | null = null;
+          
+          for (const handleId of Object.keys(inputs)) {
+            const inputNode = inputs[handleId];
+            if (inputNode && nodeResultCache.has(inputNode.id)) {
+              inputImage = nodeResultCache.get(inputNode.id)!;
+              break;
+            }
+          }
+          
+          // If we don't have any input, use source image for standalone nodes
+          if (!inputImage && isNoiseGenerator) {
+            // For noise generator, just have a blank canvas to start
+            processCtx.fillStyle = '#ffffff';
+            processCtx.fillRect(0, 0, processCanvas.width, processCanvas.height);
+          } else if (!inputImage) {
+            // For other nodes without input, skip
+            console.log(`No input available for node ${nodeId}, skipping`);
+            continue;
+          } else {
+            // Draw the input to our processing canvas
+            processCtx.drawImage(inputImage, 0, 0);
+          }
+          
+          // Get the filter data
+          const filterData = node.data as FilterNodeData;
+          
+          // Apply the filter
+          try {
+            // Process this node using our standard filter processing
+            processFilterNode(
+              processCanvas,
+              processCtx,
+              node,
+              isNoiseGenerator ? null : processCanvas, // Source canvas
+              tempCanvas, // Temporary canvas
+              tempCtx // Temporary context
+            );
             
-            // Create a completely new node object with the preview data
-            const updatedNode = {
+            // Cache the processed canvas
+            nodeResultCache.set(nodeId, processCanvas);
+            
+            // Create a small preview version
+            tempCtx.drawImage(processCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            result = tempCanvas.toDataURL('image/png');
+          } catch (filterError) {
+            console.error(`Error processing filter for node ${nodeId}:`, filterError);
+          }
+        } else if (node.type === 'blendNode') {
+          // For blend nodes, we need two inputs
+          const { inputA, inputB } = getSourceNodesForBlendNode(nodeId, nodes, edges);
+          
+          if (!inputA || !inputB || 
+              !nodeResultCache.has(inputA.id) || 
+              !nodeResultCache.has(inputB.id)) {
+            console.log(`Missing inputs for blend node ${nodeId}, skipping`);
+            continue;
+          }
+          
+          // Process blend node
+          try {
+            processBlendNode(
+              processCanvas,
+              processCtx,
+              node,
+              nodeResultCache.get(inputA.id)!,
+              nodeResultCache.get(inputB.id)!,
+              tempCanvas,
+              tempCtx
+            );
+            
+            // Cache the result
+            nodeResultCache.set(nodeId, processCanvas);
+            
+            // Create a small preview version
+            tempCtx.drawImage(processCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            result = tempCanvas.toDataURL('image/png');
+          } catch (blendError) {
+            console.error(`Error processing blend node ${nodeId}:`, blendError);
+          }
+        }
+        
+        // Store the preview URL for this node
+        if (result) {
+          console.log(`Generated preview for node ${nodeId} (${result.length} bytes)`);
+          nodeUpdates[nodeId] = result;
+          
+          // Immediate update for this node for better responsiveness
+          setNodes(prevNodes => prevNodes.map(n => 
+            n.id === nodeId ? {
+              ...n,
+              data: {
+                ...n.data,
+                preview: result
+              }
+            } : n
+          ));
+        }
+        
+        // Mark this node as processed
+        processedNodesMap[nodeId] = true;
+        
+      } catch (error) {
+        console.error(`Error generating preview for node ${nodeId}:`, error);
+      }
+    }
+    
+    // Log summary
+    console.log(`Processed ${Object.keys(processedNodesMap).length} nodes with ${Object.keys(nodeUpdates).length} preview updates`);
+    
+    // Batch update all nodes at once to ensure all previews are updated
+    if (Object.keys(nodeUpdates).length > 0) {
+      setNodes(prevNodes => {
+        return prevNodes.map(node => {
+          if (nodeUpdates[node.id]) {
+            return {
               ...node,
               data: {
                 ...node.data,
                 preview: nodeUpdates[node.id]
               }
             };
-            
-            return updatedNode;
           }
           return node;
         });
-        
-        // Log any discrepancies
-        const missingNodes = Object.keys(nodeUpdates).filter(id => !updatedPreviews[id]);
-        if (missingNodes.length > 0) {
-          console.error(`Failed to update some nodes: ${missingNodes.join(', ')}`);
-        }
-        
-        console.log(`Updated ${Object.keys(updatedPreviews).length} nodes with previews`);
-        return newNodes;
       });
     }
   }, [nodes, edges, sourceImageRef, setNodes]);
@@ -684,6 +782,124 @@ export function useFilterGraph() {
   useEffect(() => {
     updateAllNodePreviewsRef.current = updateAllNodePreviews;
   }, [updateAllNodePreviews]);
+  
+  // Helper function to process a filter node
+  const processFilterNode = (
+    resultCanvas: HTMLCanvasElement,
+    resultCtx: CanvasRenderingContext2D,
+    node: Node,
+    sourceCanvas: HTMLCanvasElement | null,
+    tempCanvas: HTMLCanvasElement,
+    tempCtx: CanvasRenderingContext2D
+  ) => {
+    // Get the image data from the result canvas (which already has the input image)
+    const imageData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+    const data = imageData.data;
+    
+    // Skip processing if node is disabled or not a filter node
+    if (node.type !== 'filterNode' || !(node.data as FilterNodeData).enabled) {
+      return;
+    }
+    
+    const filterData = node.data as FilterNodeData;
+    const filterType = filterData.filterType;
+    
+    // Apply the appropriate filter based on type
+    switch (filterType) {
+      case 'blur':
+        applyBlurFilter(data, resultCanvas.width, resultCanvas.height, parseInt(String(filterData.params.find(p => p.name === 'radius')?.value || 5)));
+        break;
+      case 'sharpen':
+        applySharpenFilter(data, resultCanvas.width, resultCanvas.height, parseInt(String(filterData.params.find(p => p.name === 'amount')?.value || 50)));
+        break;
+      case 'grayscale':
+        applyGrayscaleFilter(data);
+        break;
+      case 'invert':
+        applyInvertFilter(data);
+        break;
+      case 'noise':
+        applyNoiseFilter(data, resultCanvas.width, resultCanvas.height, filterData.params);
+        break;
+      case 'dither':
+        applyDitherFilter(data, resultCanvas.width, resultCanvas.height, filterData.params);
+        break;
+      case 'texture':
+        applyTextureFilter(data, resultCanvas.width, resultCanvas.height, filterData.params);
+        break;
+      case 'extrude':
+        applyExtrudeFilter(data, resultCanvas.width, resultCanvas.height, filterData.params);
+        break;
+      case 'wave':
+        applyWaveFilter(data, resultCanvas.width, resultCanvas.height, parseInt(String(filterData.params.find(p => p.name === 'amplitude')?.value || 10)));
+        break;
+      case 'pixelate':
+        applyPixelateFilter(data, resultCanvas.width, resultCanvas.height, parseInt(String(filterData.params.find(p => p.name === 'pixelSize')?.value || 8)));
+        break;
+      case 'findEdges':
+        applyFindEdgesFilter(data, resultCanvas.width, resultCanvas.height, filterData.params);
+        break;
+      case 'glow':
+        applyGlowFilter(data, resultCanvas.width, resultCanvas.height, filterData.params, filterType, resultCtx, resultCanvas);
+        break;
+      case 'halftone':
+        applyHalftoneFilter(data, resultCanvas.width, resultCanvas.height, filterData.params, resultCtx, resultCanvas);
+        break;
+      case 'refraction':
+        applyRefractionFilter(data, resultCanvas.width, resultCanvas.height, resultCtx, filterData.params);
+        break;
+      case 'noiseGenerator':
+        // Special case for noise generator which creates a texture from scratch
+        processNoiseGeneratorFilter(null, resultCtx, resultCanvas, filterData, tempCanvas, tempCtx);
+        return; // Skip the putImageData step below since this filter writes directly to canvas
+      default:
+        console.warn(`Unknown filter type: ${filterType}`);
+        break;
+    }
+    
+    // Put the processed data back on the canvas
+    resultCtx.putImageData(imageData, 0, 0);
+  };
+  
+  // Helper function to process a blend node
+  const processBlendNode = (
+    resultCanvas: HTMLCanvasElement,
+    resultCtx: CanvasRenderingContext2D,
+    node: Node,
+    foregroundCanvas: HTMLCanvasElement,
+    backgroundCanvas: HTMLCanvasElement,
+    tempCanvas: HTMLCanvasElement,
+    tempCtx: CanvasRenderingContext2D
+  ) => {
+    // Get the blend data
+    const blendData = node.data as FilterNodeData;
+    
+    // Skip processing if node is disabled
+    if (!blendData.enabled) {
+      // Just copy the background to the result
+      resultCtx.drawImage(backgroundCanvas, 0, 0);
+      return;
+    }
+    
+    // Clear the result canvas
+    resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+    
+    // Draw the background image
+    resultCtx.globalCompositeOperation = 'source-over';
+    resultCtx.globalAlpha = 1.0;
+    resultCtx.drawImage(backgroundCanvas, 0, 0);
+    
+    // Apply the blend mode and opacity
+    resultCtx.globalCompositeOperation = blendData.blendMode as GlobalCompositeOperation || 'source-over';
+    resultCtx.globalAlpha = blendData.opacity || 1.0;
+    
+    // Draw the foreground with the blend mode applied
+    resultCtx.drawImage(foregroundCanvas, 0, 0);
+    
+    // Reset to default
+    resultCtx.globalCompositeOperation = 'source-over';
+    resultCtx.globalAlpha = 1.0;
+  };
   
   // Effect to update selected node preview for the main panel
   useEffect(() => {
