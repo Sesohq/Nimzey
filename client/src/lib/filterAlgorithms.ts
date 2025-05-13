@@ -1024,6 +1024,11 @@ const isGPUAvailable = (): boolean => {
       }, 8000);
     }
   }
+  // Always return false for Replit preview mode to force CPU processing
+  if (isReplitPreviewMode) {
+    return false;
+  }
+  
   return gpuAccelerationAvailable === true;
 };
 
@@ -1102,12 +1107,30 @@ const applyCPUFilter = (
       const noiseTypeParam = params.find(p => p.name === 'noiseType');
       const noiseType = noiseTypeParam ? noiseTypeParam.value as string : 'random';
       
-      // Log which noise type is being processed by CPU
-      console.log(`Applying CPU ${noiseType} noise filter`);
+      // Log which noise type is being processed by CPU and include Replit status
+      const inReplitPreview = checkReplitPreviewMode();
+      if (inReplitPreview) {
+        console.log(`Applying CPU ${noiseType} noise filter (Replit preview mode)`);
+      } else {
+        console.log(`Applying CPU ${noiseType} noise filter`);
+      }
       
       // Apply the appropriate noise algorithm based on type
       // Pass the noiseType as override to ensure it uses the correct algorithm
-      applyNoiseFilter(data, canvas.width, canvas.height, params, noiseType);
+      try {
+        applyNoiseFilter(data, canvas.width, canvas.height, params, noiseType);
+      } catch (err) {
+        console.error("Error applying noise filter:", err);
+        // Basic fallback in case of error
+        for (let i = 0; i < data.length; i += 4) {
+          const noise = Math.random() * 50 - 25;
+          
+          // Apply noise to RGB channels
+          for (let j = 0; j < 3; j++) {
+            data[i + j] = Math.min(255, Math.max(0, data[i + j] + noise));
+          }
+        }
+      }
       break;
     }
     case 'dither':
