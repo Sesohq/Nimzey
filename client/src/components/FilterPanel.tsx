@@ -33,7 +33,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
 
   return (
     <div className="h-full flex flex-col" style={{ width: `${width}px` }}>
-      {/* Main filter panel */}
+      {/* Main filter panel with filters */}
       <div className="w-full bg-[#0A0D14] text-white flex-1 flex flex-col overflow-hidden">
         <div className="p-3 font-semibold text-white flex items-center border-b border-gray-800">
           <div className="h-2 w-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_5px_#2A5DCE]"></div>
@@ -109,28 +109,21 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         </ScrollArea>
       </div>
       
-      {/* Separate upload button - completely outside of the filter panel */}
-      <div className="mt-3 px-3 py-2">
+      {/* Blue upload button at the bottom, clearly visible */}
+      <div className="mt-auto py-2 px-2 bg-[#0A0D14]">
         <Button 
           variant="default" 
-          className="w-full py-3 text-base font-semibold relative overflow-hidden"
+          className="w-full flex items-center justify-center h-10 text-base font-semibold relative overflow-hidden"
           style={{
-            background: 'linear-gradient(90deg, #2A5DCE 0%, rgba(11, 24, 49, 0.95) 100%)',
-            border: '0.5px solid #00B6FE',
-            borderRadius: '999px',
-            boxShadow: '0 0 15px rgba(0, 182, 254, 0.2)'
+            background: '#2A5DCE',
+            border: 'none',
+            borderRadius: '5px',
+            boxShadow: '0 0 10px rgba(0, 182, 254, 0.3)'
           }}
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
-          {/* Subtle glow circle */}
-          <div className="absolute left-[-30px] top-[-80px] w-[120px] h-[120px] rounded-full opacity-20 blur-xl"
-               style={{background: 'radial-gradient(circle, #2A5DCE 0%, rgba(0,0,0,0) 70%)'}}>
-          </div>
-          
-          <div className="flex items-center justify-center z-10 relative">
-            <Upload className="h-5 w-5 mr-2" />
-            <span>Upload Image</span>
-          </div>
+          <Upload className="h-5 w-5 mr-2" />
+          <span>Upload Image</span>
         </Button>
         <input 
           type="file" 
