@@ -879,6 +879,60 @@ export function useFilterGraph() {
     resultCtx.putImageData(imageData, 0, 0);
   };
   
+  // Helper function to get all source nodes for a node with multiple inputs
+  const getSourceNodesForNode = (nodeId: string, allNodes: Node[], allEdges: Edge[]): Record<string, Node | null> => {
+    const result: Record<string, Node | null> = {};
+    
+    // Find all edges pointing to this node
+    const incomingEdges = allEdges.filter(edge => edge.target === nodeId);
+    
+    console.log(`Node ${nodeId} has ${incomingEdges.length} incoming edges`);
+    
+    // Create an entry for each incoming edge based on target handle
+    incomingEdges.forEach(edge => {
+      // Map the targetHandle to a consistent ID for easier access
+      let handleId: string;
+      
+      // Extract any dynamic input handle IDs
+      if (!edge.targetHandle) {
+        handleId = 'input-default';
+      } else if (edge.targetHandle === 'dynamic-input' || edge.targetHandle.startsWith('input-')) {
+        // For both "dynamic-input" and generated input-* handles, create a consistent ID 
+        // based on the source node that's connecting
+        handleId = `input-${edge.source}`;
+      } else {
+        // For specialized handles like blend node's inputA, inputB, use as-is
+        handleId = edge.targetHandle;
+      }
+      
+      // Add this source node to our result
+      const sourceNode = allNodes.find(node => node.id === edge.source);
+      
+      if (sourceNode) {
+        console.log(`Found source node ${sourceNode.id} (${sourceNode.type}) for target ${nodeId} on handle ${handleId}`);
+        result[handleId] = sourceNode;
+      } else {
+        console.log(`No source node found for edge from ${edge.source} to ${nodeId}`);
+        result[handleId] = null;
+      }
+    });
+    
+    return result;
+  };
+  
+  // For backward compatibility, get source nodes for blend node
+  const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: Edge[]): { inputA: Node | null, inputB: Node | null } => {
+    const inputs = getSourceNodesForNode(blendNodeId, nodes, edges);
+    
+    // Find the first input for inputA and second for inputB
+    const inputKeys = Object.keys(inputs);
+    
+    return {
+      inputA: inputKeys.length > 0 ? inputs[inputKeys[0]] : null,
+      inputB: inputKeys.length > 1 ? inputs[inputKeys[1]] : null
+    };
+  };
+  
   // Helper function to process a blend node
   const processBlendNode = (
     resultCanvas: HTMLCanvasElement,

@@ -4,7 +4,7 @@ import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { applyFilterGPU, isGPUAccelerationAvailable, gpuAcceleratedFilters } from './gpuFilters';
 
 // Refraction filter implementation - mimics optical refraction phenomenon
-function applyRefractionFilter(
+export function applyRefractionFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
