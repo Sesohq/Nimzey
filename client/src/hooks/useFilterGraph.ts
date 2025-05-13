@@ -449,9 +449,79 @@ export function useFilterGraph() {
     }, 100);
   }, [sourceImage, sourceImageRef, processImage]);
 
+  // Process image through a node chain and generate a thumbnail
+  const generateThumbnail = useCallback(async (nodesToProcess: Node[], edgesToProcess: Edge[]): Promise<string | null> => {
+    if (!sourceImageRef.current) return null;
+    
+    // Create a temporary canvas for thumbnail generation
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 100;
+    tempCanvas.height = 100;
+    
+    // Process the image through the selected node chain
+    const result = applyFilters(
+      sourceImageRef.current, 
+      nodesToProcess, 
+      edgesToProcess, 
+      tempCanvas
+    );
+    
+    return result;
+  }, [sourceImageRef]);
+
+  // Create simplified parameters for custom node
+  const createCustomNodeParams = useCallback((selectedNodes: Node[]) => {
+    // Create a single "strength" parameter that controls the overall effect
+    const params = [
+      {
+        name: "strength",
+        label: "Effect Strength",
+        type: "range" as const,
+        min: 0,
+        max: 100,
+        step: 1,
+        value: 100,
+        unit: "%"
+      }
+    ];
+    
+    // Also extract one key parameter from each node to expose (up to 2 additional params)
+    const additionalParams = selectedNodes
+      .filter(node => 'params' in node.data && node.data.params?.length > 0)
+      .slice(0, 2)  // Limit to 2 nodes
+      .map(node => {
+        // Get the first parameter that's a range type
+        const param = node.data.params.find(p => p.type === 'range');
+        if (!param) return null;
+        
+        return {
+          name: `${node.id}_${param.name}`,
+          label: `${node.data.label} - ${param.label}`,
+          type: "range" as const,
+          min: param.min || 0,
+          max: param.max || 100,
+          step: param.step || 1,
+          value: param.value,
+          unit: param.unit || ''
+        };
+      })
+      .filter(Boolean);
+    
+    return [...params, ...additionalParams];
+  }, []);
+
   // Create a custom node from selected nodes
   const createCustomNode = useCallback(async (customNodeData: Omit<CustomNodeData, 'id'>) => {
     try {
+      // Generate a thumbnail of the effect
+      const thumbnail = await generateThumbnail(
+        customNodeData.internalNodes,
+        customNodeData.internalEdges
+      );
+      
+      // Create simplified params
+      const simplifiedParams = createCustomNodeParams(customNodeData.internalNodes);
+      
       // First save to backend
       const response = await fetch('/api/custom-nodes', {
         method: 'POST',
@@ -462,10 +532,10 @@ export function useFilterGraph() {
           name: customNodeData.name,
           category: customNodeData.category,
           description: customNodeData.description || '',
-          thumbnail: customNodeData.thumbnail || '',
+          thumbnail: thumbnail || '',
           nodesData: JSON.stringify(customNodeData.internalNodes),
           edgesData: JSON.stringify(customNodeData.internalEdges),
-          paramsData: JSON.stringify(customNodeData.params),
+          paramsData: JSON.stringify(simplifiedParams),
         }),
       });
 
@@ -474,52 +544,63 @@ export function useFilterGraph() {
       }
 
       const savedNode = await response.json();
-      
-      // Optionally add the custom node to the canvas
-      const nodeId = uuidv4();
-      const newNode: Node<CustomNodeData> = {
-        id: nodeId,
-        type: 'customNode',
-        position: { x: 250, y: 250 },
-        data: {
-          ...customNodeData,
-          id: savedNode.id.toString(),
-          onParamChange: handleParamChange,
-          onToggleEnabled: handleToggleEnabled,
-          onBlendModeChange: handleBlendModeChange,
-          onOpacityChange: handleOpacityChange
-        },
-      };
-      
-      setNodes((nds) => [...nds, newNode]);
-      
       return savedNode;
     } catch (error) {
       console.error('Failed to create custom node:', error);
       return null;
     }
-  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
+  }, [generateThumbnail, createCustomNodeParams]);
 
   // Load a custom node from the server and add it to the canvas
-  const addCustomNode = useCallback((customNodeData: CustomNodeData & { id: number }) => {
-    const nodeId = uuidv4();
-    const newNode: Node<CustomNodeData> = {
-      id: nodeId,
-      type: 'customNode',
-      position: { x: 250, y: 250 },
-      data: {
-        ...customNodeData,
-        onParamChange: handleParamChange,
-        onToggleEnabled: handleToggleEnabled,
-        onBlendModeChange: handleBlendModeChange,
-        onOpacityChange: handleOpacityChange
-      },
-    };
-    
-    setNodes((nds) => [...nds, newNode]);
-    
-    return nodeId;
-  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
+  const addCustomNode = useCallback((dbCustomNode: DbCustomNodeData) => {
+    try {
+      // Parse the stored data from strings to objects
+      const internalNodes = JSON.parse(dbCustomNode.nodesData);
+      const internalEdges = JSON.parse(dbCustomNode.edgesData);
+      const params = JSON.parse(dbCustomNode.paramsData);
+      
+      // Create a new node ID
+      const nodeId = uuidv4();
+      
+      // Create the node with the internal structure
+      const newNode: Node<CustomNodeData> = {
+        id: nodeId,
+        type: 'customNode',
+        position: { x: 250, y: 250 },
+        data: {
+          id: dbCustomNode.id.toString(),
+          name: dbCustomNode.name,
+          category: dbCustomNode.category,
+          description: dbCustomNode.description || '',
+          thumbnail: dbCustomNode.thumbnail || '',
+          internalNodes,
+          internalEdges,
+          params,
+          enabled: true,
+          blendMode: 'normal',
+          opacity: 1,
+          onParamChange: handleParamChange,
+          onToggleEnabled: handleToggleEnabled,
+          onBlendModeChange: handleBlendModeChange,
+          onOpacityChange: handleOpacityChange,
+          onRemoveNode: () => {}
+        },
+      };
+      
+      // Add to canvas
+      setNodes((nds) => [...nds, newNode]);
+      
+      // Update processed image
+      setTimeout(() => {
+        processImage();
+      }, 100);
+      
+      return nodeId;
+    } catch (error) {
+      console.error('Failed to add custom node:', error);
+      return null;
+    }
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, processImage]);
 
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;

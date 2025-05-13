@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PlusIcon, Trash2Icon, StarIcon, PackageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { CustomNodeData } from '@/types';
+import { DbCustomNodeData } from '@/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface CustomNodesPanelProps {

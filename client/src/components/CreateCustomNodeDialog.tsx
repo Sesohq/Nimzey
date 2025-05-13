@@ -122,23 +122,22 @@ export default function CreateCustomNodeDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
+        <div className="grid gap-6 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">
               Name
             </Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
               placeholder="My Custom Filter"
               disabled={selectedNodes.length === 0}
             />
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="category" className="text-right">
+          <div className="space-y-2">
+            <Label htmlFor="category">
               Category
             </Label>
             <Select
@@ -146,7 +145,7 @@ export default function CreateCustomNodeDialog({
               onValueChange={setCategory}
               disabled={selectedNodes.length === 0}
             >
-              <SelectTrigger className="col-span-3" id="category">
+              <SelectTrigger id="category">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
@@ -159,15 +158,15 @@ export default function CreateCustomNodeDialog({
             </Select>
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
+          <div className="space-y-2">
+            <Label htmlFor="description">
               Description
             </Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
+              className="min-h-[80px]"
               placeholder="Describe what this custom node does"
               disabled={selectedNodes.length === 0}
             />

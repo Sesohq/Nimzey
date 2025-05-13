@@ -97,6 +97,19 @@ export type ImageNodeData = {
   onUploadImage?: (file: File) => void;
 };
 
+// Database custom node type (from API)
+export type DbCustomNodeData = {
+  id: number;
+  name: string;
+  category: string;
+  description: string | null;
+  thumbnail: string | null;
+  nodesData: string;
+  edgesData: string;
+  paramsData: string;
+};
+
+// React custom node data type
 export type CustomNodeData = {
   id: string;
   name: string;
@@ -109,6 +122,7 @@ export type CustomNodeData = {
   opacity: number;
   internalNodes: Node[];
   internalEdges: any[];
+  // Callbacks
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
   onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
