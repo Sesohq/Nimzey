@@ -431,6 +431,9 @@ export function useFilterGraph() {
     return Array.from(resultNodes);
   };
   
+  // Forward declaration for the processImage function reference
+  const updateAllNodePreviewsRef = useRef<() => void>(() => {});
+
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
@@ -444,6 +447,8 @@ export function useFilterGraph() {
     }
     
     try {
+      console.log("Processing image and generating main preview");
+      
       // If a node is selected, only process nodes in that chain
       if (selectedNodeId) {
         const selectedNode = nodes.find(node => node.id === selectedNodeId);
@@ -481,84 +486,34 @@ export function useFilterGraph() {
         setProcessedImage(result);
       }
       
-      // Generate previews for all filter nodes after processing the image
-      console.log("Updating all node previews after processing");
-      
-      nodes.forEach(node => {
-        if (node.type !== 'imageNode' && node.type !== 'customNode') {
-          try {
-            // Find all nodes and edges in the chain leading to this node
-            const nodeChain = getNodeChain(node.id, nodes, edges);
-            
-            // Skip if the node has no input connections and it's not a noise generator
-            if (nodeChain.nodes.length <= 1 && 
-                !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
-              return;
-            }
-            
-            // Create a temporary canvas for the preview
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 150; // Smaller for embedded preview
-            tempCanvas.height = 150;
-            
-            // Process the image through the node chain
-            const previewResult = applyFilters(
-              sourceImageRef.current!, 
-              nodeChain.nodes, 
-              nodeChain.edges, 
-              tempCanvas
-            );
-            
-            // Update the node's preview directly
-            setNodes(prevNodes => prevNodes.map(n => {
-              if (n.id === node.id) {
-                return {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    preview: previewResult
-                  }
-                };
-              }
-              return n;
-            }));
-          } catch (error) {
-            console.error(`Error generating preview for node ${node.id}:`, error);
-          }
+      // Update all node previews after processing the main image
+      // Note: This is a separate function now to ensure proper updates
+      setTimeout(() => {
+        if (updateAllNodePreviewsRef.current) {
+          updateAllNodePreviewsRef.current();
         }
-      });
+      }, 50);
       
     } catch (error) {
       console.error('Error processing image:', error);
       setProcessedImage(null);
     }
-  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef, setNodes]);
+  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
   
-  // Effect to generate previews for all nodes
-  useEffect(() => {
-    // Don't attempt to generate previews if there's no source image
-    if (!sourceImageRef.current) return;
-    
-    console.log("Generating previews for all nodes...");
-    console.log("Current nodes state:", nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      filterType: node.type === 'filterNode' ? (node.data as FilterNodeData).filterType : 'n/a',
-      hasPreview: node.type === 'filterNode' ? !!((node.data as FilterNodeData).preview) : false,
-    })));
-    
-    // Generate preview for selected node (for the preview panel)
-    if (selectedNodeId) {
-      const node = nodes.find(n => n.id === selectedNodeId);
-      if (node) {
-        generateNodePreview(node);
-      }
-    } else {
-      setNodePreview(null);
+  // Function to force update all node previews
+  const updateAllNodePreviews = useCallback(() => {
+    if (!sourceImageRef.current) {
+      console.log('No source image available for previews');
+      return;
     }
     
-    // Generate previews for all filter nodes
-    nodes.forEach(node => {
+    console.log("Forcing update of all node previews");
+    
+    // Track all nodes we need to update with their new preview data
+    const nodeUpdates: Record<string, string> = {};
+    
+    // Process each node one at a time
+    for (const node of nodes) {
       if (node.type !== 'imageNode' && node.type !== 'customNode') {
         try {
           console.log(`Generating preview for node ${node.id} (${node.type})...`);
@@ -567,9 +522,10 @@ export function useFilterGraph() {
           const nodeChain = getNodeChain(node.id, nodes, edges);
           
           // Skip if the node has no input connections and it's not a noise generator
-          if (nodeChain.nodes.length <= 1 && !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
+          if (nodeChain.nodes.length <= 1 && 
+              !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
             console.log(`Skipping node ${node.id} as it has no inputs`);
-            return;
+            continue;
           }
           
           // Create a temporary canvas for the preview
@@ -585,36 +541,62 @@ export function useFilterGraph() {
             tempCanvas
           );
           
-          // Update the node's preview directly to avoid circular updates
-          console.log(`About to update preview for node ${node.id}, preview URL length: ${result ? result.length : 0}`);
-          
-          setNodes(prevNodes => {
-            const updatedNodes = prevNodes.map(n => {
-              if (n.id === node.id) {
-                console.log(`Setting preview for node ${n.id}`);
-                const updatedNode = {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    preview: result
-                  }
-                };
-                console.log(`Updated node ${n.id} with preview`);
-                return updatedNode;
-              }
-              return n;
-            });
-            console.log(`Returning ${updatedNodes.length} nodes after update`);
-            return updatedNodes;
-          });
-          
-          console.log(`Finished setting preview for node ${node.id}`);
+          // Store the preview data to apply in a batch update
+          nodeUpdates[node.id] = result;
+          console.log(`Generated preview for node ${node.id}`);
         } catch (error) {
           console.error(`Error generating preview for node ${node.id}:`, error);
         }
       }
-    });
-  }, [nodes, edges, selectedNodeId, sourceImageRef, generateNodePreview, setNodes]);
+    }
+    
+    // Batch update all nodes at once
+    if (Object.keys(nodeUpdates).length > 0) {
+      console.log(`Applying batch update to ${Object.keys(nodeUpdates).length} nodes`);
+      setNodes(prevNodes => 
+        prevNodes.map(node => {
+          if (nodeUpdates[node.id]) {
+            console.log(`Setting preview for node ${node.id}`);
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                preview: nodeUpdates[node.id]
+              }
+            };
+          }
+          return node;
+        })
+      );
+    }
+  }, [nodes, edges, sourceImageRef, setNodes]);
+  
+  // Store the reference to use in processImage
+  useEffect(() => {
+    updateAllNodePreviewsRef.current = updateAllNodePreviews;
+  }, [updateAllNodePreviews]);
+  
+  // Effect to update selected node preview for the main panel
+  useEffect(() => {
+    if (!sourceImageRef.current) return;
+    
+    // Update preview for selected node (only for the preview panel)
+    if (selectedNodeId) {
+      const node = nodes.find(n => n.id === selectedNodeId);
+      if (node) {
+        generateNodePreview(node);
+      }
+    } else {
+      setNodePreview(null);
+    }
+  }, [selectedNodeId, nodes, sourceImageRef, generateNodePreview]);
+  
+  // Effect to trigger preview updates when nodes or edges change
+  useEffect(() => {
+    if (sourceImageRef.current) {
+      updateAllNodePreviews();
+    }
+  }, [nodes, edges, updateAllNodePreviews, sourceImageRef]);
   
   // Effect to update the source image ref when the image changes
   useEffect(() => {
@@ -671,6 +653,17 @@ export function useFilterGraph() {
     
     setNodes(prevNodes => [...prevNodes, newNode]);
     
+    // Generate preview after adding a node, but only if it's a Noise Generator
+    // that can generate output without inputs
+    if (filterType === 'noiseGenerator') {
+      // Allow time for the node to be added to the state
+      setTimeout(() => {
+        if (updateAllNodePreviewsRef.current) {
+          updateAllNodePreviewsRef.current();
+        }
+      }, 100);
+    }
+    
     return id;
   }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
   
@@ -711,6 +704,13 @@ export function useFilterGraph() {
     
     // Ensure the connected nodes get processed in the right order
     processImage();
+    
+    // Update previews for all affected nodes
+    setTimeout(() => {
+      if (updateAllNodePreviewsRef.current) {
+        updateAllNodePreviewsRef.current();
+      }
+    }, 100);
   }, [nodes, processImage]);
   
   // Upload an image
@@ -719,6 +719,15 @@ export function useFilterGraph() {
     reader.onload = (e) => {
       if (e.target?.result) {
         setSourceImage(e.target.result as string);
+        
+        // Give the image time to load before processing
+        setTimeout(() => {
+          // Update all node previews after a new source image is loaded
+          if (updateAllNodePreviewsRef.current) {
+            console.log("Triggering preview updates after new image upload");
+            updateAllNodePreviewsRef.current();
+          }
+        }, 200);
       }
     };
     reader.readAsDataURL(file);
