@@ -139,7 +139,7 @@ export function useFilterGraph() {
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
     setNodes(nds => 
       nds.map(node => {
-        if (node.id === nodeId && node.type === 'filterNode') {
+        if (node.id === nodeId && (node.type === 'filterNode' || node.type === 'blendNode')) {
           const nodeData = node.data as FilterNodeData;
           return {
             ...node,
@@ -156,6 +156,8 @@ export function useFilterGraph() {
     // Re-process the image when opacity changes
     processImage();
   }, [processImage]);
+  
+
 
   // Upload an image function
   const uploadImage = useCallback((file: File) => {
@@ -245,11 +247,12 @@ export function useFilterGraph() {
       params: filterDef.params.map(param => ({ ...param })),
       enabled: true,
       blendMode: 'normal',
-      opacity: 1.0,
+      opacity: 100, // Use 0-100 scale for percentages
       onParamChange: handleParamChange,
       onToggleEnabled: handleToggleEnabled,
       onBlendModeChange: handleBlendModeChange,
-      onOpacityChange: handleOpacityChange
+      onOpacityChange: handleOpacityChange,
+      onRemoveNode: () => removeNode(newNodeId)
     };
 
     // Determine node type - use blendNode for blend filter type
