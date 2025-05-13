@@ -2,6 +2,188 @@ import { Node, Edge } from 'reactflow';
 import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
 import { createNoise2D, createNoise3D } from 'simplex-noise';
 
+// Refraction filter implementation
+function applyRefractionFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  ctx: CanvasRenderingContext2D,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const size = parseInt(String(paramsObj.size || 30));
+  const refractionAmount = parseInt(String(paramsObj.amount || 50)) / 100;
+  const heightScale = parseInt(String(paramsObj.heightScale || 50)) / 100;
+  const precision = paramsObj.precision || 'Medium';
+  
+  // Define precision based on parameter
+  let sampleStep = 1;
+  switch (precision) {
+    case 'Low':
+      sampleStep = 2;
+      break;
+    case 'Medium':
+      sampleStep = 1;
+      break;
+    case 'High':
+      sampleStep = 0.5;
+      break;
+  }
+  
+  // Create bump map (height map) using perlin noise
+  const bumpMap = new Float32Array(width * height);
+  
+  // Use existing noise generator implementation with unique seed for this filter
+  const seed = 12345; // Could be a parameter in the future
+  const randomSeed = () => {
+    let s = seed;
+    return function() {
+      s = Math.sin(s) * 10000;
+      return s - Math.floor(s);
+    };
+  };
+  const random = randomSeed();
+  const noise2D = createNoise2D(() => random());
+  
+  // Generate the bump map with perlin noise
+  const scale = 1 / size;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Generate height value from perlin noise
+      let noiseValue = 0;
+      
+      // Use multiple octaves of noise for more natural look
+      noiseValue += noise2D(x * scale, y * scale) * 0.5;
+      noiseValue += noise2D(x * scale * 2, y * scale * 2) * 0.25;
+      noiseValue += noise2D(x * scale * 4, y * scale * 4) * 0.125;
+      
+      // Normalize to 0-1 range
+      noiseValue = (noiseValue + 1) * 0.5;
+      
+      // Apply heightScale to control the intensity of height differences
+      noiseValue = noiseValue * heightScale;
+      
+      // Store in bump map
+      bumpMap[y * width + x] = noiseValue;
+    }
+  }
+  
+  // Create a copy of the original image data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Apply refraction based on bump map
+  for (let y = 0; y < height; y += sampleStep) {
+    for (let x = 0; x < width; x += sampleStep) {
+      const index = (Math.floor(y) * width + Math.floor(x)) * 4;
+      const bumpIdx = Math.floor(y) * width + Math.floor(x);
+      
+      // Calculate surface normal from bump map
+      // Compute gradient by sampling neighboring pixels
+      const left = x > 0 ? bumpMap[bumpIdx - 1] : bumpMap[bumpIdx];
+      const right = x < width - 1 ? bumpMap[bumpIdx + 1] : bumpMap[bumpIdx];
+      const top = y > 0 ? bumpMap[bumpIdx - width] : bumpMap[bumpIdx];
+      const bottom = y < height - 1 ? bumpMap[bumpIdx + width] : bumpMap[bumpIdx];
+      
+      // X and Y gradients (approximation of partial derivatives)
+      const gradX = (right - left) * 2.0;
+      const gradY = (bottom - top) * 2.0;
+      
+      // Apply refraction - offset coordinates based on surface normal
+      const offsetX = gradX * refractionAmount;
+      const offsetY = gradY * refractionAmount;
+      
+      // Calculate new sample position
+      let sampleX = Math.min(Math.max(0, x + offsetX), width - 1);
+      let sampleY = Math.min(Math.max(0, y + offsetY), height - 1);
+      
+      // Use bilinear interpolation for smoother results
+      const x0 = Math.floor(sampleX);
+      const y0 = Math.floor(sampleY);
+      const x1 = Math.min(x0 + 1, width - 1);
+      const y1 = Math.min(y0 + 1, height - 1);
+      
+      const sx = sampleX - x0;
+      const sy = sampleY - y0;
+      
+      // Bilinear interpolation of four surrounding pixels
+      const idx00 = (y0 * width + x0) * 4;
+      const idx01 = (y0 * width + x1) * 4;
+      const idx10 = (y1 * width + x0) * 4;
+      const idx11 = (y1 * width + x1) * 4;
+      
+      for (let c = 0; c < 3; c++) {
+        const c00 = originalData[idx00 + c];
+        const c01 = originalData[idx01 + c];
+        const c10 = originalData[idx10 + c];
+        const c11 = originalData[idx11 + c];
+        
+        // Interpolate
+        const cX0 = c00 * (1 - sx) + c01 * sx;
+        const cX1 = c10 * (1 - sx) + c11 * sx;
+        const cXY = cX0 * (1 - sy) + cX1 * sy;
+        
+        // Set the color
+        data[index + c] = cXY;
+      }
+    }
+  }
+  
+  // Fill in any gaps due to sampleStep
+  if (sampleStep > 1) {
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Simple bilinear filtering to fill gaps
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Skip pixels that were directly sampled
+        if (x % sampleStep === 0 && y % sampleStep === 0) continue;
+        
+        const index = (y * width + x) * 4;
+        
+        // Find the four surrounding sampled points
+        const x0 = Math.floor(x / sampleStep) * sampleStep;
+        const y0 = Math.floor(y / sampleStep) * sampleStep;
+        const x1 = Math.min(x0 + sampleStep, width - 1);
+        const y1 = Math.min(y0 + sampleStep, height - 1);
+        
+        const sx = (x - x0) / sampleStep;
+        const sy = (y - y0) / sampleStep;
+        
+        const idx00 = (y0 * width + x0) * 4;
+        const idx01 = (y0 * width + x1) * 4;
+        const idx10 = (y1 * width + x0) * 4;
+        const idx11 = (y1 * width + x1) * 4;
+        
+        for (let c = 0; c < 3; c++) {
+          const c00 = tempData[idx00 + c];
+          const c01 = tempData[idx01 + c];
+          const c10 = tempData[idx10 + c];
+          const c11 = tempData[idx11 + c];
+          
+          // Interpolate
+          const cX0 = c00 * (1 - sx) + c01 * sx;
+          const cX1 = c10 * (1 - sx) + c11 * sx;
+          const cXY = cX0 * (1 - sy) + cX1 * sy;
+          
+          // Set the color
+          data[index + c] = cXY;
+        }
+      }
+    }
+  }
+}
+
 // Helper function to find target nodes from a source node
 const getTargetNodes = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
   const connectedEdges = edges.filter(edge => edge.source === sourceNodeId);
@@ -560,6 +742,9 @@ const applyFilter = (
       break;
     case 'noiseDistortion':
       applyNoiseDistortionFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'refraction':
+      applyRefractionFilter(data, canvas.width, canvas.height, ctx, params);
       break;
   }
   
@@ -2648,7 +2833,10 @@ function applyBlendMode(
     // Calculate blended values based on blend mode
     let resultR = 0, resultG = 0, resultB = 0;
     
-    switch (blendMode) {
+    // Normalize blend mode to lowercase for case-insensitive comparison
+    const normalizedBlendMode = blendMode.toLowerCase();
+    
+    switch (normalizedBlendMode) {
       case 'normal':
         resultR = srcR;
         resultG = srcG;
@@ -2737,6 +2925,14 @@ function applyBlendMode(
         resultG = srcG;
         resultB = srcB;
         break;
+        
+      default:
+        // Default to normal blend if the mode isn't recognized
+        console.warn(`Unrecognized blend mode: ${blendMode}, defaulting to normal`);
+        resultR = srcR;
+        resultG = srcG;
+        resultB = srcB;
+        break;
     }
     
     // Apply opacity to the blended result
@@ -2767,97 +2963,18 @@ function applyBlendFilter(
     paramsObj[param.name] = param.value;
   });
   
-  const blendMode = paramsObj.blendMode || 'Normal';
-  const opacity = parseInt(String(paramsObj.opacity || 100)) / 100;
-  const maskType = paramsObj.maskType || 'None';
+  // Note: This function is no longer directly used for blending two inputs
+  // Instead, the BlendNode uses processBlendNode directly which handles the two inputs
+  // This function remains for compatibility with the filter system
   
-  // Note: In a real implementation, this filter would require two inputs
-  // Since we don't have a second input in this demo, we'll create a simple visual effect 
-  // to demonstrate the concept
+  // We'll just apply a simple tint effect to demonstrate that this filter was applied
+  const tint = Math.random() * 30; // Small random tint to show the filter effect
   
-  // Create a gradient as a fake second input
-  const tempData = new Uint8ClampedArray(data.length);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      
-      // Create a colored pattern as the second input
-      const red = (x * 255 / width);
-      const green = (y * 255 / height);
-      const blue = 128;
-      
-      tempData[i] = red;
-      tempData[i + 1] = green;
-      tempData[i + 2] = blue;
-      tempData[i + 3] = 255;
-    }
-  }
-  
-  // Apply the blend mode between original data and temp data
   for (let i = 0; i < data.length; i += 4) {
-    // Source pixel (original image)
-    const srcR = data[i];
-    const srcG = data[i + 1];
-    const srcB = data[i + 2];
-    
-    // Blend pixel (our generated pattern)
-    const blendR = tempData[i];
-    const blendG = tempData[i + 1];
-    const blendB = tempData[i + 2];
-    
-    // Result values
-    let resultR = 0, resultG = 0, resultB = 0;
-    
-    // Apply the selected blend mode
-    switch (blendMode) {
-      case 'Normal':
-        resultR = blendR;
-        resultG = blendG;
-        resultB = blendB;
-        break;
-        
-      case 'Multiply':
-        resultR = (srcR * blendR) / 255;
-        resultG = (srcG * blendG) / 255;
-        resultB = (srcB * blendB) / 255;
-        break;
-        
-      case 'Screen':
-        resultR = 255 - ((255 - srcR) * (255 - blendR)) / 255;
-        resultG = 255 - ((255 - srcG) * (255 - blendG)) / 255;
-        resultB = 255 - ((255 - srcB) * (255 - blendB)) / 255;
-        break;
-        
-      case 'Overlay':
-        resultR = srcR < 128 ? (2 * srcR * blendR) / 255 : 255 - 2 * ((255 - srcR) * (255 - blendR)) / 255;
-        resultG = srcG < 128 ? (2 * srcG * blendG) / 255 : 255 - 2 * ((255 - srcG) * (255 - blendG)) / 255;
-        resultB = srcB < 128 ? (2 * srcB * blendB) / 255 : 255 - 2 * ((255 - srcB) * (255 - blendB)) / 255;
-        break;
-        
-      case 'Darken':
-        resultR = Math.min(srcR, blendR);
-        resultG = Math.min(srcG, blendG);
-        resultB = Math.min(srcB, blendB);
-        break;
-        
-      case 'Lighten':
-        resultR = Math.max(srcR, blendR);
-        resultG = Math.max(srcG, blendG);
-        resultB = Math.max(srcB, blendB);
-        break;
-        
-      // Implement other blend modes similar to those in applyBlendMode function
-      default:
-        resultR = blendR;
-        resultG = blendG;
-        resultB = blendB;
-        break;
-    }
-    
-    // Apply opacity
-    data[i] = Math.round(srcR + (resultR - srcR) * opacity);
-    data[i + 1] = Math.round(srcG + (resultG - srcG) * opacity);
-    data[i + 2] = Math.round(srcB + (resultB - srcB) * opacity);
+    // Apply a subtle tint to show the filter effect
+    data[i] = Math.min(255, data[i] + tint);
+    data[i + 1] = Math.min(255, data[i + 1] + tint);
+    data[i + 2] = Math.min(255, data[i + 2] + tint);
   }
 }
 
