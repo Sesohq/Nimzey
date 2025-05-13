@@ -32,9 +32,15 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   };
   
-  // Log when the component renders and if preview data is available
-  console.log(`FilterNode [${id}] (${data.filterType}) rendering, preview:`,  
-    data.preview ? `available (${data.preview.slice(0, 20)}...)` : 'missing');
+  // Enhanced debug logging for the filter node rendering
+  console.log(`FilterNode [${id}] (${data.filterType}) rendering:`, {
+    hasPreview: !!data.preview,
+    previewType: data.preview ? typeof data.preview : 'none',
+    previewStart: data.preview ? data.preview.slice(0, 30) + '...' : 'none',
+    dataKeys: Object.keys(data),
+    enabled: data.enabled,
+    params: data.params
+  });
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -93,6 +99,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   src={data.preview} 
                   alt={`${data.filterType} preview`}
                   className="w-full h-full object-cover"
+                  style={{ border: '2px solid red' }}
                   onLoad={() => console.log(`Preview image loaded for ${id} (${data.filterType})`)}
                   onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
                 />

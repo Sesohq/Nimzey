@@ -623,6 +623,7 @@ export function useFilterGraph() {
 
     // Process all filter nodes
     const processedNodesMap: Record<string, boolean> = {};
+    // Store data URLs for the node previews
     const nodeUpdates: Record<string, string> = {};
     console.log("Processing all nodes for preview updates...");
 
@@ -879,6 +880,14 @@ export function useFilterGraph() {
 
     // Process any standalone nodes that didn't get processed in the topological sort
     for (const node of nodes) {
+      // Debug log to see what nodes have previews and which don't
+      console.log(
+        `Node ${node.id} (${node.type}) preview status:`,
+        node.data.preview ? 'HAS PREVIEW' : 'NO PREVIEW',
+        'Enabled:', node.data.enabled,
+        'Processed:', processedNodesMap[node.id] ? 'YES' : 'NO'
+      );
+      
       // Skip already processed nodes and non-filter nodes
       if (processedNodesMap[node.id] || node.type !== 'filterNode') {
         continue;
@@ -923,6 +932,13 @@ export function useFilterGraph() {
             tempCtx.drawImage(processCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
             const result = tempCanvas.toDataURL("image/png");
             
+            // Log the data URL generation result for standalone nodes
+            console.log(`Generated data URL for standalone node ${node.id}:`, {
+              nodeType: node.type,
+              urlLength: result.length,
+              urlStart: result.slice(0, 30) + '...'
+            });
+            
             // Store the result
             nodeUpdates[node.id] = result;
             processedNodesMap[node.id] = true;
@@ -940,9 +956,16 @@ export function useFilterGraph() {
 
     // Batch update all nodes at once to ensure all previews are updated
     if (Object.keys(nodeUpdates).length > 0) {
+      console.log(`Updating ${Object.keys(nodeUpdates).length} nodes with previews:`, Object.keys(nodeUpdates));
+      
       setNodes((prevNodes) => {
         return prevNodes.map((node) => {
           if (nodeUpdates[node.id]) {
+            console.log(`Updating preview for node ${node.id}:`, {
+              previewLength: nodeUpdates[node.id].length,
+              previewStart: nodeUpdates[node.id].slice(0, 20) + '...'
+            });
+            
             return {
               ...node,
               data: {
@@ -954,6 +977,18 @@ export function useFilterGraph() {
           return node;
         });
       });
+      
+      // Verify all nodes have their previews after update
+      setTimeout(() => {
+        console.log("Verifying nodes have preview data after update...");
+        nodes.forEach(node => {
+          if (node.type === 'filterNode') {
+            console.log(`Node ${node.id} preview status after update:`, 
+              node.data.preview ? `HAS PREVIEW (${node.data.preview.slice(0, 20)}...)` : 'NO PREVIEW'
+            );
+          }
+        });
+      }, 250);
     }
   }, [nodes, edges, sourceImageRef, setNodes]);
 
