@@ -2322,16 +2322,16 @@ function applyNoiseFilter(
   params: any[] = [], 
   noiseTypeOverride?: string
 ): void {
-  // Extract parameters
+  // Extract parameters 
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
     paramsObj[param.name] = param.value;
   });
   
-  // If noiseTypeOverride is provided (from GPU acceleration code), use that instead of the parameter
-  // This allows us to use the same noise algorithms from both CPU and GPU pathways
+  // Get parameters with default fallbacks
   const noiseType = noiseTypeOverride || paramsObj.noiseType || 'Uniform';
-  const amount = parseInt(String(paramsObj.amount || 25)) / 100 * 255;
+  // Scale up amount for more visible effect (0-100% becomes 0-255)
+  const amount = Math.min(255, parseInt(String(paramsObj.amount || 25)) / 100 * 255 * 3);
   const scale = parseFloat(String(paramsObj.scale || 0.1));
   const octaves = parseInt(String(paramsObj.octaves || 4));
   const persistence = parseFloat(String(paramsObj.persistence || 0.5));
@@ -2339,23 +2339,27 @@ function applyNoiseFilter(
   const seed = parseInt(String(paramsObj.seed || 42));
   const colorize = paramsObj.colorize || 'Off';
   
-  // Generate random seed from the given number
-  const randomSeed = () => {
-    let s = seed;
+  console.log(`Applying noise filter: type=${noiseType}, amount=${amount}, scale=${scale}, seed=${seed}`);
+  
+  // Create a seeded random function based on the seed
+  function createSeededRandom(seed: number) {
     return function() {
-      s = Math.sin(s) * 10000;
-      return s - Math.floor(s);
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
     };
-  };
-  const random = randomSeed();
+  }
   
-  // Initialize simplex noise generator
-  const noise2D = createNoise2D(() => random());
+  const random = createSeededRandom(seed);
   
-  // For uniform noise (original implementation)
+  // Create simplex noise generator with our seeded random
+  const noise2D = createNoise2D(random);
+  
+  // For uniform noise (basic, uniform distribution)
   if (noiseType === 'Uniform') {
+    console.log("Applying uniform noise");
     for (let i = 0; i < data.length; i += 4) {
-      const noise = Math.random() * amount - amount / 2;
+      // More dramatic noise effect
+      const noise = (random() * 2 - 1) * amount;
       
       // Apply noise to RGB channels
       for (let j = 0; j < 3; j++) {
@@ -2367,17 +2371,21 @@ function applyNoiseFilter(
   
   // For Gaussian noise
   if (noiseType === 'Gaussian') {
+    console.log("Applying gaussian noise");
     for (let i = 0; i < data.length; i += 4) {
       // Box-Muller transform for Gaussian distribution
-      const u1 = Math.random();
-      const u2 = Math.random();
-      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-      
-      const noise = z0 * amount / 3; // Divide by 3 to scale appropriately
-      
-      // Apply noise to RGB channels
-      for (let j = 0; j < 3; j++) {
-        data[i + j] = Math.min(255, Math.max(0, data[i + j] + noise));
+      const u1 = random();
+      const u2 = random();
+      // Avoid log(0)
+      if (u1 > 0.001) {
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        // Stronger effect
+        const noise = z0 * amount;
+        
+        // Apply noise to RGB channels
+        for (let j = 0; j < 3; j++) {
+          data[i + j] = Math.min(255, Math.max(0, Math.round(data[i + j] + noise)));
+        }
       }
     }
     return;
@@ -2385,11 +2393,13 @@ function applyNoiseFilter(
   
   // For Salt & Pepper noise
   if (noiseType === 'Salt & Pepper') {
-    const threshold = amount / 255;
+    console.log("Applying salt & pepper noise");
+    // Divide by larger number for more reasonable threshold
+    const threshold = Math.min(0.5, amount / 510);
     for (let i = 0; i < data.length; i += 4) {
-      if (Math.random() < threshold) {
+      if (random() < threshold) {
         // Add salt or pepper randomly
-        const value = Math.random() < 0.5 ? 0 : 255;
+        const value = random() < 0.5 ? 0 : 255;
         
         data[i] = value;
         data[i + 1] = value;
@@ -2401,6 +2411,7 @@ function applyNoiseFilter(
   
   // For Perlin and Simplex noise
   if (noiseType.includes('Perlin') || noiseType.includes('Simplex')) {
+    console.log(`Applying ${noiseType} noise`);
     // Determine if we're using fractal noise
     const isFractal = noiseType.includes('Fractal');
     
@@ -2451,13 +2462,11 @@ function applyNoiseFilter(
         const i = (y * width + x) * 4;
         const noiseValue = noiseData[y * width + x];
         
-        // Scale noise value by amount
-        const scaledNoise = noiseValue * amount / 128;
-        
         if (colorize === 'Off') {
-          // Just add noise to existing pixels
+          // Just add noise to existing pixels (more dramatic effect)
+          const scaledNoise = (noiseValue * 2 - 1) * amount;
           for (let j = 0; j < 3; j++) {
-            data[i + j] = Math.min(255, Math.max(0, data[i + j] + scaledNoise - amount / 256));
+            data[i + j] = Math.min(255, Math.max(0, Math.round(data[i + j] + scaledNoise)));
           }
         } else if (colorize === 'Grayscale') {
           // Grayscale noise
@@ -2467,33 +2476,18 @@ function applyNoiseFilter(
           data[i + 2] = grayValue;
         } else if (colorize === 'Rainbow') {
           // Rainbow colorization (HSV to RGB)
-          const h = noiseValue; // Hue from noise (0 to 1)
+          const h = noiseValue * 360; // Hue from noise (0 to 360)
           const s = 1.0; // Saturation
           const v = 1.0; // Value
           
-          // HSV to RGB conversion
-          const i_hsv = Math.floor(h * 6);
-          const f = h * 6 - i_hsv;
-          const p = v * (1 - s);
-          const q = v * (1 - f * s);
-          const t = v * (1 - (1 - f) * s);
+          // Use our HSV to RGB conversion function
+          const [r, g, b] = hsvToRgb(h, s, v);
           
-          let r, g, b;
-          switch (i_hsv % 6) {
-            case 0: r = v; g = t; b = p; break;
-            case 1: r = q; g = v; b = p; break;
-            case 2: r = p; g = v; b = t; break;
-            case 3: r = p; g = q; b = v; break;
-            case 4: r = t; g = p; b = v; break;
-            case 5: r = v; g = p; b = q; break;
-            default: r = v; g = t; b = p;
-          }
-          
-          data[i] = Math.floor(r * 255);
-          data[i + 1] = Math.floor(g * 255);
-          data[i + 2] = Math.floor(b * 255);
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
         } else if (colorize === 'Fire') {
-          // Fire colorization
+          // Fire colorization 
           const temp = noiseValue;
           data[i] = Math.floor(255 * Math.min(1.0, temp * 2));
           data[i + 1] = Math.floor(255 * Math.min(1.0, temp * 1.5));
