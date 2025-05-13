@@ -39,9 +39,9 @@ export const customNodes = pgTable("custom_nodes", {
   name: text("name").notNull(),
   description: text("description"), 
   category: text("category").notNull(), // For organizing in the UI
-  nodes: jsonb("nodes").notNull(), // Internal node configurations 
-  edges: jsonb("edges").notNull(), // Internal edge connections
-  params: jsonb("params").notNull(), // Exposed parameters for the custom node
+  nodesData: text("nodes_data").notNull(), // Internal node configurations as JSON string
+  edgesData: text("edges_data").notNull(), // Internal edge connections as JSON string
+  paramsData: text("params_data").notNull(), // Exposed parameters for the custom node as JSON string
   thumbnail: text("thumbnail"), // Preview image
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

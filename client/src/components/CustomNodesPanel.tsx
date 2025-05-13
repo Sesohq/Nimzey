@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface CustomNodesPanelProps {
   width: number;
-  onAddCustomNode: (customNode: CustomNodeData) => void;
+  onAddCustomNode: (customNode: CustomNodeData & { id: number }) => void;
   onCreateCustomNode: () => void;
   onDeleteCustomNode: (id: number) => void;
 }
@@ -45,6 +45,9 @@ export default function CustomNodesPanel({
     // Store the custom node information in the drag event
     e.dataTransfer.setData('application/reactflow', JSON.stringify({ type: 'customNode', node: customNode }));
     e.dataTransfer.effectAllowed = 'move';
+    
+    // Notify parent component to add the node
+    onAddCustomNode(customNode);
   };
   
   const confirmDelete = (id: number) => {
