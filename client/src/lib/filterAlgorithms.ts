@@ -800,6 +800,85 @@ function applyGlowFilter(
 // Check if GPU acceleration is available (cached for performance)
 let gpuAccelerationAvailable: boolean | null = null;
 
+// Track active filters for display purposes
+const activeGPUFilters: Record<string, boolean> = {};
+
+// Helper function to show which filters are using GPU acceleration
+const showGPUStatusIndicator = (filterType: string, isGPU: boolean) => {
+  if (typeof document === 'undefined') return;
+  
+  // Update the active filters record
+  activeGPUFilters[filterType] = isGPU;
+  
+  // Get or create the status container
+  let statusContainer = document.getElementById('gpu-status-container');
+  if (!statusContainer) {
+    statusContainer = document.createElement('div');
+    statusContainer.id = 'gpu-status-container';
+    statusContainer.style.position = 'fixed';
+    statusContainer.style.top = '10px';
+    statusContainer.style.right = '10px';
+    statusContainer.style.padding = '10px';
+    statusContainer.style.background = 'rgba(0, 0, 0, 0.7)';
+    statusContainer.style.color = 'white';
+    statusContainer.style.fontFamily = 'sans-serif';
+    statusContainer.style.fontSize = '12px';
+    statusContainer.style.borderRadius = '5px';
+    statusContainer.style.zIndex = '9999';
+    statusContainer.style.maxWidth = '250px';
+    statusContainer.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+    document.body.appendChild(statusContainer);
+  }
+  
+  // Update the content
+  let content = '<div style="font-weight: bold; margin-bottom: 5px; text-align: center;">Filter Processing Status</div>';
+  
+  // Get all filter types being processed
+  const filterTypes = Object.keys(activeGPUFilters);
+  
+  if (filterTypes.length === 0) {
+    content += '<div>No filters applied yet</div>';
+  } else {
+    content += '<ul style="margin: 0; padding: 0 0 0 20px;">';
+    filterTypes.forEach(type => {
+      const isUsingGPU = activeGPUFilters[type];
+      const icon = isUsingGPU ? '✅' : '🔄';
+      const processorText = isUsingGPU ? 'GPU' : 'CPU';
+      const processorStyle = isUsingGPU ? 'color: #4CAF50' : 'color: #FFC107';
+      
+      content += `<li style="margin-bottom: 4px;">
+        ${icon} ${type.charAt(0).toUpperCase() + type.slice(1)}: 
+        <span style="${processorStyle}; font-weight: bold;">${processorText}</span>
+      </li>`;
+    });
+    content += '</ul>';
+  }
+  
+  // Add a performance tip
+  content += '<div style="margin-top: 10px; font-size: 10px; color: #BBB; font-style: italic;">';
+  if (gpuAccelerationAvailable) {
+    const cpuFilters = filterTypes.filter(type => !activeGPUFilters[type]);
+    if (cpuFilters.length > 0) {
+      content += `Tip: ${cpuFilters.join(', ')} ${cpuFilters.length === 1 ? 'is' : 'are'} running on CPU. Simpler filters may not need GPU acceleration.`;
+    } else {
+      content += 'All filters are GPU-accelerated for maximum performance!';
+    }
+  } else {
+    content += 'WebGL not available - all filters using CPU processing.';
+  }
+  content += '</div>';
+  
+  statusContainer.innerHTML = content;
+  
+  // Make sure the indicator is visible for at least 5 seconds after the last filter process
+  clearTimeout((statusContainer as any)._timeout);
+  (statusContainer as any)._timeout = setTimeout(() => {
+    if (statusContainer && statusContainer.parentNode) {
+      statusContainer.parentNode.removeChild(statusContainer);
+    }
+  }, 5000);
+};
+
 // Helper to check GPU availability with caching
 const isGPUAvailable = (): boolean => {
   if (gpuAccelerationAvailable === null) {
@@ -813,27 +892,63 @@ const isGPUAvailable = (): boolean => {
       notification.style.position = 'fixed';
       notification.style.bottom = '20px';
       notification.style.right = '20px';
-      notification.style.padding = '10px 15px';
-      notification.style.background = gpuAccelerationAvailable ? 'rgba(0, 128, 0, 0.8)' : 'rgba(128, 0, 0, 0.8)';
+      notification.style.padding = '15px';
+      notification.style.background = gpuAccelerationAvailable ? 'rgba(0, 128, 0, 0.85)' : 'rgba(128, 0, 0, 0.85)';
       notification.style.color = 'white';
       notification.style.borderRadius = '5px';
       notification.style.zIndex = '9999';
       notification.style.fontFamily = 'sans-serif';
       notification.style.fontSize = '14px';
       notification.style.fontWeight = 'bold';
-      notification.textContent = gpuAccelerationAvailable 
-        ? '✅ GPU Acceleration Enabled' 
-        : '⚠️ Using CPU Fallback';
+      notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+      
+      // Create more detailed notification with HTML
+      let content = gpuAccelerationAvailable 
+        ? '<div style="display: flex; align-items: center; gap: 10px;">' +
+          '<div style="font-size: 24px;">✅</div>' +
+          '<div>' +
+          '<div style="font-weight: bold;">GPU Acceleration Enabled</div>' +
+          '<div style="font-size: 12px; opacity: 0.9; font-weight: normal; margin-top: 4px;">Performance boost available for:</div>' +
+          '</div></div>'
+        : '<div style="display: flex; align-items: center; gap: 10px;">' +
+          '<div style="font-size: 24px;">⚠️</div>' +
+          '<div>' +
+          '<div style="font-weight: bold;">Using CPU Processing</div>' +
+          '<div style="font-size: 12px; opacity: 0.9; font-weight: normal; margin-top: 4px;">WebGL not available in your browser</div>' +
+          '</div></div>';
+      
+      // Add filter support details if GPU is available
+      if (gpuAccelerationAvailable) {
+        content += '<div style="margin-top: 10px; font-size: 12px; font-weight: normal;">';
+        content += '<ul style="margin: 0; padding-left: 20px;">';
+        
+        // List of accelerated filters with icons
+        const filters = [
+          { name: 'Blur', icon: '🌫️' },
+          { name: 'Noise (Perlin/Simplex)', icon: '🔄' },
+          { name: 'Halftone', icon: '🔍' },
+          { name: 'Glow', icon: '✨' },
+          { name: 'Sharpen', icon: '🔪' }
+        ];
+        
+        filters.forEach(filter => {
+          content += `<li>${filter.icon} ${filter.name}</li>`;
+        });
+        
+        content += '</ul></div>';
+      }
+      
+      notification.innerHTML = content;
       
       // Add to document
       document.body.appendChild(notification);
       
-      // Remove after 5 seconds
+      // Remove after 8 seconds
       setTimeout(() => {
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
-      }, 5000);
+      }, 8000);
     }
   }
   return gpuAccelerationAvailable === true;
@@ -869,9 +984,11 @@ const applyFilter = (
         // If GPU filtering failed, fall back to CPU implementation
         if (!success) {
           console.log(`GPU acceleration failed for ${filterType}, falling back to CPU`);
+          showGPUStatusIndicator(filterType, false);
           applyCPUFilter(filterType, ctx, canvas, params);
         } else {
           console.log(`Applied ${filterType} filter using GPU acceleration`);
+          showGPUStatusIndicator(filterType, true);
         }
       };
       
