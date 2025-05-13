@@ -12,7 +12,8 @@ export type FilterType =
   | 'wave' 
   | 'pixelate'
   | 'findEdges'
-  | 'glow';
+  | 'glow'
+  | 'halftone';
 
 export type NodeType = 'filterNode' | 'imageNode';
 

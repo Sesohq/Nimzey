@@ -109,6 +109,192 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
   return [...chain, ...allConnectedNodes];
 };
 
+// Highlight Glow filter implementation
+function applyGlowFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+
+  // Parse parameters
+  const radius = parseInt(String(paramsObj.radius || '10'));
+  const threshold = parseInt(String(paramsObj.threshold || '220')); // Luminance threshold for highlights
+  const intensity = parseInt(String(paramsObj.intensity || '100')) / 100;
+  const blendMode = paramsObj.blendMode || 'Screen';
+  const glowColor = paramsObj.glowColor || 'Original';
+  
+  // Step 1: Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Step 2: Create a highlight mask - extract only the bright parts
+  const highlightMask = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i += 4) {
+    // Calculate luminance using the formula from the requirements
+    const luminance = Math.round(0.3 * originalData[i] + 0.59 * originalData[i + 1] + 0.11 * originalData[i + 2]);
+    
+    if (luminance > threshold) {
+      // If pixel is bright enough, keep it (with original color or apply a tint)
+      if (glowColor === 'Original') {
+        highlightMask[i] = originalData[i];        // R
+        highlightMask[i + 1] = originalData[i + 1]; // G
+        highlightMask[i + 2] = originalData[i + 2]; // B
+      } else if (glowColor === 'White') {
+        highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 255;
+      } else if (glowColor === 'Golden') {
+        // Warm golden glow
+        highlightMask[i] = 255;           // R (full)
+        highlightMask[i + 1] = 215;       // G (high)
+        highlightMask[i + 2] = 120;       // B (medium-low)
+      } else if (glowColor === 'Blue') {
+        // Cool blue glow
+        highlightMask[i] = 100;           // R (low)
+        highlightMask[i + 1] = 180;       // G (medium-high)
+        highlightMask[i + 2] = 255;       // B (full)
+      } else if (glowColor === 'Pink') {
+        // Pink glow
+        highlightMask[i] = 255;           // R (full)
+        highlightMask[i + 1] = 105;       // G (low-medium)
+        highlightMask[i + 2] = 210;       // B (high)
+      }
+      
+      // Scale by how far above threshold (creates smoother transition at edges)
+      const intensityFactor = (luminance - threshold) / (255 - threshold);
+      highlightMask[i] = Math.round(highlightMask[i] * intensityFactor);
+      highlightMask[i + 1] = Math.round(highlightMask[i + 1] * intensityFactor);
+      highlightMask[i + 2] = Math.round(highlightMask[i + 2] * intensityFactor);
+      
+      // Copy alpha
+      highlightMask[i + 3] = originalData[i + 3];
+    } else {
+      // If not bright enough, set to black (no glow)
+      highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 0;
+      highlightMask[i + 3] = originalData[i + 3]; // Keep original alpha
+    }
+  }
+  
+  // Step 3: Apply blur to the highlight mask to create the glow effect
+  const blurredMask = new Uint8ClampedArray(highlightMask.length);
+  
+  // Copy initial data
+  for (let i = 0; i < highlightMask.length; i++) {
+    blurredMask[i] = highlightMask[i];
+  }
+  
+  // Box blur for simplicity and performance - can be applied multiple times for smoother result
+  const iterations = Math.min(3, Math.max(1, Math.floor(radius / 5))); // 1-3 iterations based on radius
+  
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const tempMask = new Uint8ClampedArray(blurredMask.length);
+    
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+        let count = 0;
+        
+        // Sample surrounding pixels in horizontal direction
+        for (let kx = -radius; kx <= radius; kx++) {
+          const sampleX = Math.min(Math.max(0, x + kx), width - 1);
+          const idx = (y * width + sampleX) * 4;
+          
+          rSum += blurredMask[idx];
+          gSum += blurredMask[idx + 1];
+          bSum += blurredMask[idx + 2];
+          aSum += blurredMask[idx + 3];
+          count++;
+        }
+        
+        // Write average to temp buffer
+        const targetIdx = (y * width + x) * 4;
+        tempMask[targetIdx] = rSum / count;
+        tempMask[targetIdx + 1] = gSum / count;
+        tempMask[targetIdx + 2] = bSum / count;
+        tempMask[targetIdx + 3] = aSum / count;
+      }
+    }
+    
+    // Vertical pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+        let count = 0;
+        
+        // Sample surrounding pixels in vertical direction
+        for (let ky = -radius; ky <= radius; ky++) {
+          const sampleY = Math.min(Math.max(0, y + ky), height - 1);
+          const idx = (sampleY * width + x) * 4;
+          
+          rSum += tempMask[idx];
+          gSum += tempMask[idx + 1];
+          bSum += tempMask[idx + 2];
+          aSum += tempMask[idx + 3];
+          count++;
+        }
+        
+        // Write average to blurred buffer
+        const targetIdx = (y * width + x) * 4;
+        blurredMask[targetIdx] = rSum / count;
+        blurredMask[targetIdx + 1] = gSum / count;
+        blurredMask[targetIdx + 2] = bSum / count;
+        blurredMask[targetIdx + 3] = aSum / count;
+      }
+    }
+  }
+  
+  // Step 4: Blend the blurred highlights back with the original image
+  for (let i = 0; i < data.length; i += 4) {
+    // Apply the intensity parameter
+    const glowR = blurredMask[i] * intensity;
+    const glowG = blurredMask[i + 1] * intensity;
+    const glowB = blurredMask[i + 2] * intensity;
+    
+    // Apply different blend modes 
+    if (blendMode === 'Screen') {
+      // Screen blend mode: 1 - (1 - a) * (1 - b)
+      data[i] = 255 - ((255 - data[i]) * (255 - glowR)) / 255;
+      data[i + 1] = 255 - ((255 - data[i + 1]) * (255 - glowG)) / 255;
+      data[i + 2] = 255 - ((255 - data[i + 2]) * (255 - glowB)) / 255;
+    } 
+    else if (blendMode === 'Add') {
+      // Add blend mode: simply add values with clamping
+      data[i] = Math.min(255, data[i] + glowR);
+      data[i + 1] = Math.min(255, data[i + 1] + glowG);
+      data[i + 2] = Math.min(255, data[i + 2] + glowB);
+    }
+    else if (blendMode === 'Lighten') {
+      // Lighten blend mode: take max of each channel
+      data[i] = Math.max(data[i], glowR);
+      data[i + 1] = Math.max(data[i + 1], glowG);
+      data[i + 2] = Math.max(data[i + 2], glowB);
+    }
+    else if (blendMode === 'Soft Light') {
+      // Soft Light blend mode formula (simplified version)
+      for (let c = 0; c < 3; c++) {
+        const base = data[i + c] / 255;
+        const blend = blurredMask[i + c] * intensity / 255;
+        
+        let result;
+        if (blend < 0.5) {
+          result = base - (1 - 2 * blend) * base * (1 - base);
+        } else {
+          result = base + (2 * blend - 1) * (Math.sqrt(base) - base);
+        }
+        
+        data[i + c] = Math.min(255, Math.max(0, result * 255));
+      }
+    }
+  }
+}
+
 // Apply a specific filter based on type
 const applyFilter = (
   filterType: FilterType,
@@ -155,6 +341,9 @@ const applyFilter = (
       break;
     case 'glow':
       applyGlowFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'halftone':
+      applyHalftoneFilter(data, canvas.width, canvas.height, ctx, params);
       break;
   }
   
@@ -1109,11 +1298,12 @@ function applyPrewittOperator(
   }
 }
 
-// Highlight Glow filter implementation
-function applyGlowFilter(
+// Halftone filter implementation based on the provided requirements
+function applyHalftoneFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
+  ctx: CanvasRenderingContext2D,
   params: any[] = []
 ): void {
   // Extract parameters
@@ -1121,177 +1311,402 @@ function applyGlowFilter(
   params.forEach(param => {
     paramsObj[param.name] = param.value;
   });
-
-  // Parse parameters
-  const radius = parseInt(String(paramsObj.radius || '10'));
-  const threshold = parseInt(String(paramsObj.threshold || '220')); // Luminance threshold for highlights
-  const intensity = parseInt(String(paramsObj.intensity || '100')) / 100;
-  const blendMode = paramsObj.blendMode || 'Screen';
-  const glowColor = paramsObj.glowColor || 'Original';
   
-  // Step 1: Create a copy of the original data
+  // Parse parameters
+  const gridSize = parseInt(String(paramsObj.gridSize || '8'));
+  const minDotSize = parseFloat(String(paramsObj.minDotSize || '0')) / 100; // Convert from percentage to 0-1 range
+  const maxDotSize = parseFloat(String(paramsObj.maxDotSize || '90')) / 100; // Convert from percentage to 0-1 range
+  const shape = paramsObj.shape || 'Circle';
+  const angle = parseInt(String(paramsObj.angle || '0'));
+  const dotColor = paramsObj.dotColor || 'Black';
+  const channelMode = paramsObj.channelMode || 'Grayscale';
+  
+  // Save original image data
   const originalData = new Uint8ClampedArray(data.length);
   for (let i = 0; i < data.length; i++) {
     originalData[i] = data[i];
   }
   
-  // Step 2: Create a highlight mask - extract only the bright parts
-  const highlightMask = new Uint8ClampedArray(data.length);
-  for (let i = 0; i < data.length; i += 4) {
-    // Calculate luminance using the formula from the requirements
-    const luminance = Math.round(0.3 * originalData[i] + 0.59 * originalData[i + 1] + 0.11 * originalData[i + 2]);
-    
-    if (luminance > threshold) {
-      // If pixel is bright enough, keep it (with original color or apply a tint)
-      if (glowColor === 'Original') {
-        highlightMask[i] = originalData[i];        // R
-        highlightMask[i + 1] = originalData[i + 1]; // G
-        highlightMask[i + 2] = originalData[i + 2]; // B
-      } else if (glowColor === 'White') {
-        highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 255;
-      } else if (glowColor === 'Golden') {
-        // Warm golden glow
-        highlightMask[i] = 255;           // R (full)
-        highlightMask[i + 1] = 215;       // G (high)
-        highlightMask[i + 2] = 120;       // B (medium-low)
-      } else if (glowColor === 'Blue') {
-        // Cool blue glow
-        highlightMask[i] = 100;           // R (low)
-        highlightMask[i + 1] = 180;       // G (medium-high)
-        highlightMask[i + 2] = 255;       // B (full)
-      } else if (glowColor === 'Pink') {
-        // Pink glow
-        highlightMask[i] = 255;           // R (full)
-        highlightMask[i + 1] = 105;       // G (low-medium)
-        highlightMask[i + 2] = 210;       // B (high)
-      }
-      
-      // Scale by how far above threshold (creates smoother transition at edges)
-      const intensity = (luminance - threshold) / (255 - threshold);
-      highlightMask[i] = Math.round(highlightMask[i] * intensity);
-      highlightMask[i + 1] = Math.round(highlightMask[i + 1] * intensity);
-      highlightMask[i + 2] = Math.round(highlightMask[i + 2] * intensity);
-      
-      // Copy alpha
-      highlightMask[i + 3] = originalData[i + 3];
-    } else {
-      // If not bright enough, set to black (no glow)
-      highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 0;
-      highlightMask[i + 3] = originalData[i + 3]; // Keep original alpha
-    }
+  // Create a temporary canvas for drawing the halftone pattern
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
+  
+  // Fill with a background color - will be visible between dots
+  if (dotColor === 'Black') {
+    tempCtx.fillStyle = 'white';
+  } else if (dotColor === 'White') {
+    tempCtx.fillStyle = 'black';
+  } else {
+    tempCtx.fillStyle = 'white'; // Default for Original and Custom
   }
   
-  // Step 3: Apply blur to the highlight mask to create the glow effect
-  const blurredMask = new Uint8ClampedArray(highlightMask.length);
+  tempCtx.fillRect(0, 0, width, height);
   
-  // Copy initial data
-  for (let i = 0; i < highlightMask.length; i++) {
-    blurredMask[i] = highlightMask[i];
+  // Define dot color
+  let fillColorR = 0, fillColorG = 0, fillColorB = 0;
+  
+  if (dotColor === 'Black') {
+    fillColorR = fillColorG = fillColorB = 0;
+  } else if (dotColor === 'White') {
+    fillColorR = fillColorG = fillColorB = 255;
+  } else if (dotColor === 'Custom') {
+    // Some preset custom color - could be parameterized further
+    fillColorR = 50;
+    fillColorG = 100;
+    fillColorB = 200;
   }
   
-  // Box blur for simplicity and performance - can be applied multiple times for smoother result
-  const iterations = Math.min(3, Math.max(1, Math.floor(radius / 5))); // 1-3 iterations based on radius
+  // Save context state
+  tempCtx.save();
   
-  for (let iteration = 0; iteration < iterations; iteration++) {
-    const tempMask = new Uint8ClampedArray(blurredMask.length);
-    
-    // Horizontal pass
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
-        let count = 0;
-        
-        // Sample surrounding pixels in horizontal direction
-        for (let kx = -radius; kx <= radius; kx++) {
-          const sampleX = Math.min(Math.max(0, x + kx), width - 1);
-          const idx = (y * width + sampleX) * 4;
-          
-          rSum += blurredMask[idx];
-          gSum += blurredMask[idx + 1];
-          bSum += blurredMask[idx + 2];
-          aSum += blurredMask[idx + 3];
-          count++;
-        }
-        
-        // Write average to temp buffer
-        const targetIdx = (y * width + x) * 4;
-        tempMask[targetIdx] = rSum / count;
-        tempMask[targetIdx + 1] = gSum / count;
-        tempMask[targetIdx + 2] = bSum / count;
-        tempMask[targetIdx + 3] = aSum / count;
-      }
-    }
-    
-    // Vertical pass
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
-        let count = 0;
-        
-        // Sample surrounding pixels in vertical direction
-        for (let ky = -radius; ky <= radius; ky++) {
-          const sampleY = Math.min(Math.max(0, y + ky), height - 1);
-          const idx = (sampleY * width + x) * 4;
-          
-          rSum += tempMask[idx];
-          gSum += tempMask[idx + 1];
-          bSum += tempMask[idx + 2];
-          aSum += tempMask[idx + 3];
-          count++;
-        }
-        
-        // Write average to blurred buffer
-        const targetIdx = (y * width + x) * 4;
-        blurredMask[targetIdx] = rSum / count;
-        blurredMask[targetIdx + 1] = gSum / count;
-        blurredMask[targetIdx + 2] = bSum / count;
-        blurredMask[targetIdx + 3] = aSum / count;
-      }
-    }
+  // Apply rotation if needed
+  if (angle !== 0) {
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((angle * Math.PI) / 180);
+    tempCtx.translate(-width / 2, -height / 2);
   }
   
-  // Step 4: Blend the blurred highlights back with the original image
-  for (let i = 0; i < data.length; i += 4) {
-    // Apply the intensity parameter
-    const glowR = blurredMask[i] * intensity;
-    const glowG = blurredMask[i + 1] * intensity;
-    const glowB = blurredMask[i + 2] * intensity;
+  // Handle different channel modes
+  if (channelMode === 'Grayscale') {
+    // Process as grayscale
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      dotColor === 'Original' ? null : { r: fillColorR, g: fillColorG, b: fillColorB }
+    );
+  } 
+  else if (channelMode === 'RGB') {
+    // Process R, G, B channels separately with different angles
+    // First clear to white/black
+    tempCtx.clearRect(0, 0, width, height);
     
-    // Apply different blend modes 
-    if (blendMode === 'Screen') {
-      // Screen blend mode: 1 - (1 - a) * (1 - b)
-      data[i] = 255 - ((255 - data[i]) * (255 - glowR)) / 255;
-      data[i + 1] = 255 - ((255 - data[i + 1]) * (255 - glowG)) / 255;
-      data[i + 2] = 255 - ((255 - data[i + 2]) * (255 - glowB)) / 255;
-    } 
-    else if (blendMode === 'Add') {
-      // Add blend mode: simply add values with clamping
-      data[i] = Math.min(255, data[i] + glowR);
-      data[i + 1] = Math.min(255, data[i + 1] + glowG);
-      data[i + 2] = Math.min(255, data[i + 2] + glowB);
-    }
-    else if (blendMode === 'Lighten') {
-      // Lighten blend mode: take max of each channel
-      data[i] = Math.max(data[i], glowR);
-      data[i + 1] = Math.max(data[i + 1], glowG);
-      data[i + 2] = Math.max(data[i + 2], glowB);
-    }
-    else if (blendMode === 'Soft Light') {
-      // Soft Light blend mode formula (simplified version)
-      for (let c = 0; c < 3; c++) {
-        const base = data[i + c] / 255;
-        const blend = blurredMask[i + c] * intensity / 255;
+    // Red channel (typically at 15-25 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((15 * Math.PI) / 180); // 15 degree angle for red
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 255, g: 0, b: 0 },
+      0 // red channel
+    );
+    tempCtx.restore();
+    
+    // Green channel (typically at 75 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((75 * Math.PI) / 180); // 75 degree angle for green
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 0, g: 255, b: 0 },
+      1 // green channel
+    );
+    tempCtx.restore();
+    
+    // Blue channel (typically at 0 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((0 * Math.PI) / 180); // 0 degree angle for blue
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 0, g: 0, b: 255 },
+      2 // blue channel
+    );
+    tempCtx.restore();
+  }
+  else if (channelMode === 'CMYK') {
+    // Process C, M, Y, K channels separately 
+    // First clear to white
+    tempCtx.clearRect(0, 0, width, height);
+    tempCtx.fillStyle = 'white';
+    tempCtx.fillRect(0, 0, width, height);
+    tempCtx.globalCompositeOperation = 'multiply'; // Use multiply blend mode to simulate CMYK
+    
+    // Cyan channel (typically at 15 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((15 * Math.PI) / 180);
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    // Use RGB to simulate CMYK
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 0, g: 255, b: 255 }, // Cyan
+      null, // all channels
+      invertBrightness
+    );
+    tempCtx.restore();
+    
+    // Magenta channel (typically at 75 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((75 * Math.PI) / 180);
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 255, g: 0, b: 255 }, // Magenta
+      null, // all channels
+      invertBrightness
+    );
+    tempCtx.restore();
+    
+    // Yellow channel (typically at 0 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((0 * Math.PI) / 180);
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 255, g: 255, b: 0 }, // Yellow
+      null, // all channels
+      invertBrightness
+    );
+    tempCtx.restore();
+    
+    // Black/Key channel (typically at 45 degrees in print)
+    tempCtx.save();
+    tempCtx.translate(width / 2, height / 2);
+    tempCtx.rotate((45 * Math.PI) / 180);
+    tempCtx.translate(-width / 2, -height / 2);
+    
+    drawHalftonePattern(
+      originalData,
+      tempCtx,
+      width,
+      height,
+      gridSize,
+      minDotSize,
+      maxDotSize,
+      shape,
+      { r: 0, g: 0, b: 0 }, // Black
+      null, // all channels
+      // For K channel we use luminance calculation
+      (r, g, b) => {
+        const luminance = 0.3 * r + 0.59 * g + 0.11 * b;
+        return 255 - luminance; // Inverted for K channel
+      }
+    );
+    tempCtx.restore();
+    
+    // Reset blend mode
+    tempCtx.globalCompositeOperation = 'source-over';
+  }
+  
+  // Restore context state
+  tempCtx.restore();
+  
+  // Get the halftone image data and replace original
+  const halftoneData = tempCtx.getImageData(0, 0, width, height).data;
+  for (let i = 0; i < data.length; i++) {
+    data[i] = halftoneData[i];
+  }
+  
+  // Helper functions
+  
+  // Function to draw the halftone pattern
+  function drawHalftonePattern(
+    sourceData: Uint8ClampedArray,
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    gridSize: number,
+    minDotSize: number,
+    maxDotSize: number,
+    shape: string,
+    color: { r: number, g: number, b: number } | null,
+    channel: number | null = null,
+    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null
+  ) {
+    // Step through the image in grid cells
+    for (let y = 0; y < height; y += gridSize) {
+      for (let x = 0; x < width; x += gridSize) {
+        // Calculate center of the grid cell
+        const centerX = x + gridSize / 2;
+        const centerY = y + gridSize / 2;
         
-        let result;
-        if (blend < 0.5) {
-          result = base - (1 - 2 * blend) * base * (1 - base);
+        // Get the average brightness in this grid cell
+        let brightness = getAverageBrightnessInGrid(sourceData, x, y, gridSize, width, height, channel, brightnessMapper);
+        
+        // Map brightness to dot size radius (smaller dots for darker areas in normal halftone)
+        const radius = mapBrightnessToRadius(brightness, gridSize, minDotSize, maxDotSize);
+        
+        // Set the fill color
+        if (color) {
+          ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
         } else {
-          result = base + (2 * blend - 1) * (Math.sqrt(base) - base);
+          // Use original image color at this cell
+          const centerIdx = ((Math.min(y + Math.floor(gridSize / 2), height - 1)) * width + (Math.min(x + Math.floor(gridSize / 2), width - 1))) * 4;
+          const r = sourceData[centerIdx];
+          const g = sourceData[centerIdx + 1];
+          const b = sourceData[centerIdx + 2];
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         }
         
-        data[i + c] = Math.min(255, Math.max(0, result * 255));
+        // Draw the appropriate shape
+        drawShape(ctx, centerX, centerY, radius, shape);
       }
     }
+  }
+  
+  // Function to get average brightness in a grid cell
+  function getAverageBrightnessInGrid(
+    data: Uint8ClampedArray,
+    startX: number,
+    startY: number,
+    gridSize: number,
+    width: number,
+    height: number,
+    channel: number | null = null,
+    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null
+  ): number {
+    let totalBrightness = 0;
+    let pixelCount = 0;
+    
+    const endX = Math.min(startX + gridSize, width);
+    const endY = Math.min(startY + gridSize, height);
+    
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const idx = (y * width + x) * 4;
+        
+        let brightness;
+        if (channel !== null) {
+          // Use specific RGB channel
+          brightness = data[idx + channel]; 
+        } else if (brightnessMapper) {
+          // Use custom brightness mapping function
+          brightness = brightnessMapper(data[idx], data[idx + 1], data[idx + 2]);
+        } else {
+          // Use standard luminance formula
+          brightness = Math.round(0.3 * data[idx] + 0.59 * data[idx + 1] + 0.11 * data[idx + 2]);
+        }
+        
+        totalBrightness += brightness;
+        pixelCount++;
+      }
+    }
+    
+    return pixelCount > 0 ? totalBrightness / pixelCount : 0;
+  }
+  
+  // Function to map brightness to dot radius
+  function mapBrightnessToRadius(brightness: number, gridSize: number, minDotSize: number, maxDotSize: number): number {
+    // Map brightness (0-255) to dot size (min to max of grid size)
+    const normalizedBrightness = brightness / 255;
+    const dotSizeRange = maxDotSize - minDotSize;
+    return (normalizedBrightness * dotSizeRange + minDotSize) * (gridSize / 2);
+  }
+  
+  // Function to draw different shapes
+  function drawShape(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, shape: string): void {
+    switch (shape) {
+      case 'Circle':
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        break;
+        
+      case 'Square':
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+        break;
+        
+      case 'Line':
+        ctx.beginPath();
+        ctx.lineWidth = radius / 2;
+        ctx.moveTo(x - radius, y);
+        ctx.lineTo(x + radius, y);
+        ctx.stroke();
+        break;
+        
+      case 'Cross':
+        ctx.beginPath();
+        ctx.lineWidth = radius / 2;
+        ctx.moveTo(x - radius, y);
+        ctx.lineTo(x + radius, y);
+        ctx.moveTo(x, y - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.stroke();
+        break;
+        
+      case 'Diamond':
+        ctx.beginPath();
+        ctx.moveTo(x, y - radius);
+        ctx.lineTo(x + radius, y);
+        ctx.lineTo(x, y + radius);
+        ctx.lineTo(x - radius, y);
+        ctx.closePath();
+        ctx.fill();
+        break;
+        
+      default:
+        // Default to circle
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+  }
+  
+  // Function to invert brightness (for CMYK-like effects)
+  function invertBrightness(r: number, g: number, b: number): number {
+    const luminance = 0.3 * r + 0.59 * g + 0.11 * b;
+    return 255 - luminance;
   }
 }
 

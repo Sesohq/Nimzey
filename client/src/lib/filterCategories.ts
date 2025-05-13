@@ -374,6 +374,73 @@ export const filterCategories: Record<string, FilterCategory> = {
             value: 'Original'
           }
         ]
+      },
+      {
+        name: 'Halftone',
+        type: 'halftone',
+        params: [
+          {
+            name: 'gridSize',
+            label: 'Grid Size',
+            type: 'range',
+            min: 2,
+            max: 30,
+            step: 1,
+            value: 8,
+            unit: 'px'
+          },
+          {
+            name: 'minDotSize',
+            label: 'Min Dot Size',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'maxDotSize',
+            label: 'Max Dot Size',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 90,
+            unit: '%'
+          },
+          {
+            name: 'shape',
+            label: 'Dot Shape',
+            type: 'select',
+            options: ['Circle', 'Square', 'Line', 'Cross', 'Diamond'],
+            value: 'Circle'
+          },
+          {
+            name: 'angle',
+            label: 'Rotation Angle',
+            type: 'range',
+            min: 0,
+            max: 90,
+            step: 1,
+            value: 0,
+            unit: '°'
+          },
+          {
+            name: 'dotColor',
+            label: 'Dot Color',
+            type: 'select',
+            options: ['Original', 'Black', 'White', 'Custom'],
+            value: 'Black'
+          },
+          {
+            name: 'channelMode',
+            label: 'Channel Mode',
+            type: 'select',
+            options: ['Grayscale', 'RGB', 'CMYK'],
+            value: 'Grayscale'
+          }
+        ]
       }
     ]
   }
