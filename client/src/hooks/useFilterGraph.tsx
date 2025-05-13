@@ -103,6 +103,60 @@ export function useFilterGraph() {
   // Forward declaration for generateNodePreview
   const generateNodePreviewRef = useRef<(node: Node) => void>(() => {});
   
+  // Enhanced helper function to get the chain of nodes leading to a specific node
+  const getNodeChain = (targetNodeId: string, allNodes: Node[], allEdges: Edge[]) => {
+    console.log(`Getting node chain for ${targetNodeId}`);
+    
+    const resultNodes: Node[] = [];
+    const resultEdges: Edge[] = [];
+    const visited = new Set<string>();
+
+    // Start with the target node
+    const startNode = allNodes.find(n => n.id === targetNodeId);
+    if (!startNode) {
+      console.warn(`Target node ${targetNodeId} not found`);
+      return { nodes: [], edges: [] };
+    }
+
+    // Recursive function to trace back dependencies
+    function traceBackDependencies(nodeId: string) {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+
+      // Find the node
+      const node = allNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // Add the node to the front of the result (ensures correct processing order)
+      resultNodes.unshift(node);
+      console.log(`Added node ${nodeId} (${node.type}) to node chain`);
+
+      // Find incoming edges
+      const incomingEdges = allEdges.filter(e => e.target === nodeId);
+      
+      // Add incoming edges
+      resultEdges.unshift(...incomingEdges);
+
+      // Recursively trace back for each source node
+      incomingEdges.forEach(edge => {
+        traceBackDependencies(edge.source);
+      });
+    }
+
+    // Start tracing from the target node
+    traceBackDependencies(targetNodeId);
+    
+    // If no source node is in the chain, try to find and add it
+    const sourceNode = allNodes.find(node => node.type === "imageNode");
+    if (sourceNode && !resultNodes.some(n => n.id === sourceNode.id)) {
+      resultNodes.unshift(sourceNode);
+      console.log(`Added source node ${sourceNode.id} to beginning of chain`);
+    }
+
+    console.log(`Finished chain calculation: ${resultNodes.length} nodes, ${resultEdges.length} edges`);
+    return { nodes: resultNodes, edges: resultEdges };
+  };
+
   // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback(
     (nodeId: string, paramName: string, value: number | string) => {
@@ -171,6 +225,8 @@ export function useFilterGraph() {
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback(
     (nodeId: string, enabled: boolean) => {
+      console.log(`Toggling node ${nodeId} to ${enabled ? 'enabled' : 'disabled'}`);
+      
       // Bust the cache when a node is enabled/disabled
       nodeResultCache.delete(nodeId);
       
@@ -190,53 +246,24 @@ export function useFilterGraph() {
         });
       });
       
-      // Process the image after the update
-      if (processImageRef.current) {
-        // First update the node preview
-        setTimeout(() => {
-          // Find the node in the updated nodes state
-          const node = nodes.find(n => n.id === nodeId);
-          if (node && node.type === "filterNode") {
-            console.log(`Regenerating preview for node ${nodeId} after toggle enabled`);
-            
-            // Create a path from source to this node
-            const nodeChain = getNodeChain(nodeId, nodes, edges);
-            console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
-              nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
-            );
-            
-            // Process the node and generate a preview
-            if (sourceImageRef.current && nodeChain.nodes.length > 0) {
-              // Create a temporary small canvas for the preview
-              const tempCanvas = document.createElement("canvas");
-              tempCanvas.width = 150;
-              tempCanvas.height = 150;
-              
-              // Apply the filter chain to generate the preview
-              const previewUrl = applyFilters(
-                sourceImageRef.current,
-                nodeChain.nodes,
-                nodeChain.edges,
-                tempCanvas
-              );
-              
-              // Update this specific node with the new preview
-              setNodes(current => 
-                current.map(n => 
-                  n.id === nodeId 
-                    ? { ...n, data: { ...n.data, preview: previewUrl } } 
-                    : n
-                )
-              );
-            }
-          }
-          
-          // Then update the main preview
-          processImageRef.current?.();
-        }, 10);
-      }
+      // Wait for the state update to complete before generating a new preview
+      setTimeout(() => {
+        const updatedNode = nodes.find(n => n.id === nodeId);
+        if (!updatedNode) return;
+
+        // Always use generateNodePreview for consistent behavior
+        if (generateNodePreviewRef.current) {
+          console.log(`Regenerating preview for ${nodeId} (${updatedNode.type}) after toggling enabled`);
+          generateNodePreviewRef.current(updatedNode);
+        }
+        
+        // Update the main preview as well
+        if (processImageRef.current) {
+          processImageRef.current();
+        }
+      }, 10);
     },
-    [nodes, edges, getNodeChain, applyFilters],
+    [nodes],
   );
 
   // Handle changing blend mode on filter nodes
@@ -638,27 +665,27 @@ export function useFilterGraph() {
   }, [generateNodePreview]);
 
   // Enhanced helper function to get the chain of nodes leading to a specific node
-  const getNodeChain = (nodeId: string, allNodes: Node[], allEdges: Edge[]) => {
-    console.log(`Getting optimized node chain for ${nodeId}`);
+  const getNodeChain = (targetNodeId: string, nodes: Node[], edges: Edge[]) => {
+    console.log(`Getting node chain for ${targetNodeId}`);
     
     const resultNodes: Node[] = [];
     const resultEdges: Edge[] = [];
     const visited = new Set<string>();
 
     // Start with the target node
-    const targetNode = allNodes.find(n => n.id === nodeId);
-    if (!targetNode) {
-      console.warn(`Target node ${nodeId} not found`);
+    const startNode = nodes.find(n => n.id === targetNodeId);
+    if (!startNode) {
+      console.warn(`Target node ${targetNodeId} not found`);
       return { nodes: [], edges: [] };
     }
 
     // Recursive function to trace back dependencies
-    const traceBackDependencies = (nodeId: string) => {
+    function traceBackDependencies(nodeId: string) {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
 
       // Find the node
-      const node = allNodes.find(n => n.id === nodeId);
+      const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
 
       // Add the node to the front of the result (ensures correct processing order)
@@ -666,41 +693,28 @@ export function useFilterGraph() {
       console.log(`Added node ${nodeId} (${node.type}) to node chain`);
 
       // Find incoming edges
-      const incomingEdges = allEdges.filter(e => e.target === nodeId);
+      const incomingEdges = edges.filter(e => e.target === nodeId);
       
-      // Add incoming edges to the front of the result
-      for (const edge of incomingEdges) {
-        resultEdges.unshift(edge);
-        console.log(`Added edge ${edge.source} -> ${edge.target} to chain`);
-      }
+      // Add incoming edges
+      resultEdges.unshift(...incomingEdges);
 
       // Recursively trace back for each source node
       incomingEdges.forEach(edge => {
         traceBackDependencies(edge.source);
       });
-    };
-
-    // Start tracing from the target node
-    traceBackDependencies(nodeId);
-
-    // If we have no nodes yet, we might have a standalone node (like a source node)
-    if (resultNodes.length === 0 && targetNode) {
-      resultNodes.push(targetNode);
-      console.log(`Added standalone node ${nodeId} (${targetNode.type}) to chain`);
     }
 
-    // Source node should always be included as the first node if it exists
-    const sourceNode = allNodes.find(node => node.type === "imageNode");
+    // Start tracing from the target node
+    traceBackDependencies(targetNodeId);
+    
+    // If no source node is in the chain, try to find and add it
+    const sourceNode = nodes.find(node => node.type === "imageNode");
     if (sourceNode && !resultNodes.some(n => n.id === sourceNode.id)) {
       resultNodes.unshift(sourceNode);
       console.log(`Added source node ${sourceNode.id} to beginning of chain`);
     }
 
-    // Output the final node chain for debugging
     console.log(`Finished chain calculation: ${resultNodes.length} nodes, ${resultEdges.length} edges`);
-    const nodeList = resultNodes.map(n => `- ${n.id} (${n.type})`).join("\n");
-    console.log(`Processing chain contains ${resultNodes.length} nodes:\n${nodeList}`);
-
     return { nodes: resultNodes, edges: resultEdges };
   };
 
