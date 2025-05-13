@@ -431,6 +431,7 @@ export function useFilterGraph() {
   const generateNodePreview = useCallback(
     (targetNode: Node) => {
       if (!sourceImageRef.current) return;
+      console.log(`Generating preview for node ${targetNode.id}`);
 
       try {
         // Find all nodes and edges in the chain leading to the selected node
@@ -461,7 +462,7 @@ export function useFilterGraph() {
           )
         );
 
-        // Node preview update complete
+        console.log(`Preview updated for node ${targetNode.id}`);
       } catch (error) {
         console.error("Error generating node preview:", error);
         setNodePreview(null);
@@ -469,6 +470,11 @@ export function useFilterGraph() {
     },
     [nodes, edges, sourceImageRef, setNodes, setNodePreview],
   );
+
+  // Update the reference to the generateNodePreview function
+  useEffect(() => {
+    generateNodePreviewRef.current = generateNodePreview;
+  }, [generateNodePreview]);
 
   // Gets all nodes and edges in a chain leading to a specific node
   const getNodeChain = (nodeId: string, allNodes: Node[], allEdges: Edge[]) => {
