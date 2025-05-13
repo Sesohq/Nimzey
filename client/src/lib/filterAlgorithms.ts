@@ -431,38 +431,47 @@ const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: E
 
 // Helper to get a path from source to a given node
 const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandle?: string): Node[] => {
-  const path: Node[] = [];
-  let currentNodeId = nodeId;
+  console.log(`Getting path to node ${nodeId} with targetHandle=${targetHandle || 'none'}`);
   
-  // Prevent infinite loops
-  const maxIterations = nodes.length;
-  let iterations = 0;
-  
-  while (currentNodeId && iterations < maxIterations) {
-    const node = nodes.find(n => n.id === currentNodeId);
-    if (!node) break;
-    
-    path.unshift(node);
-    
-    // For blend nodes, we need to choose the correct input path based on target handle
-    if (node.type === 'blendNode' && iterations === 0 && targetHandle) {
-      // If we're starting with a blend node and a specific handle is specified,
-      // follow only that input path
-      const sourceNode = getSourceNode(currentNodeId, nodes, edges, targetHandle);
-      if (!sourceNode) break;
-      currentNodeId = sourceNode.id;
-    } else {
-      // For other nodes or when no specific handle is specified,
-      // just follow the first available input
-      const sourceNode = getSourceNode(currentNodeId, nodes, edges);
-      if (!sourceNode) break;
-      currentNodeId = sourceNode.id;
-    }
-    
-    iterations++;
+  // Find the given node
+  const targetNode = nodes.find(n => n.id === nodeId);
+  if (!targetNode) {
+    console.warn(`Target node ${nodeId} not found`);
+    return [];
   }
   
-  return path;
+  // Find the source image node (entry point for processing)
+  const sourceNode = nodes.find(node => node.type === 'imageNode');
+  if (!sourceNode) {
+    console.warn('No source image node found');
+    return [];
+  }
+  
+  console.log(`Building processing chain from source node ${sourceNode.id} to target node ${nodeId}`);
+  
+  // Use the improved buildProcessingChain function, which does a proper topological sort
+  // to ensure correct processing order
+  const fullChain = buildProcessingChain(sourceNode.id, nodes, edges);
+  
+  // We only want nodes in the chain that lead to the target node
+  // For now, just include all nodes processed before the target node
+  const targetIndex = fullChain.findIndex(node => node.id === nodeId);
+  
+  if (targetIndex === -1) {
+    console.warn(`Target node ${nodeId} not found in processing chain`);
+    return [];
+  }
+  
+  // Include all nodes up to and including the target
+  const relevantNodes = fullChain.slice(0, targetIndex + 1);
+  console.log(`Found ${relevantNodes.length} nodes in path to ${nodeId}`);
+  
+  // Log the nodes in the path
+  relevantNodes.forEach(node => {
+    console.log(`- ${node.id} (${node.type})`);
+  });
+  
+  return relevantNodes;
 };
 
 // Cache for storing intermediate node results
@@ -1144,60 +1153,83 @@ const processBlendNode = (
 
 // Build a processing chain from source to all connected nodes
 // This function builds a chain of nodes to process starting from the source
-// and following all connections
+// and following all connections in a topologically sorted order
 const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[], visited: Set<string> = new Set()): Node[] => {
+  // We need to use a topological sort to ensure that nodes are processed in the correct order
+  console.log(`=== Building processing chain starting from ${sourceNodeId} ===`);
+  
+  // Initialize structures
   const sourceNode = nodes.find(node => node.id === sourceNodeId);
-  if (!sourceNode || visited.has(sourceNodeId)) return [];
+  if (!sourceNode) {
+    console.warn(`Source node ${sourceNodeId} not found`);
+    return [];
+  }
   
-  // Mark this node as visited to avoid cycles
-  visited.add(sourceNodeId);
+  // Create a copy of visited to avoid modifying the original
+  const localVisited = new Set(visited);
   
-  // Start the chain with this node
-  const chain = [sourceNode];
+  // If we've visited this node already, return empty to avoid cycles
+  if (localVisited.has(sourceNodeId)) {
+    console.log(`Node ${sourceNodeId} already visited, skipping`);
+    return [];
+  }
   
-  // Debug the chain building
-  console.log(`Building chain from node ${sourceNodeId} (${sourceNode.type})`);
+  // Mark source node as visited
+  localVisited.add(sourceNodeId);
   
-  // Get all nodes that this node connects to
-  const targetNodes = getTargetNodes(sourceNodeId, nodes, edges);
-  console.log(`Node ${sourceNodeId} connects to ${targetNodes.length} target nodes`);
+  // First get all inputs to this node and process them first
+  // This ensures dependencies are processed before the current node
+  const incomingNodes: Node[] = [];
+  const incomingEdges = edges.filter(edge => edge.target === sourceNodeId);
   
-  if (targetNodes.length === 0) return chain;
+  console.log(`Node ${sourceNodeId} has ${incomingEdges.length} incoming edges`);
   
-  // We need to process all outgoing connections from this node
-  let allConnectedNodes: Node[] = [];
-  
-  // Add the target node first
-  allConnectedNodes = [...targetNodes];
-  
-  // Then recursively process each target node
-  for (const targetNode of targetNodes) {
-    console.log(`Processing targets from ${sourceNodeId} to ${targetNode.id} (${targetNode.type})`);
-    
-    // For blend nodes, we need to also ensure their other input is processed
-    if (targetNode.type === 'blendNode') {
-      // We've already added the blend node to allConnectedNodes, now handle its outgoing connections
+  // Process all incoming nodes first (dependencies)
+  for (const edge of incomingEdges) {
+    const sourceId = edge.source;
+    if (!localVisited.has(sourceId)) {
+      console.log(`Processing dependency: ${sourceId} -> ${sourceNodeId}`);
+      const upstreamNodes = buildProcessingChain(sourceId, nodes, edges, localVisited);
+      incomingNodes.push(...upstreamNodes);
       
-      // Then continue with any nodes after the blend node
-      const nodesAfterBlend = getTargetNodes(targetNode.id, nodes, edges);
-      for (const nextNode of nodesAfterBlend) {
-        if (!visited.has(nextNode.id)) {
-          console.log(`Following blend node connection: ${targetNode.id} -> ${nextNode.id}`);
-          const nextNodeChain = buildProcessingChain(nextNode.id, nodes, edges, new Set(visited));
-          allConnectedNodes = [...allConnectedNodes, ...nextNodeChain.filter(n => n.id !== targetNode.id)];
-        }
-      }
-    } else {
-      // For regular nodes, just continue building the chain normally
-      if (!visited.has(targetNode.id)) {
-        console.log(`Following connection: ${sourceNodeId} -> ${targetNode.id}`);
-        const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, new Set(visited));
-        allConnectedNodes = [...allConnectedNodes, ...nextNodes.filter(n => n.id !== targetNode.id)];
-      }
+      // Mark all dependency nodes as visited
+      upstreamNodes.forEach(node => localVisited.add(node.id));
     }
   }
   
-  return [...chain, ...allConnectedNodes];
+  // Add the current node
+  let result = [...incomingNodes];
+  
+  // Only add the source node if it's not already included
+  if (!result.some(node => node.id === sourceNodeId)) {
+    result.push(sourceNode);
+    console.log(`Added node ${sourceNodeId} to processing chain`);
+  }
+  
+  // Now process all outgoing connections from this node
+  const outgoingEdges = edges.filter(edge => edge.source === sourceNodeId);
+  
+  console.log(`Node ${sourceNodeId} has ${outgoingEdges.length} outgoing edges`);
+  
+  // Process all target nodes
+  for (const edge of outgoingEdges) {
+    const targetId = edge.target;
+    if (!localVisited.has(targetId)) {
+      console.log(`Following outgoing connection: ${sourceNodeId} -> ${targetId}`);
+      const downstreamNodes = buildProcessingChain(targetId, nodes, edges, localVisited);
+      
+      // Add all new nodes to the result
+      downstreamNodes.forEach(node => {
+        if (!result.some(n => n.id === node.id)) {
+          result.push(node);
+          console.log(`Added downstream node ${node.id} to processing chain`);
+        }
+      });
+    }
+  }
+  
+  console.log(`Chain from ${sourceNodeId} contains ${result.length} nodes`);
+  return result;
 };
 
 // Highlight Glow filter implementation
