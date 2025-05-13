@@ -49,6 +49,52 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
   useEffect(() => {
     fetchPresets();
   }, []);
+  
+  // Function to resize and compress a base64 image
+  const resizeAndCompressImage = (base64Str: string, maxWidth = 300): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!base64Str) {
+        resolve('');
+        return;
+      }
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        
+        // Calculate new dimensions while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          const ratio = maxWidth / width;
+          width = maxWidth;
+          height = height * ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw the image with the new dimensions
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Get the compressed image as JPEG with lower quality
+        const compressedImage = canvas.toDataURL('image/jpeg', 0.6);
+        resolve(compressedImage);
+      };
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = base64Str;
+    });
+  };
 
   // Function to fetch all presets
   const fetchPresets = async () => {
@@ -94,7 +140,12 @@ export default function PresetPanel({ nodes, edges, onLoadPreset, width, process
 
     setIsLoading(true);
     try {
-      const thumbnailData = processedImage || '';
+      // Resize and compress the thumbnail image to reduce payload size
+      const thumbnailData = processedImage 
+        ? await resizeAndCompressImage(processedImage, 200) 
+        : '';
+      
+      console.log('Compressed thumbnail size:', thumbnailData.length);
       
       const preset = {
         name: presetName,
