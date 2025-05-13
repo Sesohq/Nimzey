@@ -18,11 +18,11 @@ import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import { Badge } from '@/components/ui/badge';
 
-// We'll create a function to get node types so we can pass props to the components
-const getNodeTypes = (onUploadImage?: (file: File) => void): NodeTypes => ({
+// Using a renderNode function instead of creating new nodeTypes object on each render
+const nodeTypes: NodeTypes = {
   filterNode: FilterNode,
-  imageNode: (props) => <ImageNode {...props} onUploadImage={onUploadImage} />
-});
+  imageNode: ImageNode
+};
 
 interface NodeCanvasProps {
   nodes: Node[];
@@ -51,8 +51,7 @@ export default function NodeCanvas({
   zoomLevel,
   onUploadImage
 }: NodeCanvasProps) {
-  // Memoize nodeTypes to avoid recreation on each render
-  const nodeTypes = useCallback(() => getNodeTypes(onUploadImage), [onUploadImage])();
+  // Using a simple approach: add onUploadImage to image nodes data in useFilterGraph
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
 
