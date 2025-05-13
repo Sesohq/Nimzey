@@ -69,11 +69,22 @@ export function useFilterGraph() {
     setSelectedNodeId((currentSelectedId) => (currentSelectedId === nodeId ? null : nodeId));
   }, []);
   
-  // Handle parameter changes on filter nodes
+  // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
+          // Handle special case for preview updates
+          if (paramName === 'preview') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                preview: value as string,
+              },
+            };
+          }
+          // Regular parameter update
           return {
             ...node,
             data: {
@@ -87,6 +98,13 @@ export function useFilterGraph() {
         return node;
       });
     });
+    
+    // After parameter changes, trigger processing if this isn't a preview update
+    if (paramName !== 'preview' && processImageRef.current) {
+      setTimeout(() => {
+        processImageRef.current?.();
+      }, 100);
+    }
   }, []);
   
   // Handle toggling filter nodes on/off
