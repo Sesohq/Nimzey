@@ -1021,9 +1021,25 @@ export function useFilterGraph() {
     }
   }, [sourceImage, sourceImageRef, processImage]);
   
+  // Effect to ensure all nodes get previews when source image changes
+  useEffect(() => {
+    if (sourceImageRef.current && nodes.length > 0) {
+      console.log("Source image loaded or nodes changed, updating all node previews");
+      
+      // Use setTimeout to ensure the source image is properly loaded
+      const timer = setTimeout(() => {
+        updateAllNodePreviews();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [sourceImageRef.current, nodes, updateAllNodePreviews]);
+  
   // Find a filter by type
   const findFilterByType = useCallback((filterType: FilterType) => {
-    for (const category of filterCategories) {
+    // Iterate through each category in filterCategories
+    for (const categoryKey in filterCategories) {
+      const category = filterCategories[categoryKey];
       const filter = category.filters.find((f) => f.type === filterType);
       if (filter) {
         return filter;
