@@ -117,6 +117,29 @@ export const filterCategories: Record<string, FilterCategory> = {
             value: 'Perlin'
           },
           {
+            name: 'colorMap',
+            label: 'Color Map',
+            type: 'select',
+            options: [
+              'Grayscale',
+              'Rainbow',
+              'Fire',
+              'Electric',
+              'Earth',
+              'Ocean'
+            ],
+            value: 'Grayscale'
+          },
+          {
+            name: 'seed',
+            label: 'Seed',
+            type: 'range',
+            min: 1,
+            max: 10000,
+            step: 1,
+            value: 42
+          },
+          {
             name: 'width',
             label: 'Width',
             type: 'range',

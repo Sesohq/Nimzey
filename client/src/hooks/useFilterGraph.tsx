@@ -518,9 +518,12 @@ export function useFilterGraph() {
       onRemoveNode: () => handleRemoveNode(id)
     };
     
+    // Determine the node type - texture generators use a different component
+    const nodeType = filterType === 'textureGenerator' ? 'textureGenerator' : 'filterNode';
+    
     const newNode: Node<FilterNodeData> = {
       id,
-      type: 'filterNode',
+      type: nodeType,
       position: { x: 250, y: 150 },
       data: nodeData,
     };
