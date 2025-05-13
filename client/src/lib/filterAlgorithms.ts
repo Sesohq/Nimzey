@@ -280,7 +280,22 @@ const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Re
   
   // Create an entry for each incoming edge based on target handle
   incomingEdges.forEach(edge => {
-    const handleId = edge.targetHandle || 'input-default';
+    // Map the targetHandle to a consistent ID for easier access
+    // Most filter nodes use "dynamic-input" for their input handle
+    let handleId: string;
+    
+    if (!edge.targetHandle) {
+      handleId = 'input-default';
+    } else if (edge.targetHandle === 'dynamic-input') {
+      // Generate a unique ID for each connection to the dynamic input handle
+      // Use the source node ID to make it unique
+      handleId = `input-${edge.source}`;
+    } else {
+      // For specialized handles like blend node's inputA, inputB, use as-is
+      handleId = edge.targetHandle;
+    }
+    
+    // Add this source node to our result
     result[handleId] = nodes.find(node => node.id === edge.source) || null;
   });
   
@@ -613,6 +628,10 @@ const processFilterNode = (
   // Handle multiple inputs similar to blend node
   // If there are multiple inputs, we'll treat the first one as the main input
   // and blend the others on top
+
+  // Debug what input handles we're receiving
+  console.log(`Filter node ${node.id} has input keys:`, inputKeys);
+  
   if (inputKeys.length > 0) {
     // Create a new canvas for this node's result
     const resultCanvas = document.createElement('canvas');
@@ -620,9 +639,25 @@ const processFilterNode = (
     resultCanvas.height = tempCanvas.height;
     const resultCtx = resultCanvas.getContext('2d')!;
     
-    // Get the main input
-    const primaryInputHandle = inputKeys[0];
-    const primaryInputNode = inputNodes[primaryInputHandle];
+    // Get the main input - the image node should be the primary
+    // Look for any inputs coming from an image node first
+    let primaryInputHandle = inputKeys[0];
+    let primaryInputNode = null;
+    
+    // First check if we have a direct connection from the source node
+    for (const key of inputKeys) {
+      const inputNode = inputNodes[key];
+      if (inputNode && inputNode.type === 'imageNode') {
+        primaryInputHandle = key;
+        primaryInputNode = inputNode;
+        break;
+      }
+    }
+    
+    // If no source node is directly connected, use the first available
+    if (!primaryInputNode) {
+      primaryInputNode = inputNodes[primaryInputHandle];
+    }
     
     if (!primaryInputNode || !nodeResultCache.has(primaryInputNode.id)) {
       console.warn(`Filter node ${node.id} has no valid primary input`);
