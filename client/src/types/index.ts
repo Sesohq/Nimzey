@@ -51,6 +51,7 @@ export type FilterNodeData = {
 
 export type ImageNodeData = {
   src: string | null;
+  onUploadImage?: (file: File) => void;
 };
 
 export type NodeData = FilterNodeData | ImageNodeData;
