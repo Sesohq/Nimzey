@@ -117,7 +117,7 @@ export function useFilterGraph() {
   const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
     setNodes(nds => 
       nds.map(node => {
-        if (node.id === nodeId && node.type === 'filterNode') {
+        if (node.id === nodeId && (node.type === 'filterNode' || node.type === 'blendNode')) {
           const nodeData = node.data as FilterNodeData;
           return {
             ...node,

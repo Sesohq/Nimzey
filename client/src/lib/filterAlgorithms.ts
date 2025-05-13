@@ -11,14 +11,26 @@ const getTargetNodes = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Nod
 };
 
 // Helper function to find source nodes for a target node
-const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[]): Node | null => {
-  const connectedEdge = edges.find(edge => edge.target === targetNodeId);
+const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targetHandle?: string): Node | null => {
+  // If a specific target handle is specified, find edge connected to that handle
+  const connectedEdge = targetHandle 
+    ? edges.find(edge => edge.target === targetNodeId && edge.targetHandle === targetHandle)
+    : edges.find(edge => edge.target === targetNodeId);
+    
   if (!connectedEdge) return null;
   return nodes.find(node => node.id === connectedEdge.source) || null;
 };
 
+// Helper function to find all source nodes for a blend node (with multiple inputs)
+const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: Edge[]): { inputA: Node | null, inputB: Node | null } => {
+  return {
+    inputA: getSourceNode(blendNodeId, nodes, edges, 'inputA'),
+    inputB: getSourceNode(blendNodeId, nodes, edges, 'inputB')
+  };
+};
+
 // Helper to get a path from source to a given node
-const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
+const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandle?: string): Node[] => {
   const path: Node[] = [];
   let currentNodeId = nodeId;
   
@@ -32,15 +44,29 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[]): Node[] => 
     
     path.unshift(node);
     
-    const sourceNode = getSourceNode(currentNodeId, nodes, edges);
-    if (!sourceNode) break;
+    // For blend nodes, we need to choose the correct input path based on target handle
+    if (node.type === 'blendNode' && iterations === 0 && targetHandle) {
+      // If we're starting with a blend node and a specific handle is specified,
+      // follow only that input path
+      const sourceNode = getSourceNode(currentNodeId, nodes, edges, targetHandle);
+      if (!sourceNode) break;
+      currentNodeId = sourceNode.id;
+    } else {
+      // For other nodes or when no specific handle is specified,
+      // just follow the first available input
+      const sourceNode = getSourceNode(currentNodeId, nodes, edges);
+      if (!sourceNode) break;
+      currentNodeId = sourceNode.id;
+    }
     
-    currentNodeId = sourceNode.id;
     iterations++;
   }
   
   return path;
 };
+
+// Cache for storing intermediate node results
+const nodeResultCache = new Map<string, HTMLCanvasElement>();
 
 // Main function to apply filters
 export const applyFilters = (
@@ -50,6 +76,9 @@ export const applyFilters = (
   canvas: HTMLCanvasElement,
   targetNodeId?: string
 ): string | null => {
+  // Clear the cache before each processing run
+  nodeResultCache.clear();
+  
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
   if (!sourceNode) return null;
@@ -68,44 +97,181 @@ export const applyFilters = (
   canvas.width = sourceImage.width;
   canvas.height = sourceImage.height;
   
-  // Draw the source image
-  ctx.drawImage(sourceImage, 0, 0);
+  // Create a source image canvas and cache it
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = canvas.width;
+  sourceCanvas.height = canvas.height;
+  const sourceCtx = sourceCanvas.getContext('2d');
+  if (!sourceCtx) return null;
   
-  // Create a temporary canvas for blending operations
+  // Draw the source image to the source canvas
+  sourceCtx.drawImage(sourceImage, 0, 0);
+  
+  // Store the source node result in the cache
+  nodeResultCache.set(sourceNode.id, sourceCanvas);
+  
+  // Create a temporary canvas for operations
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
   const tempCtx = tempCanvas.getContext('2d');
   if (!tempCtx) return null;
   
-  // Apply each filter in the chain
+  // Process each node in the chain
   for (let i = 1; i < nodesToProcess.length; i++) {
     const node = nodesToProcess[i];
-    if (node.type !== 'filterNode') continue;
     
-    const filterData = node.data as FilterNodeData;
-    // Skip disabled filters
-    if (!filterData.enabled) continue;
+    // Skip nodes we've already processed (in the cache)
+    if (nodeResultCache.has(node.id)) continue;
     
-    // Clear temp canvas and copy current canvas state to it
-    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempCtx.drawImage(canvas, 0, 0);
-    
-    // Apply the filter to the temp canvas
-    applyFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
-    
-    // Now blend the temp canvas back to the main canvas using the node's blend mode
-    if (i > 1 && filterData.blendMode !== 'normal') {
-      // Only apply blending for non-source nodes with non-normal blend mode
-      applyBlendMode(ctx, tempCtx, filterData.blendMode, filterData.opacity);
-    } else {
-      // For normal blend mode or first filter, just copy the result
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(tempCanvas, 0, 0);
+    if (node.type === 'filterNode') {
+      processFilterNode(node, nodes, edges, tempCanvas, tempCtx);
+    } else if (node.type === 'blendNode') {
+      processBlendNode(node, nodes, edges, tempCanvas, tempCtx);
     }
   }
   
-  return canvas.toDataURL();
+  // The result should be in the cache for the last node (or target node)
+  const resultNodeId = targetNodeId || nodesToProcess[nodesToProcess.length - 1].id;
+  const resultCanvas = nodeResultCache.get(resultNodeId);
+  
+  if (resultCanvas) {
+    // Draw the result to the output canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(resultCanvas, 0, 0);
+    return canvas.toDataURL();
+  }
+  
+  return null;
+};
+
+// Process a filter node
+const processFilterNode = (
+  node: Node, 
+  nodes: Node[], 
+  edges: Edge[], 
+  tempCanvas: HTMLCanvasElement, 
+  tempCtx: CanvasRenderingContext2D
+) => {
+  // Get the filter data
+  const filterData = node.data as FilterNodeData;
+  
+  // Skip disabled filters
+  if (!filterData.enabled) {
+    // Just pass through the input to the output without processing
+    const sourceNode = getSourceNode(node.id, nodes, edges);
+    if (sourceNode && nodeResultCache.has(sourceNode.id)) {
+      const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+      
+      // Create a new canvas for this node's result
+      const resultCanvas = document.createElement('canvas');
+      resultCanvas.width = tempCanvas.width;
+      resultCanvas.height = tempCanvas.height;
+      const resultCtx = resultCanvas.getContext('2d')!;
+      
+      // Just copy the source to the result
+      resultCtx.drawImage(sourceCanvas, 0, 0);
+      
+      // Store the result
+      nodeResultCache.set(node.id, resultCanvas);
+    }
+    return;
+  }
+  
+  // Get the input node
+  const sourceNode = getSourceNode(node.id, nodes, edges);
+  if (!sourceNode || !nodeResultCache.has(sourceNode.id)) return;
+  
+  // Get the source image from the cache
+  const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+  
+  // Clear the temp canvas and copy the source image to it
+  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  tempCtx.drawImage(sourceCanvas, 0, 0);
+  
+  // Apply the filter to the temp canvas
+  applyFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+  
+  // Create a new canvas for this node's result
+  const resultCanvas = document.createElement('canvas');
+  resultCanvas.width = tempCanvas.width;
+  resultCanvas.height = tempCanvas.height;
+  const resultCtx = resultCanvas.getContext('2d')!;
+  
+  // If this is a node after the first filter and has a non-normal blend mode,
+  // we need to blend it with the original source
+  if (filterData.blendMode !== 'normal') {
+    // Copy the original source
+    resultCtx.drawImage(sourceCanvas, 0, 0);
+    
+    // Now blend the filtered result on top using the specified blend mode
+    applyBlendMode(resultCtx, tempCtx, filterData.blendMode, filterData.opacity);
+  } else {
+    // For normal blend mode, just copy the filtered result
+    resultCtx.drawImage(tempCanvas, 0, 0);
+  }
+  
+  // Store the result
+  nodeResultCache.set(node.id, resultCanvas);
+};
+
+// Process a blend node with two inputs
+const processBlendNode = (
+  node: Node, 
+  nodes: Node[], 
+  edges: Edge[], 
+  tempCanvas: HTMLCanvasElement, 
+  tempCtx: CanvasRenderingContext2D
+) => {
+  // Get the blend node data
+  const blendData = node.data as FilterNodeData;
+  
+  // Get both input nodes
+  const inputA = getSourceNode(node.id, nodes, edges, 'inputA');
+  const inputB = getSourceNode(node.id, nodes, edges, 'inputB');
+  
+  // Skip if we don't have both inputs or if they're not in the cache
+  if (!inputA || !inputB || !nodeResultCache.has(inputA.id) || !nodeResultCache.has(inputB.id)) {
+    return;
+  }
+  
+  // Get the input canvases from the cache
+  const inputACanvas = nodeResultCache.get(inputA.id)!;
+  const inputBCanvas = nodeResultCache.get(inputB.id)!;
+  
+  // Create a new canvas for this node's result
+  const resultCanvas = document.createElement('canvas');
+  resultCanvas.width = tempCanvas.width;
+  resultCanvas.height = tempCanvas.height;
+  const resultCtx = resultCanvas.getContext('2d')!;
+  
+  // Draw the first input (base layer)
+  resultCtx.drawImage(inputACanvas, 0, 0);
+  
+  // If the blend node is disabled, just use the first input
+  if (!blendData.enabled) {
+    nodeResultCache.set(node.id, resultCanvas);
+    return;
+  }
+  
+  // Draw the second input to the temp canvas
+  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  tempCtx.drawImage(inputBCanvas, 0, 0);
+  
+  // Process with any additional blend-specific filters if needed
+  if (blendData.filterType === 'blend') {
+    // For a simple blend, we just need to blend the two inputs
+    // No additional processing needed
+  } else if (blendData.filterType === 'motionBlur' || blendData.filterType === 'noiseDistortion') {
+    // Apply the specific filter effect to the second input
+    applyFilter(blendData.filterType, tempCtx, tempCanvas, blendData.params);
+  }
+  
+  // Now blend the second input onto the first using the specified blend mode
+  applyBlendMode(resultCtx, tempCtx, blendData.blendMode, blendData.opacity);
+  
+  // Store the result
+  nodeResultCache.set(node.id, resultCanvas);
 };
 
 // Build a processing chain from source to all connected nodes
@@ -125,8 +291,26 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
   let allConnectedNodes: Node[] = [];
   
   for (const targetNode of targetNodes) {
-    const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
-    allConnectedNodes = [...allConnectedNodes, ...nextNodes];
+    // For blend nodes, we need special handling
+    if (targetNode.type === 'blendNode') {
+      // Each blend node needs to process both of its inputs to produce the correct result
+      // First, mark the blend node itself as visited to avoid cycles
+      visited.add(targetNode.id);
+      
+      // We'll include the blend node in the chain
+      allConnectedNodes.push(targetNode);
+      
+      // Then continue with any nodes after the blend node
+      const nodesAfterBlend = getTargetNodes(targetNode.id, nodes, edges);
+      for (const nextNode of nodesAfterBlend) {
+        const nextNodeChain = buildProcessingChain(nextNode.id, nodes, edges, visited);
+        allConnectedNodes = [...allConnectedNodes, ...nextNodeChain];
+      }
+    } else {
+      // For regular nodes, just continue building the chain normally
+      const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
+      allConnectedNodes = [...allConnectedNodes, ...nextNodes];
+    }
   }
   
   return [...chain, ...allConnectedNodes];
