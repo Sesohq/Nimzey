@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface CustomNodesPanelProps {
   width: number;
-  onAddCustomNode: (customNode: CustomNodeData & { id: number }) => void;
+  onAddCustomNode: (customNode: DbCustomNodeData) => void;
   onCreateCustomNode: () => void;
   onDeleteCustomNode: (id: number) => void;
 }
@@ -19,7 +19,7 @@ export default function CustomNodesPanel({
   onCreateCustomNode,
   onDeleteCustomNode
 }: CustomNodesPanelProps) {
-  const [customNodes, setCustomNodes] = useState<(CustomNodeData & { id: number })[]>([]);
+  const [customNodes, setCustomNodes] = useState<DbCustomNodeData[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const { toast } = useToast();
@@ -41,7 +41,7 @@ export default function CustomNodesPanel({
     fetchCustomNodes();
   }, []);
   
-  const handleNodeDragStart = (e: React.DragEvent, customNode: CustomNodeData & { id: number }) => {
+  const handleNodeDragStart = (e: React.DragEvent, customNode: DbCustomNodeData) => {
     // Store the custom node information in the drag event
     e.dataTransfer.setData('application/reactflow', JSON.stringify({ type: 'customNode', node: customNode }));
     e.dataTransfer.effectAllowed = 'move';
@@ -177,7 +177,7 @@ export default function CustomNodesPanel({
               </div>
               
               <div className="bg-amber-50 px-3 py-1.5 text-xs text-amber-700 border-t border-amber-100 font-medium">
-                {customNode.internalNodes?.length || 0} nodes • {customNode.params?.length || 0} parameters
+                Custom Filter Node
               </div>
             </Card>
           ))}
