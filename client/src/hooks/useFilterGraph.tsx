@@ -650,38 +650,69 @@ export function useFilterGraph() {
     generateNodePreviewRef.current = generateNodePreview;
   }, [generateNodePreview]);
 
-  // Gets all nodes and edges in a chain leading to a specific node
+  // Enhanced helper function to get the chain of nodes leading to a specific node
   const getNodeChain = (nodeId: string, allNodes: Node[], allEdges: Edge[]) => {
-    // Start with the target node
-    const resultNodes = [allNodes.find((node) => node.id === nodeId)!];
+    console.log(`Getting optimized node chain for ${nodeId}`);
+    
+    const resultNodes: Node[] = [];
     const resultEdges: Edge[] = [];
-    const visited = new Set<string>([nodeId]);
+    const visited = new Set<string>();
 
-    // Queue for BFS
-    const queue = [nodeId];
-
-    while (queue.length > 0) {
-      const currentNodeId = queue.shift()!;
-
-      // Find all edges pointing to this node
-      const incomingEdges = allEdges.filter(
-        (edge) => edge.target === currentNodeId,
-      );
-
-      for (const edge of incomingEdges) {
-        resultEdges.push(edge);
-
-        // If we haven't visited the source node yet, add it to the queue
-        if (!visited.has(edge.source)) {
-          const sourceNode = allNodes.find((node) => node.id === edge.source);
-          if (sourceNode) {
-            resultNodes.push(sourceNode);
-            visited.add(edge.source);
-            queue.push(edge.source);
-          }
-        }
-      }
+    // Start with the target node
+    const targetNode = allNodes.find(n => n.id === nodeId);
+    if (!targetNode) {
+      console.warn(`Target node ${nodeId} not found`);
+      return { nodes: [], edges: [] };
     }
+
+    // Recursive function to trace back dependencies
+    const traceBackDependencies = (nodeId: string) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+
+      // Find the node
+      const node = allNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // Add the node to the front of the result (ensures correct processing order)
+      resultNodes.unshift(node);
+      console.log(`Added node ${nodeId} (${node.type}) to node chain`);
+
+      // Find incoming edges
+      const incomingEdges = allEdges.filter(e => e.target === nodeId);
+      
+      // Add incoming edges to the front of the result
+      for (const edge of incomingEdges) {
+        resultEdges.unshift(edge);
+        console.log(`Added edge ${edge.source} -> ${edge.target} to chain`);
+      }
+
+      // Recursively trace back for each source node
+      incomingEdges.forEach(edge => {
+        traceBackDependencies(edge.source);
+      });
+    };
+
+    // Start tracing from the target node
+    traceBackDependencies(nodeId);
+
+    // If we have no nodes yet, we might have a standalone node (like a source node)
+    if (resultNodes.length === 0 && targetNode) {
+      resultNodes.push(targetNode);
+      console.log(`Added standalone node ${nodeId} (${targetNode.type}) to chain`);
+    }
+
+    // Source node should always be included as the first node if it exists
+    const sourceNode = allNodes.find(node => node.type === "imageNode");
+    if (sourceNode && !resultNodes.some(n => n.id === sourceNode.id)) {
+      resultNodes.unshift(sourceNode);
+      console.log(`Added source node ${sourceNode.id} to beginning of chain`);
+    }
+
+    // Output the final node chain for debugging
+    console.log(`Finished chain calculation: ${resultNodes.length} nodes, ${resultEdges.length} edges`);
+    const nodeList = resultNodes.map(n => `- ${n.id} (${n.type})`).join("\n");
+    console.log(`Processing chain contains ${resultNodes.length} nodes:\n${nodeList}`);
 
     return { nodes: resultNodes, edges: resultEdges };
   };
