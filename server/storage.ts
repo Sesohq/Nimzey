@@ -1,7 +1,8 @@
 import { 
   users, type User, type InsertUser, 
   projects, type Project, type InsertProject,
-  filterPresets, type FilterPreset, type InsertFilterPreset
+  filterPresets, type FilterPreset, type InsertFilterPreset,
+  customNodes, type CustomNode, type InsertCustomNode
 } from "@shared/schema";
 
 // Interface with CRUD methods for all entities
@@ -24,25 +25,37 @@ export interface IStorage {
   createFilterPreset(preset: InsertFilterPreset): Promise<FilterPreset>;
   updateFilterPreset(id: number, preset: InsertFilterPreset): Promise<FilterPreset | undefined>;
   deleteFilterPreset(id: number): Promise<boolean>;
+  
+  // Custom node methods
+  getAllCustomNodes(): Promise<CustomNode[]>;
+  getCustomNodesByCategory(category: string): Promise<CustomNode[]>;
+  getCustomNode(id: number): Promise<CustomNode | undefined>;
+  createCustomNode(customNode: InsertCustomNode): Promise<CustomNode>;
+  updateCustomNode(id: number, customNode: InsertCustomNode): Promise<CustomNode | undefined>;
+  deleteCustomNode(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private projects: Map<number, Project>;
   private filterPresets: Map<number, FilterPreset>;
+  private customNodes: Map<number, CustomNode>;
   
   private userIdCounter: number;
   private projectIdCounter: number;
   private presetIdCounter: number;
+  private customNodeIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.projects = new Map();
     this.filterPresets = new Map();
+    this.customNodes = new Map();
     
     this.userIdCounter = 1;
     this.projectIdCounter = 1;
     this.presetIdCounter = 1;
+    this.customNodeIdCounter = 1;
   }
 
   // User methods
@@ -175,6 +188,72 @@ export class MemStorage implements IStorage {
       return false;
     }
     return this.filterPresets.delete(id);
+  }
+  
+  // Custom Node methods
+  async getAllCustomNodes(): Promise<CustomNode[]> {
+    return Array.from(this.customNodes.values());
+  }
+  
+  async getCustomNodesByCategory(category: string): Promise<CustomNode[]> {
+    return Array.from(this.customNodes.values())
+      .filter(node => node.category === category);
+  }
+  
+  async getCustomNode(id: number): Promise<CustomNode | undefined> {
+    return this.customNodes.get(id);
+  }
+  
+  async createCustomNode(customNode: InsertCustomNode): Promise<CustomNode> {
+    const id = this.customNodeIdCounter++;
+    const now = new Date();
+    
+    const newCustomNode: CustomNode = {
+      id,
+      name: customNode.name,
+      description: customNode.description || null,
+      category: customNode.category,
+      nodes: customNode.nodes,
+      edges: customNode.edges,
+      params: customNode.params,
+      thumbnail: customNode.thumbnail || null,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.customNodes.set(id, newCustomNode);
+    return newCustomNode;
+  }
+  
+  async updateCustomNode(id: number, customNode: InsertCustomNode): Promise<CustomNode | undefined> {
+    const existingNode = this.customNodes.get(id);
+    if (!existingNode) {
+      return undefined;
+    }
+    
+    const now = new Date();
+    const updatedNode: CustomNode = {
+      id,
+      name: customNode.name,
+      description: customNode.description || null,
+      category: customNode.category,
+      nodes: customNode.nodes,
+      edges: customNode.edges,
+      params: customNode.params,
+      thumbnail: customNode.thumbnail || null,
+      createdAt: existingNode.createdAt,
+      updatedAt: now
+    };
+    
+    this.customNodes.set(id, updatedNode);
+    return updatedNode;
+  }
+  
+  async deleteCustomNode(id: number): Promise<boolean> {
+    if (!this.customNodes.has(id)) {
+      return false;
+    }
+    return this.customNodes.delete(id);
   }
 }
 

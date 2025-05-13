@@ -33,6 +33,20 @@ export const filterPresets = pgTable("filter_presets", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Custom nodes table for saving user-created filter nodes
+export const customNodes = pgTable("custom_nodes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"), 
+  category: text("category").notNull(), // For organizing in the UI
+  nodes: jsonb("nodes").notNull(), // Internal node configurations 
+  edges: jsonb("edges").notNull(), // Internal edge connections
+  params: jsonb("params").notNull(), // Exposed parameters for the custom node
+  thumbnail: text("thumbnail"), // Preview image
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -48,6 +62,12 @@ export const insertFilterPresetSchema = createInsertSchema(filterPresets).omit({
   updatedAt: true,
 });
 
+export const insertCustomNodeSchema = createInsertSchema(customNodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -56,3 +76,6 @@ export type Project = typeof projects.$inferSelect;
 
 export type InsertFilterPreset = z.infer<typeof insertFilterPresetSchema>;
 export type FilterPreset = typeof filterPresets.$inferSelect;
+
+export type InsertCustomNode = z.infer<typeof insertCustomNodeSchema>;
+export type CustomNode = typeof customNodes.$inferSelect;
