@@ -63,7 +63,7 @@ export function getFilterCategory(filterType: FilterType): string {
     'texture': 'texture',
     
     // Create Texture generators
-    'noiseGenerator': 'createTexture',
+    'textureGenerator': 'createTexture',
     
     // Distortion filters
     'extrude': 'distortion',
@@ -98,7 +98,7 @@ export const filterCategories: Record<string, FilterCategory> = {
     filters: [
       {
         name: 'Noise Generator',
-        type: 'noiseGenerator',
+        type: 'textureGenerator',
         params: [
           {
             name: 'noiseType',

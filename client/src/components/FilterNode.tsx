@@ -1,4 +1,4 @@
-import { memo, useState, useMemo, useEffect } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
-  const [showLargePreview, setShowLargePreview] = useState(false);
   
   // Determine the filter category and get the appropriate color
   const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
@@ -31,30 +30,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       data.onParamChange(id, paramName, value);
     }
   };
-  
-  // Log when the component renders to check if preview data is available
-  // Display more detailed debugging to track preview data
-  console.log(`FilterNode [${id}] (${data.filterType}) rendering, preview:`,  
-    data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
-
-  // Use a different useEffect to create a direct preview if needed
-  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
-
-  // Immediate access to preview from passed props
-  useEffect(() => {
-    if (data.preview && data.preview.startsWith('data:image/')) {
-      console.log(`Using provided preview for ${id} (${data.filterType})`);
-      setInternalPreviewUrl(data.preview);
-    } else {
-      // Missing or invalid preview
-      console.log(`No valid preview found for ${id} (${data.filterType})`);
-      
-      // Reset our internal preview if the external one is no longer valid
-      if (internalPreviewUrl) {
-        setInternalPreviewUrl(null);
-      }
-    }
-  }, [data.preview, id, data.filterType, internalPreviewUrl]);
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -101,74 +76,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
-          {/* Node Preview Area */}
-          <div 
-            className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-            style={{ height: '80px' }}
-            onClick={() => setShowLargePreview(!showLargePreview)}
-          >
-            {internalPreviewUrl ? (
-              <>
-                <img 
-                  src={internalPreviewUrl} 
-                  alt={`${data.filterType} preview`}
-                  className="max-w-full max-h-full object-contain"
-                  onLoad={() => console.log(`Preview image loaded successfully for ${id} (${data.filterType})`)}
-                  onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
-                />
-              </>
-            ) : (
-              <div 
-                className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
-                onClick={(e) => {
-                  // Prevent opening large preview
-                  e.stopPropagation();
-                  
-                  // Try to manually refresh the preview
-                  console.log(`Manually refreshing preview for ${id} (${data.filterType})`);
-                  
-                  // If we have an onTriggerPreviewUpdate function, call it
-                  if (data.onTriggerPreviewUpdate) {
-                    data.onTriggerPreviewUpdate(id);
-                  }
-                }}
-              >
-                {/* Show loading animation */}
-                <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mb-2"></div>
-                <div>Preview generating...</div>
-                <div className="text-[10px] mt-1 text-gray-400">
-                  {data.filterType} filter
-                </div>
-                <div className="text-[9px] text-blue-500 mt-2">
-                  Click to retry preview
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Large preview modal */}
-          {showLargePreview && internalPreviewUrl && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium">{data.label} Preview</h3>
-                  <button className="text-gray-500 hover:text-gray-700" onClick={(e) => { e.stopPropagation(); setShowLargePreview(false); }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-                <img 
-                  src={internalPreviewUrl} 
-                  alt={`${data.filterType} preview (large)`}
-                  className="max-w-full" 
-                  onLoad={() => console.log(`Large preview image loaded for ${id}`)}
-                  onError={(e) => console.error(`Large preview image failed to load for ${id}`, e)}
-                />
-              </div>
-            </div>
-          )}
-        
           {data.params.map((param) => (
             <div key={param.name} className="mb-2">
               <Label className="block text-xs text-gray-500 mb-1">{param.label}</Label>

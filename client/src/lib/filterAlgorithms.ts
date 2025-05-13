@@ -475,7 +475,7 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandl
 };
 
 // Cache for storing intermediate node results
-export const nodeResultCache = new Map<string, HTMLCanvasElement>();
+const nodeResultCache = new Map<string, HTMLCanvasElement>();
 
 // Main function to apply filters
 export const applyFilters = (
@@ -483,16 +483,10 @@ export const applyFilters = (
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
-  targetNodeId?: string,
-  clearCache: boolean = false
+  targetNodeId?: string
 ): string | null => {
-  // Only clear the cache if explicitly requested, to maintain preview images
-  if (clearCache) {
-    console.log('Clearing node result cache');
-    nodeResultCache.clear();
-  } else {
-    console.log('Preserving node result cache for previews');
-  }
+  // Clear the cache before each processing run
+  nodeResultCache.clear();
   
   console.log('=== Starting filter processing ===');
   console.log(`Processing with ${nodes.length} nodes and ${edges.length} edges`);
@@ -578,43 +572,7 @@ export const applyFilters = (
     // Draw the result to the output canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(resultCanvas, 0, 0);
-    
-    // Important: For node previews, use lower resolution for better performance
-    const previewMode = canvas.width <= 200;
-    const outputWidth = previewMode ? canvas.width : Math.min(canvas.width, 800);
-    const outputHeight = previewMode ? canvas.height : Math.min(canvas.height, 800);
-    
-    // Create a separate canvas for the final output to avoid any issues with the original
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = outputWidth;
-    finalCanvas.height = outputHeight;
-    
-    const finalCtx = finalCanvas.getContext('2d');
-    if (!finalCtx) {
-      console.error('Failed to get 2D context for final canvas');
-      return null;
-    }
-    
-    // Draw with proper scaling
-    finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, outputWidth, outputHeight);
-    
-    // Explicitly specify PNG format for best compatibility
-    try {
-      console.log(`Generating data URL from canvas (${outputWidth}x${outputHeight}) for ${targetNodeId || 'final output'}...`);
-      const dataUrl = finalCanvas.toDataURL('image/png');
-      
-      // Validate the data URL
-      if (!dataUrl || !dataUrl.startsWith('data:image/png')) {
-        console.error('Generated invalid data URL format', dataUrl ? dataUrl.substring(0, 30) + '...' : 'null');
-        return null;
-      }
-      
-      console.log(`Successfully generated data URL of length ${dataUrl.length}`);
-      return dataUrl;
-    } catch (error) {
-      console.error('Error generating data URL:', error);
-      return null;
-    }
+    return canvas.toDataURL();
   }
   
   return null;
@@ -716,7 +674,7 @@ const processFilterNode = (
   const inputKeys = Object.keys(inputNodes);
   
   // Check if this is a texture generator that doesn't require input
-  if (filterData.filterType === 'noiseGenerator') {
+  if (filterData.filterType === 'textureGenerator') {
     // Create a new canvas for this node's result
     const resultCanvas = document.createElement('canvas');
     resultCanvas.width = tempCanvas.width;
@@ -724,7 +682,7 @@ const processFilterNode = (
     const resultCtx = resultCanvas.getContext('2d')!;
     
     // Process using the texture generator filter
-    processNoiseGeneratorFilter(
+    processTextureGeneratorFilter(
       {}, // Empty inputs since texture generator creates its own content
       resultCtx,
       resultCanvas,
@@ -2357,8 +2315,8 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 }
 
 // Processor function for the texture generator node
-// This function is called when a noiseGenerator node is being processed
-function processNoiseGeneratorFilter(
+// This function is called when a textureGenerator node is being processed
+function processTextureGeneratorFilter(
   inputs: Record<string, HTMLCanvasElement | null>,
   resultCtx: CanvasRenderingContext2D,
   resultCanvas: HTMLCanvasElement,
@@ -2394,7 +2352,7 @@ function processNoiseGeneratorFilter(
   // Copy to result canvas with blend mode if specified
   resultCtx.clearRect(0, 0, width, height);
   
-  if (nodeData.blendMode === 'normal') {
+  if (nodeData.blendMode === 'normal' || nodeData.blendMode === 'source-over') {
     resultCtx.globalAlpha = nodeData.opacity / 100;
     resultCtx.drawImage(tempCanvas, 0, 0);
     resultCtx.globalAlpha = 1.0;
