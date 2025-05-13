@@ -758,3 +758,565 @@ function applyPixelateFilter(data: Uint8ClampedArray, width: number, height: num
     }
   }
 }
+
+// Find Edges filter implementation based on Photoshop-like edge detection
+function applyFindEdgesFilter(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  // Parse parameters
+  const method = paramsObj.method || 'Sobel';
+  const strength = parseInt(String(paramsObj.strength || '50')) / 100;
+  const threshold = parseInt(String(paramsObj.threshold || '25'));
+  const shouldInvert = paramsObj.invert === 'On';
+  const preserveColor = paramsObj.preserveColor === 'On';
+  
+  // Make a copy of the original data to work with
+  const tempData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    tempData[i] = data[i];
+  }
+  
+  // Create a second temporary buffer for edge detection results
+  const edgeData = new Uint8ClampedArray(data.length);
+  
+  // Step 1: Convert to grayscale (unless preserveColor is true)
+  if (!preserveColor) {
+    for (let i = 0; i < data.length; i += 4) {
+      // Standard luminance conversion using the formula specified in requirements
+      const gray = Math.round(0.3 * tempData[i] + 0.59 * tempData[i + 1] + 0.11 * tempData[i + 2]);
+      tempData[i] = tempData[i + 1] = tempData[i + 2] = gray;
+    }
+  }
+  
+  // Step 2: Apply edge detection kernel based on selected method
+  switch (method) {
+    case 'Sobel':
+      applySobelOperator(tempData, edgeData, width, height, strength, threshold, preserveColor);
+      break;
+    case 'Laplacian':
+      applyLaplacianOperator(tempData, edgeData, width, height, strength, threshold, preserveColor);
+      break;
+    case 'Prewitt':
+      applyPrewittOperator(tempData, edgeData, width, height, strength, threshold, preserveColor);
+      break;
+    case 'Canny':
+      applyCannyEdgeDetection(tempData, edgeData, width, height, strength, threshold, preserveColor);
+      break;
+    default:
+      applySobelOperator(tempData, edgeData, width, height, strength, threshold, preserveColor);
+  }
+  
+  // Step 3: Invert if requested (Photoshop default is white edges on black)
+  if (shouldInvert) {
+    for (let i = 0; i < data.length; i += 4) {
+      edgeData[i] = 255 - edgeData[i];
+      edgeData[i + 1] = 255 - edgeData[i + 1];
+      edgeData[i + 2] = 255 - edgeData[i + 2];
+    }
+  }
+  
+  // Copy the result back to the original data
+  for (let i = 0; i < data.length; i++) {
+    data[i] = edgeData[i];
+  }
+}
+
+// Sobel operator for edge detection
+function applySobelOperator(
+  srcData: Uint8ClampedArray,
+  dstData: Uint8ClampedArray,
+  width: number,
+  height: number,
+  strength: number,
+  threshold: number,
+  preserveColor: boolean
+): void {
+  // Sobel kernels for x and y directions
+  const sobelX = [
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1]
+  ];
+  
+  const sobelY = [
+    [-1, -2, -1],
+    [0, 0, 0],
+    [1, 2, 1]
+  ];
+  
+  // Initialize the destination array
+  for (let i = 0; i < dstData.length; i += 4) {
+    dstData[i] = dstData[i + 1] = dstData[i + 2] = 0;
+    dstData[i + 3] = srcData[i + 3]; // Preserve alpha
+  }
+  
+  // Apply Sobel operator
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      if (preserveColor) {
+        // Process each color channel separately
+        for (let c = 0; c < 3; c++) {
+          // Apply the sobel operators in X and Y directions
+          let gradientX = 0;
+          let gradientY = 0;
+          
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+              gradientX += srcData[neighborIdx + c] * sobelX[ky + 1][kx + 1];
+              gradientY += srcData[neighborIdx + c] * sobelY[ky + 1][kx + 1];
+            }
+          }
+          
+          // Calculate gradient magnitude
+          let magnitude = Math.sqrt(gradientX * gradientX + gradientY * gradientY);
+          
+          // Apply strength modifier
+          magnitude *= strength;
+          
+          // Apply threshold
+          if (magnitude < threshold) {
+            magnitude = 0;
+          } else {
+            magnitude = Math.min(255, magnitude);
+          }
+          
+          // Store the edge value
+          dstData[pixelIndex + c] = magnitude;
+        }
+      } else {
+        // When not preserving color, just use the R channel as the grayscale value
+        let gradientX = 0;
+        let gradientY = 0;
+        
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+            gradientX += srcData[neighborIdx] * sobelX[ky + 1][kx + 1];
+            gradientY += srcData[neighborIdx] * sobelY[ky + 1][kx + 1];
+          }
+        }
+        
+        // Calculate gradient magnitude
+        let magnitude = Math.sqrt(gradientX * gradientX + gradientY * gradientY);
+        
+        // Apply strength modifier
+        magnitude *= strength;
+        
+        // Apply threshold
+        if (magnitude < threshold) {
+          magnitude = 0;
+        } else {
+          magnitude = Math.min(255, magnitude);
+        }
+        
+        // Apply the same edge value to all channels
+        dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = magnitude;
+      }
+    }
+  }
+}
+
+// Laplacian operator for edge detection
+function applyLaplacianOperator(
+  srcData: Uint8ClampedArray,
+  dstData: Uint8ClampedArray,
+  width: number,
+  height: number,
+  strength: number,
+  threshold: number,
+  preserveColor: boolean
+): void {
+  // Laplacian kernel
+  const laplacian = [
+    [0, 1, 0],
+    [1, -4, 1],
+    [0, 1, 0]
+  ];
+  
+  // Initialize the destination array
+  for (let i = 0; i < dstData.length; i += 4) {
+    dstData[i] = dstData[i + 1] = dstData[i + 2] = 0;
+    dstData[i + 3] = srcData[i + 3]; // Preserve alpha
+  }
+  
+  // Apply Laplacian operator
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      if (preserveColor) {
+        // Process each color channel separately
+        for (let c = 0; c < 3; c++) {
+          let result = 0;
+          
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+              result += srcData[neighborIdx + c] * laplacian[ky + 1][kx + 1];
+            }
+          }
+          
+          // Take absolute value for edge magnitude
+          result = Math.abs(result) * strength;
+          
+          // Apply threshold
+          if (result < threshold) {
+            result = 0;
+          } else {
+            result = Math.min(255, result);
+          }
+          
+          // Store the edge value
+          dstData[pixelIndex + c] = result;
+        }
+      } else {
+        // When not preserving color, just use the R channel
+        let result = 0;
+        
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+            result += srcData[neighborIdx] * laplacian[ky + 1][kx + 1];
+          }
+        }
+        
+        // Take absolute value for edge magnitude
+        result = Math.abs(result) * strength;
+        
+        // Apply threshold
+        if (result < threshold) {
+          result = 0;
+        } else {
+          result = Math.min(255, result);
+        }
+        
+        // Apply the same edge value to all channels
+        dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = result;
+      }
+    }
+  }
+}
+
+// Prewitt operator for edge detection
+function applyPrewittOperator(
+  srcData: Uint8ClampedArray,
+  dstData: Uint8ClampedArray,
+  width: number,
+  height: number,
+  strength: number,
+  threshold: number,
+  preserveColor: boolean
+): void {
+  // Prewitt kernels for x and y directions
+  const prewittX = [
+    [-1, 0, 1],
+    [-1, 0, 1],
+    [-1, 0, 1]
+  ];
+  
+  const prewittY = [
+    [-1, -1, -1],
+    [0, 0, 0],
+    [1, 1, 1]
+  ];
+  
+  // Initialize the destination array
+  for (let i = 0; i < dstData.length; i += 4) {
+    dstData[i] = dstData[i + 1] = dstData[i + 2] = 0;
+    dstData[i + 3] = srcData[i + 3]; // Preserve alpha
+  }
+  
+  // Apply Prewitt operator (similar to Sobel but with different weights)
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      
+      if (preserveColor) {
+        // Process each color channel separately
+        for (let c = 0; c < 3; c++) {
+          let gradientX = 0;
+          let gradientY = 0;
+          
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+              gradientX += srcData[neighborIdx + c] * prewittX[ky + 1][kx + 1];
+              gradientY += srcData[neighborIdx + c] * prewittY[ky + 1][kx + 1];
+            }
+          }
+          
+          // Calculate gradient magnitude
+          let magnitude = Math.sqrt(gradientX * gradientX + gradientY * gradientY);
+          
+          // Apply strength modifier
+          magnitude *= strength;
+          
+          // Apply threshold
+          if (magnitude < threshold) {
+            magnitude = 0;
+          } else {
+            magnitude = Math.min(255, magnitude);
+          }
+          
+          // Store the edge value
+          dstData[pixelIndex + c] = magnitude;
+        }
+      } else {
+        // When not preserving color, just use the R channel
+        let gradientX = 0;
+        let gradientY = 0;
+        
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+            gradientX += srcData[neighborIdx] * prewittX[ky + 1][kx + 1];
+            gradientY += srcData[neighborIdx] * prewittY[ky + 1][kx + 1];
+          }
+        }
+        
+        // Calculate gradient magnitude
+        let magnitude = Math.sqrt(gradientX * gradientX + gradientY * gradientY);
+        
+        // Apply strength modifier
+        magnitude *= strength;
+        
+        // Apply threshold
+        if (magnitude < threshold) {
+          magnitude = 0;
+        } else {
+          magnitude = Math.min(255, magnitude);
+        }
+        
+        // Apply the same edge value to all channels
+        dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = magnitude;
+      }
+    }
+  }
+}
+
+// Simplified Canny edge detection
+function applyCannyEdgeDetection(
+  srcData: Uint8ClampedArray,
+  dstData: Uint8ClampedArray,
+  width: number,
+  height: number,
+  strength: number,
+  threshold: number,
+  preserveColor: boolean
+): void {
+  // First apply Gaussian blur to reduce noise
+  const tempData = new Uint8ClampedArray(srcData.length);
+  for (let i = 0; i < srcData.length; i++) {
+    tempData[i] = srcData[i];
+  }
+  
+  // Apply simple box blur as an approximation of Gaussian blur
+  const blurRadius = 1;
+  for (let y = blurRadius; y < height - blurRadius; y++) {
+    for (let x = blurRadius; x < width - blurRadius; x++) {
+      for (let c = 0; c < 3; c++) {
+        let sum = 0;
+        let count = 0;
+        
+        for (let ky = -blurRadius; ky <= blurRadius; ky++) {
+          for (let kx = -blurRadius; kx <= blurRadius; kx++) {
+            const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+            sum += srcData[idx];
+            count++;
+          }
+        }
+        
+        tempData[(y * width + x) * 4 + c] = sum / count;
+      }
+    }
+  }
+  
+  // Now apply Sobel operator for edge detection, but with additional non-maximum suppression
+  const gradientX = new Float32Array(width * height);
+  const gradientY = new Float32Array(width * height);
+  const gradientMag = new Float32Array(width * height);
+  const gradientDir = new Float32Array(width * height);
+  
+  // Sobel kernels for x and y directions
+  const sobelX = [
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1]
+  ];
+  
+  const sobelY = [
+    [-1, -2, -1],
+    [0, 0, 0],
+    [1, 2, 1]
+  ];
+  
+  // Initialize the destination array
+  for (let i = 0; i < dstData.length; i += 4) {
+    dstData[i] = dstData[i + 1] = dstData[i + 2] = 0;
+    dstData[i + 3] = srcData[i + 3]; // Preserve alpha
+  }
+  
+  // Step 1: Calculate gradients and their directions
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const pixelIndex = idx * 4;
+      
+      // We'll use the R channel for grayscale calculation
+      let gx = 0;
+      let gy = 0;
+      
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+          gx += tempData[neighborIdx] * sobelX[ky + 1][kx + 1];
+          gy += tempData[neighborIdx] * sobelY[ky + 1][kx + 1];
+        }
+      }
+      
+      gradientX[idx] = gx;
+      gradientY[idx] = gy;
+      
+      // Calculate gradient magnitude and direction
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      gradientMag[idx] = mag;
+      
+      // Calculate gradient direction (in radians)
+      gradientDir[idx] = Math.atan2(gy, gx);
+    }
+  }
+  
+  // Step 2: Non-maximum suppression
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const pixelIndex = idx * 4;
+      
+      const dir = gradientDir[idx];
+      const mag = gradientMag[idx];
+      
+      // Find adjacent pixels in the gradient direction
+      let adjacent1X = 0, adjacent1Y = 0, adjacent2X = 0, adjacent2Y = 0;
+      
+      // Normalize direction to 0-180 degrees (we're only interested in the axis, not direction)
+      const angle = ((Math.round(dir * (180 / Math.PI)) + 180) % 180);
+      
+      if ((angle >= 0 && angle < 22.5) || (angle >= 157.5 && angle < 180)) {
+        // Horizontal direction: compare with left and right pixels
+        adjacent1X = x + 1;
+        adjacent1Y = y;
+        adjacent2X = x - 1;
+        adjacent2Y = y;
+      } else if (angle >= 22.5 && angle < 67.5) {
+        // 45 degree diagonal: compare with top-right and bottom-left
+        adjacent1X = x + 1;
+        adjacent1Y = y - 1;
+        adjacent2X = x - 1;
+        adjacent2Y = y + 1;
+      } else if (angle >= 67.5 && angle < 112.5) {
+        // Vertical direction: compare with top and bottom pixels
+        adjacent1X = x;
+        adjacent1Y = y + 1;
+        adjacent2X = x;
+        adjacent2Y = y - 1;
+      } else if (angle >= 112.5 && angle < 157.5) {
+        // 135 degree diagonal: compare with top-left and bottom-right
+        adjacent1X = x - 1;
+        adjacent1Y = y - 1;
+        adjacent2X = x + 1;
+        adjacent2Y = y + 1;
+      }
+      
+      // Check if the current pixel is a local maximum in the gradient direction
+      const idx1 = adjacent1Y * width + adjacent1X;
+      const idx2 = adjacent2Y * width + adjacent2X;
+      
+      if (adjacent1X >= 0 && adjacent1X < width && adjacent1Y >= 0 && adjacent1Y < height &&
+          adjacent2X >= 0 && adjacent2X < width && adjacent2Y >= 0 && adjacent2Y < height) {
+        if (mag < gradientMag[idx1] || mag < gradientMag[idx2]) {
+          // Not a local maximum, suppress this edge
+          gradientMag[idx] = 0;
+        }
+      }
+    }
+  }
+  
+  // Step 3: Apply strength, threshold, and copy to destination
+  const lowThreshold = threshold * 0.5;
+  const highThreshold = threshold;
+  
+  // Hysteresis thresholding
+  const strongEdges = new Uint8Array(width * height);
+  const weakEdges = new Uint8Array(width * height);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const pixelIndex = idx * 4;
+      
+      const mag = gradientMag[idx] * strength;
+      
+      if (mag >= highThreshold) {
+        strongEdges[idx] = 1;
+        dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = 255;
+      } else if (mag >= lowThreshold) {
+        weakEdges[idx] = 1;
+      }
+    }
+  }
+  
+  // Convert weak edges connected to strong edges to strong edges
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const pixelIndex = idx * 4;
+      
+      if (weakEdges[idx] === 1) {
+        // Check 8-connected neighbors
+        let hasStrongNeighbor = false;
+        
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            if (kx === 0 && ky === 0) continue; // Skip the center pixel
+            
+            const neighborIdx = (y + ky) * width + (x + kx);
+            if (strongEdges[neighborIdx] === 1) {
+              hasStrongNeighbor = true;
+              break;
+            }
+          }
+          if (hasStrongNeighbor) break;
+        }
+        
+        if (hasStrongNeighbor) {
+          // Convert to strong edge
+          dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = 255;
+        }
+      }
+    }
+  }
+  
+  // If preserveColor is true, handle the color channels
+  if (preserveColor) {
+    for (let i = 0; i < dstData.length; i += 4) {
+      if (dstData[i] === 255) { // If it's an edge
+        // Get original color
+        dstData[i] = srcData[i];
+        dstData[i + 1] = srcData[i + 1];
+        dstData[i + 2] = srcData[i + 2];
+      }
+    }
+  }
+}
