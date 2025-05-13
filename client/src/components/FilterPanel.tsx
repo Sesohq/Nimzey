@@ -32,8 +32,11 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
   };
 
   return (
-    <div className="w-64 bg-[#11131F] text-white flex flex-col" style={{ width: `${width}px` }}>
-      <div className="p-3 font-semibold text-white">Filter Library</div>
+    <div className="w-64 bg-[#0A0D14] text-white flex flex-col" style={{ width: `${width}px` }}>
+      <div className="p-3 font-semibold text-white flex items-center">
+        <div className="h-2 w-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_5px_#2A5DCE]"></div>
+        <span>Filter Library</span>
+      </div>
       
       <ScrollArea className="flex-1">
         <div className="p-2">
@@ -53,48 +56,37 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
                 <AccordionItem value={categoryId} key={categoryId} className="border-0 mb-2">
                   <AccordionTrigger 
                     className={`
-                      px-6 py-4 rounded-2xl text-white text-xl font-semibold
+                      px-6 py-3 rounded-full text-white text-lg font-semibold
                       transition-all hover:brightness-110
                       relative overflow-hidden
                     `}
                     style={{
-                      background: categoryColor,
+                      background: `linear-gradient(90deg, ${categoryColor} 0%, rgba(11, 24, 49, 0.9) 100%)`,
                       border: '0.5px solid #00B6FE',
-                      boxShadow: '0 0 20px rgba(0, 182, 254, 0.2)'
+                      boxShadow: '0 0 15px rgba(0, 182, 254, 0.15)'
                     }}
                   >
-                    {/* SVG Glow Effect */}
-                    <div className="absolute inset-0 z-0 opacity-30">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 288 56" fill="none" preserveAspectRatio="none">
-                        <g filter="url(#filter0_f_26_41)">
-                          <path d="M74 24.5C74 114.799 0.79855 188 -89.5 188C-179.799 188 -253 114.799 -253 24.5C-253 -65.7986 -179.799 -139 -89.5 -139C0.79855 -139 74 -65.7986 74 24.5Z" fill={categoryColor} />
-                        </g>
-                        <defs>
-                          <filter id="filter0_f_26_41" x="-473.6" y="-359.6" width="768.2" height="768.2" filterUnits="userSpaceOnUse" colorInterpolation-filters="sRGB">
-                            <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                            <feGaussianBlur stdDeviation="110.3" result="effect1_foregroundBlur_26_41"/>
-                          </filter>
-                        </defs>
-                      </svg>
+                    {/* Subtle glow circle in background */}
+                    <div className="absolute left-[-30px] top-[-80px] w-[120px] h-[120px] rounded-full opacity-20 blur-xl"
+                         style={{background: `radial-gradient(circle, ${categoryColor} 0%, rgba(0,0,0,0) 70%)`}}>
                     </div>
                     <span className="z-10 relative">{category.name}</span>
                   </AccordionTrigger>
-                  <AccordionContent className="mt-2 space-y-2 px-1">
+                  <AccordionContent className="mt-1.5 space-y-1.5 px-1">
                     {category.filters.map(filter => {
                       return (
                         <div
                           key={filter.type}
                           className={`
-                            px-6 py-4 rounded-2xl cursor-pointer
+                            px-6 py-2.5 rounded-full cursor-pointer
                             transition-all hover:brightness-110
-                            text-white text-xl font-medium
-                            relative overflow-hidden
+                            text-white text-base font-medium
+                            relative overflow-hidden flex items-center
                           `}
                           style={{
-                            background: categoryColor,
-                            border: '0.5px solid #00B6FE',
-                            boxShadow: '0 0 10px rgba(0, 182, 254, 0.15)'
+                            background: 'linear-gradient(90deg, rgba(24, 49, 95, 0.8) 0%, rgba(11, 24, 49, 0.95) 100%)',
+                            border: '0.5px solid rgba(0, 182, 254, 0.4)',
+                            boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)'
                           }}
                           draggable
                           onDragStart={(e) => handleFilterDragStart(e, filter.type)}
@@ -116,32 +108,22 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       <div className="p-3">
         <Button 
           variant="default" 
-          className="w-full py-6 text-lg font-semibold relative overflow-hidden"
+          className="w-full py-3 text-base font-semibold relative overflow-hidden"
           style={{
-            background: 'linear-gradient(180deg, #2A5DCE 0%, #032573 100%)',
+            background: 'linear-gradient(90deg, #2A5DCE 0%, rgba(11, 24, 49, 0.95) 100%)',
             border: '0.5px solid #00B6FE',
-            borderRadius: '16px',
-            boxShadow: '0 0 15px rgba(0, 182, 254, 0.3)'
+            borderRadius: '999px',
+            boxShadow: '0 0 15px rgba(0, 182, 254, 0.2)'
           }}
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
-          {/* SVG Glow Effect */}
-          <div className="absolute inset-0 z-0 opacity-30">
-            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 288 56" fill="none" preserveAspectRatio="none">
-              <g filter="url(#filter0_f_26_41)">
-                <path d="M74 24.5C74 114.799 0.79855 188 -89.5 188C-179.799 188 -253 114.799 -253 24.5C-253 -65.7986 -179.799 -139 -89.5 -139C0.79855 -139 74 -65.7986 74 24.5Z" fill="#2A5DCE" />
-              </g>
-              <defs>
-                <filter id="filter0_f_26_41" x="-473.6" y="-359.6" width="768.2" height="768.2" filterUnits="userSpaceOnUse" colorInterpolation-filters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="110.3" result="effect1_foregroundBlur_26_41"/>
-                </filter>
-              </defs>
-            </svg>
+          {/* Subtle glow circle */}
+          <div className="absolute left-[-30px] top-[-80px] w-[120px] h-[120px] rounded-full opacity-20 blur-xl"
+               style={{background: 'radial-gradient(circle, #2A5DCE 0%, rgba(0,0,0,0) 70%)'}}>
           </div>
+          
           <div className="flex items-center justify-center z-10 relative">
-            <Upload className="h-6 w-6 mr-3" />
+            <Upload className="h-5 w-5 mr-2" />
             <span>Upload Image</span>
           </div>
         </Button>
