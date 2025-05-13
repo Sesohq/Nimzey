@@ -12,7 +12,7 @@ import {
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
 import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '@/types';
-import { applyFilters } from '@/lib/filterAlgorithms';
+import { applyFilters, nodeResultCache } from '@/lib/filterAlgorithms';
 import { filterCategories } from '@/lib/filterCategories';
 
 export function useFilterGraph() {
@@ -548,37 +548,58 @@ export function useFilterGraph() {
             tempCanvas
           );
           
-          // If applyFilters failed, try a direct approach as fallback
+          // If applyFilters failed, try using the nodeResultCache directly
           if (!result || !result.startsWith('data:image/')) {
-            console.warn(`Using fallback approach for node ${node.id} preview`);
+            console.warn(`Using direct nodeResultCache for node ${node.id} preview`);
             
             try {
-              // Clear canvas and try to draw directly
-              ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+              // Try to get the cached result directly
+              const cachedCanvas = nodeResultCache.get(node.id);
               
-              // Create a simple test pattern as a last resort
-              if (sourceImageRef.current) {
-                // Draw the source image and apply a simple transformation
-                ctx.drawImage(sourceImageRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
+              if (cachedCanvas) {
+                // Clear our canvas
+                ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
                 
-                // Apply some visual indication that this is a filter
-                if (node.type === 'filterNode') {
-                  const filterType = (node.data as FilterNodeData).filterType;
-                  
-                  // Add filter name text
-                  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                  ctx.fillRect(0, 0, tempCanvas.width, 20);
-                  ctx.fillStyle = '#000';
-                  ctx.font = '10px sans-serif';
-                  ctx.fillText(filterType, 5, 12);
-                }
+                // Draw the cached result to our temporary canvas
+                ctx.drawImage(cachedCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
                 
+                // Generate a data URL directly from this canvas
                 const fallbackResult = tempCanvas.toDataURL('image/png');
-                console.log(`Generated emergency fallback preview for node ${node.id}`);
-                nodeUpdates[node.id] = fallbackResult;
+                
+                if (fallbackResult && fallbackResult.startsWith('data:image/')) {
+                  console.log(`Generated direct cache preview for node ${node.id}`);
+                  nodeUpdates[node.id] = fallbackResult;
+                } else {
+                  throw new Error("Failed to create valid data URL from cached canvas");
+                }
+              } else {
+                // Last resort - create a simple preview
+                console.warn(`No cached canvas for node ${node.id}, creating placeholder`);
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                if (sourceImageRef.current) {
+                  // Draw the source image with filter name
+                  ctx.drawImage(sourceImageRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
+                  
+                  // Add filter type label
+                  if (node.type === 'filterNode') {
+                    const filterType = (node.data as FilterNodeData).filterType;
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.fillRect(0, 0, tempCanvas.width, 20);
+                    ctx.fillStyle = '#000';
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText(filterType, 5, 12);
+                  }
+                  
+                  const placeholderResult = tempCanvas.toDataURL('image/png');
+                  console.log(`Created placeholder preview for node ${node.id}`);
+                  nodeUpdates[node.id] = placeholderResult;
+                }
               }
             } catch (fallbackError) {
-              console.error('Fallback preview generation failed:', fallbackError);
+              console.error('All fallback preview methods failed:', fallbackError);
             }
           } else {
             // If we got a valid result from applyFilters, use it
@@ -653,7 +674,21 @@ export function useFilterGraph() {
   // Effect to trigger preview updates when nodes or edges change
   useEffect(() => {
     if (sourceImageRef.current) {
-      updateAllNodePreviews();
+      // Don't update previews on every node change - this can cause performance issues
+      // Use a debounce to prevent rapid updates
+      const debounceTime = 300; // milliseconds
+      
+      console.log("Nodes or edges changed, scheduling preview update");
+      
+      const updateTimer = setTimeout(() => {
+        console.log("Executing scheduled preview update");
+        updateAllNodePreviews();
+      }, debounceTime);
+      
+      // Cleanup function to clear the timeout if component unmounts or deps change
+      return () => {
+        clearTimeout(updateTimer);
+      };
     }
   }, [nodes, edges, updateAllNodePreviews, sourceImageRef]);
   
@@ -712,16 +747,15 @@ export function useFilterGraph() {
     
     setNodes(prevNodes => [...prevNodes, newNode]);
     
-    // Generate preview after adding a node, but only if it's a Noise Generator
-    // that can generate output without inputs
-    if (filterType === 'noiseGenerator') {
-      // Allow time for the node to be added to the state
-      setTimeout(() => {
-        if (updateAllNodePreviewsRef.current) {
-          updateAllNodePreviewsRef.current();
-        }
-      }, 100);
-    }
+    // Generate preview after adding any node - we'll handle the no-input case in the 
+    // preview generator which will create a fallback preview if needed
+    // Allow time for the node to be added to the state
+    setTimeout(() => {
+      if (updateAllNodePreviewsRef.current) {
+        console.log(`Triggering preview update after adding ${filterType} node`);
+        updateAllNodePreviewsRef.current();
+      }
+    }, 150);
     
     return id;
   }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);

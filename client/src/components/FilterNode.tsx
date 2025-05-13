@@ -112,9 +112,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               </>
             ) : (
               <div className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full">
+                {/* Show loading animation */}
+                <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mb-2"></div>
                 <div>Preview generating...</div>
                 <div className="text-[10px] mt-1 text-gray-400">
-                  {data.preview ? 'Invalid data format' : 'No preview data yet'}
+                  {data.filterType} filter
                 </div>
               </div>
             )}

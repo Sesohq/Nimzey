@@ -573,10 +573,29 @@ export const applyFilters = (
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(resultCanvas, 0, 0);
     
+    // Important: For node previews, use lower resolution for better performance
+    const previewMode = canvas.width <= 200;
+    const outputWidth = previewMode ? canvas.width : Math.min(canvas.width, 800);
+    const outputHeight = previewMode ? canvas.height : Math.min(canvas.height, 800);
+    
+    // Create a separate canvas for the final output to avoid any issues with the original
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = outputWidth;
+    finalCanvas.height = outputHeight;
+    
+    const finalCtx = finalCanvas.getContext('2d');
+    if (!finalCtx) {
+      console.error('Failed to get 2D context for final canvas');
+      return null;
+    }
+    
+    // Draw with proper scaling
+    finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, outputWidth, outputHeight);
+    
     // Explicitly specify PNG format for best compatibility
     try {
-      console.log(`Generating data URL from canvas (${canvas.width}x${canvas.height})...`);
-      const dataUrl = canvas.toDataURL('image/png');
+      console.log(`Generating data URL from canvas (${outputWidth}x${outputHeight}) for ${targetNodeId || 'final output'}...`);
+      const dataUrl = finalCanvas.toDataURL('image/png');
       
       // Validate the data URL
       if (!dataUrl || !dataUrl.startsWith('data:image/png')) {
