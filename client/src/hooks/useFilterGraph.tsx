@@ -106,15 +106,11 @@ export function useFilterGraph() {
   // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback(
     (nodeId: string, paramName: string, value: number | string) => {
-      // 1. Bust the cache when a param changes to prevent stale previews
-      nodeResultCache.delete(nodeId);
-      
-      // 2. Update the node data with the new parameter value
-      setNodes((prevNodes) => {
-        return prevNodes.map((node) => {
-          if (node.id === nodeId) {
-            // Handle special case for preview updates
-            if (paramName === "preview") {
+      // Don't process preview updates through this path
+      if (paramName === "preview") {
+        setNodes((prevNodes) => {
+          return prevNodes.map((node) => {
+            if (node.id === nodeId) {
               return {
                 ...node,
                 data: {
@@ -123,7 +119,19 @@ export function useFilterGraph() {
                 },
               };
             }
-            // Regular parameter update
+            return node;
+          });
+        });
+        return;
+      }
+      
+      // Bust the cache when a param changes to prevent stale previews
+      nodeResultCache.delete(nodeId);
+      
+      // Update the node data with the new parameter value
+      setNodes((prevNodes) => {
+        return prevNodes.map((node) => {
+          if (node.id === nodeId) {
             return {
               ...node,
               data: {
@@ -138,22 +146,53 @@ export function useFilterGraph() {
         });
       });
 
-      // 3. After parameter changes, trigger processing
-      if (paramName !== "preview" && processImageRef.current) {
-        // Wait a very small amount of time to ensure React has updated the node state
+      // Process the image after the update
+      if (processImageRef.current) {
+        // First update the node preview
         setTimeout(() => {
-          // Generate a preview for just this node
+          // Find the node in the updated nodes state
           const node = nodes.find(n => n.id === nodeId);
-          if (node) {
-            generateNodePreview(node);
+          if (node && node.type === "filterNode") {
+            console.log(`Regenerating preview for node ${nodeId} after param change`);
+            
+            // Create a path from source to this node
+            const nodeChain = getNodeChain(nodeId, nodes, edges);
+            console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
+              nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
+            );
+            
+            // Process the node and generate a preview
+            if (sourceImageRef.current && nodeChain.nodes.length > 0) {
+              // Create a temporary small canvas for the preview
+              const tempCanvas = document.createElement("canvas");
+              tempCanvas.width = 150;
+              tempCanvas.height = 150;
+              
+              // Apply the filter chain to generate the preview
+              const previewUrl = applyFilters(
+                sourceImageRef.current,
+                nodeChain.nodes,
+                nodeChain.edges,
+                tempCanvas
+              );
+              
+              // Update this specific node with the new preview
+              setNodes(current => 
+                current.map(n => 
+                  n.id === nodeId 
+                    ? { ...n, data: { ...n.data, preview: previewUrl } } 
+                    : n
+                )
+              );
+            }
           }
           
-          // Also update the main preview
+          // Then update the main preview
           processImageRef.current?.();
-        }, 10); // Use a smaller timeout for better responsiveness
+        }, 10);
       }
     },
-    [nodes, generateNodePreview],
+    [nodes, edges, getNodeChain, applyFilters],
   );
 
   // Handle toggling filter nodes on/off
@@ -178,22 +217,53 @@ export function useFilterGraph() {
         });
       });
       
-      // Wait a tiny bit for React to update state, then generate previews
-      setTimeout(() => {
-        // Generate a preview for just this node
-        const node = nodes.find(n => n.id === nodeId);
-        if (node) {
-          console.log(`Regenerating preview for node ${nodeId} after toggle enabled`);
-          generateNodePreview(node);
-        }
-        
-        // Also update the main preview
-        if (processImageRef.current) {
+      // Process the image after the update
+      if (processImageRef.current) {
+        // First update the node preview
+        setTimeout(() => {
+          // Find the node in the updated nodes state
+          const node = nodes.find(n => n.id === nodeId);
+          if (node && node.type === "filterNode") {
+            console.log(`Regenerating preview for node ${nodeId} after toggle enabled`);
+            
+            // Create a path from source to this node
+            const nodeChain = getNodeChain(nodeId, nodes, edges);
+            console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
+              nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
+            );
+            
+            // Process the node and generate a preview
+            if (sourceImageRef.current && nodeChain.nodes.length > 0) {
+              // Create a temporary small canvas for the preview
+              const tempCanvas = document.createElement("canvas");
+              tempCanvas.width = 150;
+              tempCanvas.height = 150;
+              
+              // Apply the filter chain to generate the preview
+              const previewUrl = applyFilters(
+                sourceImageRef.current,
+                nodeChain.nodes,
+                nodeChain.edges,
+                tempCanvas
+              );
+              
+              // Update this specific node with the new preview
+              setNodes(current => 
+                current.map(n => 
+                  n.id === nodeId 
+                    ? { ...n, data: { ...n.data, preview: previewUrl } } 
+                    : n
+                )
+              );
+            }
+          }
+          
+          // Then update the main preview
           processImageRef.current?.();
-        }
-      }, 10);
+        }, 10);
+      }
     },
-    [nodes, generateNodePreview],
+    [nodes, edges, getNodeChain, applyFilters],
   );
 
   // Handle changing blend mode on filter nodes
@@ -218,22 +288,53 @@ export function useFilterGraph() {
         });
       });
       
-      // Wait a tiny bit for React to update state, then generate previews
-      setTimeout(() => {
-        // Generate a preview for just this node
-        const node = nodes.find(n => n.id === nodeId);
-        if (node) {
-          console.log(`Regenerating preview for node ${nodeId} after blend mode change`);
-          generateNodePreview(node);
-        }
-        
-        // Also update the main preview
-        if (processImageRef.current) {
+      // Process the image after the update
+      if (processImageRef.current) {
+        // First update the node preview
+        setTimeout(() => {
+          // Find the node in the updated nodes state
+          const node = nodes.find(n => n.id === nodeId);
+          if (node && (node.type === "filterNode" || node.type === "blendNode")) {
+            console.log(`Regenerating preview for node ${nodeId} after blend mode change`);
+            
+            // Create a path from source to this node
+            const nodeChain = getNodeChain(nodeId, nodes, edges);
+            console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
+              nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
+            );
+            
+            // Process the node and generate a preview
+            if (sourceImageRef.current && nodeChain.nodes.length > 0) {
+              // Create a temporary small canvas for the preview
+              const tempCanvas = document.createElement("canvas");
+              tempCanvas.width = 150;
+              tempCanvas.height = 150;
+              
+              // Apply the filter chain to generate the preview
+              const previewUrl = applyFilters(
+                sourceImageRef.current,
+                nodeChain.nodes,
+                nodeChain.edges,
+                tempCanvas
+              );
+              
+              // Update this specific node with the new preview
+              setNodes(current => 
+                current.map(n => 
+                  n.id === nodeId 
+                    ? { ...n, data: { ...n.data, preview: previewUrl } } 
+                    : n
+                )
+              );
+            }
+          }
+          
+          // Then update the main preview
           processImageRef.current?.();
-        }
-      }, 10);
+        }, 10);
+      }
     },
-    [nodes, generateNodePreview],
+    [nodes, edges, getNodeChain, applyFilters],
   );
 
   // Handle changing opacity on filter nodes
@@ -241,6 +342,7 @@ export function useFilterGraph() {
     // Bust the cache when opacity changes
     nodeResultCache.delete(nodeId);
     
+    // Update the node data
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -256,20 +358,52 @@ export function useFilterGraph() {
       });
     });
     
-    // Immediately update the node preview after changing opacity
-    const node = nodes.find(n => n.id === nodeId);
-    if (node && generateNodePreviewRef.current) {
-      console.log(`Regenerating preview for node ${nodeId} after opacity change`);
-      generateNodePreviewRef.current(node);
-    }
-    
-    // Also update the main preview
+    // Process the image after the update
     if (processImageRef.current) {
+      // First update the node preview
       setTimeout(() => {
+        // Find the node in the updated nodes state
+        const node = nodes.find(n => n.id === nodeId);
+        if (node && (node.type === "filterNode" || node.type === "blendNode")) {
+          console.log(`Regenerating preview for node ${nodeId} after opacity change`);
+          
+          // Create a path from source to this node
+          const nodeChain = getNodeChain(nodeId, nodes, edges);
+          console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
+            nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
+          );
+          
+          // Process the node and generate a preview
+          if (sourceImageRef.current && nodeChain.nodes.length > 0) {
+            // Create a temporary small canvas for the preview
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = 150;
+            tempCanvas.height = 150;
+            
+            // Apply the filter chain to generate the preview
+            const previewUrl = applyFilters(
+              sourceImageRef.current,
+              nodeChain.nodes,
+              nodeChain.edges,
+              tempCanvas
+            );
+            
+            // Update this specific node with the new preview
+            setNodes(current => 
+              current.map(n => 
+                n.id === nodeId 
+                  ? { ...n, data: { ...n.data, preview: previewUrl } } 
+                  : n
+              )
+            );
+          }
+        }
+        
+        // Then update the main preview
         processImageRef.current?.();
-      }, 100);
+      }, 10);
     }
-  }, [nodes]);
+  }, [nodes, edges, getNodeChain, applyFilters]);
 
   // Handle removing nodes
   const handleRemoveNode = useCallback((nodeId: string) => {
