@@ -1298,11 +1298,14 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
 };
 
 // Highlight Glow filter implementation
-function applyGlowFilter(
+export function applyGlowFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  params: any[] = []
+  params: any[] = [],
+  filterType?: FilterType,
+  ctx?: CanvasRenderingContext2D,
+  canvas?: HTMLCanvasElement
 ): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
@@ -3306,7 +3309,7 @@ export function applyPixelateFilter(data: Uint8ClampedArray, width: number, heig
 }
 
 // Find Edges filter implementation based on Photoshop-like edge detection
-function applyFindEdgesFilter(
+export function applyFindEdgesFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 
@@ -3675,12 +3678,13 @@ function applyPrewittOperator(
 }
 
 // Halftone filter implementation based on the provided requirements
-function applyHalftoneFilter(
+export function applyHalftoneFilter(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  ctx: CanvasRenderingContext2D,
-  params: any[] = []
+  params: any[] = [],
+  ctx?: CanvasRenderingContext2D,
+  canvas?: HTMLCanvasElement
 ): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
