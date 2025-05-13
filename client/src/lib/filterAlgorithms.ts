@@ -153,6 +153,9 @@ const applyFilter = (
     case 'findEdges':
       applyFindEdgesFilter(data, canvas.width, canvas.height, params);
       break;
+    case 'glow':
+      applyGlowFilter(data, canvas.width, canvas.height, params);
+      break;
   }
   
   ctx.putImageData(imageData, 0, 0);
@@ -1101,6 +1104,192 @@ function applyPrewittOperator(
         
         // Apply the same edge value to all channels
         dstData[pixelIndex] = dstData[pixelIndex + 1] = dstData[pixelIndex + 2] = magnitude;
+      }
+    }
+  }
+}
+
+// Highlight Glow filter implementation
+function applyGlowFilter(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+
+  // Parse parameters
+  const radius = parseInt(String(paramsObj.radius || '10'));
+  const threshold = parseInt(String(paramsObj.threshold || '220')); // Luminance threshold for highlights
+  const intensity = parseInt(String(paramsObj.intensity || '100')) / 100;
+  const blendMode = paramsObj.blendMode || 'Screen';
+  const glowColor = paramsObj.glowColor || 'Original';
+  
+  // Step 1: Create a copy of the original data
+  const originalData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) {
+    originalData[i] = data[i];
+  }
+  
+  // Step 2: Create a highlight mask - extract only the bright parts
+  const highlightMask = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i += 4) {
+    // Calculate luminance using the formula from the requirements
+    const luminance = Math.round(0.3 * originalData[i] + 0.59 * originalData[i + 1] + 0.11 * originalData[i + 2]);
+    
+    if (luminance > threshold) {
+      // If pixel is bright enough, keep it (with original color or apply a tint)
+      if (glowColor === 'Original') {
+        highlightMask[i] = originalData[i];        // R
+        highlightMask[i + 1] = originalData[i + 1]; // G
+        highlightMask[i + 2] = originalData[i + 2]; // B
+      } else if (glowColor === 'White') {
+        highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 255;
+      } else if (glowColor === 'Golden') {
+        // Warm golden glow
+        highlightMask[i] = 255;           // R (full)
+        highlightMask[i + 1] = 215;       // G (high)
+        highlightMask[i + 2] = 120;       // B (medium-low)
+      } else if (glowColor === 'Blue') {
+        // Cool blue glow
+        highlightMask[i] = 100;           // R (low)
+        highlightMask[i + 1] = 180;       // G (medium-high)
+        highlightMask[i + 2] = 255;       // B (full)
+      } else if (glowColor === 'Pink') {
+        // Pink glow
+        highlightMask[i] = 255;           // R (full)
+        highlightMask[i + 1] = 105;       // G (low-medium)
+        highlightMask[i + 2] = 210;       // B (high)
+      }
+      
+      // Scale by how far above threshold (creates smoother transition at edges)
+      const intensity = (luminance - threshold) / (255 - threshold);
+      highlightMask[i] = Math.round(highlightMask[i] * intensity);
+      highlightMask[i + 1] = Math.round(highlightMask[i + 1] * intensity);
+      highlightMask[i + 2] = Math.round(highlightMask[i + 2] * intensity);
+      
+      // Copy alpha
+      highlightMask[i + 3] = originalData[i + 3];
+    } else {
+      // If not bright enough, set to black (no glow)
+      highlightMask[i] = highlightMask[i + 1] = highlightMask[i + 2] = 0;
+      highlightMask[i + 3] = originalData[i + 3]; // Keep original alpha
+    }
+  }
+  
+  // Step 3: Apply blur to the highlight mask to create the glow effect
+  const blurredMask = new Uint8ClampedArray(highlightMask.length);
+  
+  // Copy initial data
+  for (let i = 0; i < highlightMask.length; i++) {
+    blurredMask[i] = highlightMask[i];
+  }
+  
+  // Box blur for simplicity and performance - can be applied multiple times for smoother result
+  const iterations = Math.min(3, Math.max(1, Math.floor(radius / 5))); // 1-3 iterations based on radius
+  
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const tempMask = new Uint8ClampedArray(blurredMask.length);
+    
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+        let count = 0;
+        
+        // Sample surrounding pixels in horizontal direction
+        for (let kx = -radius; kx <= radius; kx++) {
+          const sampleX = Math.min(Math.max(0, x + kx), width - 1);
+          const idx = (y * width + sampleX) * 4;
+          
+          rSum += blurredMask[idx];
+          gSum += blurredMask[idx + 1];
+          bSum += blurredMask[idx + 2];
+          aSum += blurredMask[idx + 3];
+          count++;
+        }
+        
+        // Write average to temp buffer
+        const targetIdx = (y * width + x) * 4;
+        tempMask[targetIdx] = rSum / count;
+        tempMask[targetIdx + 1] = gSum / count;
+        tempMask[targetIdx + 2] = bSum / count;
+        tempMask[targetIdx + 3] = aSum / count;
+      }
+    }
+    
+    // Vertical pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+        let count = 0;
+        
+        // Sample surrounding pixels in vertical direction
+        for (let ky = -radius; ky <= radius; ky++) {
+          const sampleY = Math.min(Math.max(0, y + ky), height - 1);
+          const idx = (sampleY * width + x) * 4;
+          
+          rSum += tempMask[idx];
+          gSum += tempMask[idx + 1];
+          bSum += tempMask[idx + 2];
+          aSum += tempMask[idx + 3];
+          count++;
+        }
+        
+        // Write average to blurred buffer
+        const targetIdx = (y * width + x) * 4;
+        blurredMask[targetIdx] = rSum / count;
+        blurredMask[targetIdx + 1] = gSum / count;
+        blurredMask[targetIdx + 2] = bSum / count;
+        blurredMask[targetIdx + 3] = aSum / count;
+      }
+    }
+  }
+  
+  // Step 4: Blend the blurred highlights back with the original image
+  for (let i = 0; i < data.length; i += 4) {
+    // Apply the intensity parameter
+    const glowR = blurredMask[i] * intensity;
+    const glowG = blurredMask[i + 1] * intensity;
+    const glowB = blurredMask[i + 2] * intensity;
+    
+    // Apply different blend modes 
+    if (blendMode === 'Screen') {
+      // Screen blend mode: 1 - (1 - a) * (1 - b)
+      data[i] = 255 - ((255 - data[i]) * (255 - glowR)) / 255;
+      data[i + 1] = 255 - ((255 - data[i + 1]) * (255 - glowG)) / 255;
+      data[i + 2] = 255 - ((255 - data[i + 2]) * (255 - glowB)) / 255;
+    } 
+    else if (blendMode === 'Add') {
+      // Add blend mode: simply add values with clamping
+      data[i] = Math.min(255, data[i] + glowR);
+      data[i + 1] = Math.min(255, data[i + 1] + glowG);
+      data[i + 2] = Math.min(255, data[i + 2] + glowB);
+    }
+    else if (blendMode === 'Lighten') {
+      // Lighten blend mode: take max of each channel
+      data[i] = Math.max(data[i], glowR);
+      data[i + 1] = Math.max(data[i + 1], glowG);
+      data[i + 2] = Math.max(data[i + 2], glowB);
+    }
+    else if (blendMode === 'Soft Light') {
+      // Soft Light blend mode formula (simplified version)
+      for (let c = 0; c < 3; c++) {
+        const base = data[i + c] / 255;
+        const blend = blurredMask[i + c] * intensity / 255;
+        
+        let result;
+        if (blend < 0.5) {
+          result = base - (1 - 2 * blend) * base * (1 - base);
+        } else {
+          result = base + (2 * blend - 1) * (Math.sqrt(base) - base);
+        }
+        
+        data[i + c] = Math.min(255, Math.max(0, result * 255));
       }
     }
   }

@@ -321,5 +321,60 @@ export const filterCategories: Record<string, FilterCategory> = {
         ]
       }
     ]
+  },
+  effects: {
+    name: 'Effects',
+    filters: [
+      {
+        name: 'Highlight Glow',
+        type: 'glow',
+        params: [
+          {
+            name: 'radius',
+            label: 'Blur Radius',
+            type: 'range',
+            min: 1,
+            max: 50,
+            step: 1,
+            value: 10,
+            unit: 'px'
+          },
+          {
+            name: 'threshold',
+            label: 'Highlight Range',
+            type: 'range',
+            min: 120,
+            max: 250,
+            step: 1,
+            value: 220,
+            unit: ''
+          },
+          {
+            name: 'intensity',
+            label: 'Glow Intensity',
+            type: 'range',
+            min: 0,
+            max: 200,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'blendMode',
+            label: 'Blend Mode',
+            type: 'select',
+            options: ['Screen', 'Add', 'Lighten', 'Soft Light'],
+            value: 'Screen'
+          },
+          {
+            name: 'glowColor',
+            label: 'Glow Color',
+            type: 'select',
+            options: ['Original', 'White', 'Golden', 'Blue', 'Pink'],
+            value: 'Original'
+          }
+        ]
+      }
+    ]
   }
 };

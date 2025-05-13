@@ -11,7 +11,8 @@ export type FilterType =
   | 'extrude' 
   | 'wave' 
   | 'pixelate'
-  | 'findEdges';
+  | 'findEdges'
+  | 'glow';
 
 export type NodeType = 'filterNode' | 'imageNode';
 
