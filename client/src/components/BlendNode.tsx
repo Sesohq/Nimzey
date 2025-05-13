@@ -90,48 +90,54 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
       {/* Input Handle A - Base/Background Layer Input (left side) */}
-      <div className="absolute left-[-30px] top-[50%] translate-y-[-50%] flex items-center">
-        <Badge variant={connectedInputs.inputA ? "default" : "outline"} className="mr-1 bg-green-100 text-green-800 hover:bg-green-200 text-[10px]">
-          Base
-        </Badge>
+      <div className="absolute left-0 top-[50%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
           id="inputA"
-          className={cn(
-            "w-4 h-4 rounded-full border-2 border-white left-[-6px]",
-            connectedInputs.inputA ? "bg-green-500" : "bg-green-200"
-          )}
+          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
+        
+        {/* Small visual indicator showing that this handle accepts connections */}
+        <div className="absolute top-[50%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">A</div>
+        </div>
+        
+        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
+          Base
+        </Badge>
       </div>
       
       {/* Input Handle B - Blend/Foreground Layer Input (top) */}
-      <div className="absolute top-[-30px] left-[50%] translate-x-[-50%] flex flex-col items-center">
-        <Badge variant={connectedInputs.inputB ? "default" : "outline"} className="mb-1 bg-blue-100 text-blue-800 hover:bg-blue-200 text-[10px]">
-          Blend
-        </Badge>
+      <div className="absolute top-0 left-[50%] flex flex-col items-center">
         <Handle
           type="target"
           position={Position.Top}
           id="inputB"
-          className={cn(
-            "w-4 h-4 rounded-full border-2 border-white top-[-6px]",
-            connectedInputs.inputB ? "bg-blue-500" : "bg-blue-200"
-          )}
+          className="w-9 h-9 rounded-full -mt-4 bg-amber-400"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
         />
+        
+        {/* Small visual indicator showing that this handle accepts connections */}
+        <div className="absolute top-[-10px] left-[50%] transform -translate-x-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">B</div>
+        </div>
+        
+        <Badge variant="outline" className="mt-6 text-[10px] bg-white shadow-sm">
+          Blend
+        </Badge>
       </div>
       
       {/* Output Handle - Combined Result (right side) */}
-      <div className="absolute right-[-30px] top-[50%] translate-y-[-50%] flex items-center">
+      <div className="absolute right-0 top-[50%] flex items-center">
         <Handle
           type="source"
           position={Position.Right}
           id="output"
-          className="w-4 h-4 rounded-full bg-purple-500 border-2 border-white right-[-6px]"
+          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
-        <Badge variant="default" className="ml-1 bg-purple-100 text-purple-800 hover:bg-purple-200 text-[10px]">
-          Result
-        </Badge>
       </div>
       
       <div className="p-4">
