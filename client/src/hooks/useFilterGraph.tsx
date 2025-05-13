@@ -195,6 +195,9 @@ export function useFilterGraph() {
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback(
     (nodeId: string, blendMode: BlendMode) => {
+      // Bust the cache when blend mode changes
+      nodeResultCache.delete(nodeId);
+      
       setNodes((prevNodes) => {
         return prevNodes.map((node) => {
           if (node.id === nodeId) {
@@ -209,12 +212,29 @@ export function useFilterGraph() {
           return node;
         });
       });
+      
+      // Immediately update the node preview after changing blend mode
+      const node = nodes.find(n => n.id === nodeId);
+      if (node && generateNodePreviewRef.current) {
+        console.log(`Regenerating preview for node ${nodeId} after blend mode change`);
+        generateNodePreviewRef.current(node);
+      }
+      
+      // Also update the main preview
+      if (processImageRef.current) {
+        setTimeout(() => {
+          processImageRef.current?.();
+        }, 100);
+      }
     },
-    [],
+    [nodes],
   );
 
   // Handle changing opacity on filter nodes
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
+    // Bust the cache when opacity changes
+    nodeResultCache.delete(nodeId);
+    
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -229,7 +249,21 @@ export function useFilterGraph() {
         return node;
       });
     });
-  }, []);
+    
+    // Immediately update the node preview after changing opacity
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && generateNodePreviewRef.current) {
+      console.log(`Regenerating preview for node ${nodeId} after opacity change`);
+      generateNodePreviewRef.current(node);
+    }
+    
+    // Also update the main preview
+    if (processImageRef.current) {
+      setTimeout(() => {
+        processImageRef.current?.();
+      }, 100);
+    }
+  }, [nodes]);
 
   // Handle removing nodes
   const handleRemoveNode = useCallback((nodeId: string) => {
