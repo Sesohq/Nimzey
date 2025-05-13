@@ -1762,7 +1762,7 @@ const getParamValue = (params: { name: string; value: number | string }[], name:
 // Filter implementations
 
 // Blur filter using box blur technique
-function applyBlurFilter(data: Uint8ClampedArray, width: number, height: number, radius: number): void {
+export function applyBlurFilter(data: Uint8ClampedArray, width: number, height: number, radius: number): void {
   // Simple box blur implementation
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = width;
@@ -1828,7 +1828,7 @@ function applyBlurFilter(data: Uint8ClampedArray, width: number, height: number,
 }
 
 // Sharpen filter using simple convolution
-function applySharpenFilter(data: Uint8ClampedArray, width: number, height: number, amount: number): void {
+export function applySharpenFilter(data: Uint8ClampedArray, width: number, height: number, amount: number): void {
   const factor = amount / 100;
   const tempData = new Uint8ClampedArray(data.length);
   tempData.set(data);
@@ -1857,7 +1857,7 @@ function applySharpenFilter(data: Uint8ClampedArray, width: number, height: numb
 }
 
 // Grayscale filter
-function applyGrayscaleFilter(data: Uint8ClampedArray): void {
+export function applyGrayscaleFilter(data: Uint8ClampedArray): void {
   for (let i = 0; i < data.length; i += 4) {
     const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
     data[i] = avg;
@@ -1867,7 +1867,7 @@ function applyGrayscaleFilter(data: Uint8ClampedArray): void {
 }
 
 // Invert filter
-function applyInvertFilter(data: Uint8ClampedArray): void {
+export function applyInvertFilter(data: Uint8ClampedArray): void {
   for (let i = 0; i < data.length; i += 4) {
     data[i] = 255 - data[i];
     data[i + 1] = 255 - data[i + 1];
@@ -3263,7 +3263,7 @@ function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: numb
 }
 
 // Wave filter
-function applyWaveFilter(data: Uint8ClampedArray, width: number, height: number, amplitude: number): void {
+export function applyWaveFilter(data: Uint8ClampedArray, width: number, height: number, amplitude: number): void {
   const tempData = new Uint8ClampedArray(data.length);
   tempData.set(data);
   
@@ -3283,7 +3283,7 @@ function applyWaveFilter(data: Uint8ClampedArray, width: number, height: number,
 }
 
 // Pixelate filter
-function applyPixelateFilter(data: Uint8ClampedArray, width: number, height: number, pixelSize: number): void {
+export function applyPixelateFilter(data: Uint8ClampedArray, width: number, height: number, pixelSize: number): void {
   for (let y = 0; y < height; y += pixelSize) {
     for (let x = 0; x < width; x += pixelSize) {
       // Get color from the center of the pixel block

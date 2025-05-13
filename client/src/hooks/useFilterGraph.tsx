@@ -12,7 +12,25 @@ import {
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
 import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '@/types';
-import { applyFilters, nodeResultCache } from '@/lib/filterAlgorithms';
+import { 
+  applyFilters, 
+  nodeResultCache,
+  applyBlurFilter,
+  applySharpenFilter,
+  applyGrayscaleFilter,
+  applyInvertFilter,
+  applyNoiseFilter,
+  applyDitherFilter,
+  applyTextureFilter,
+  applyExtrudeFilter,
+  applyWaveFilter,
+  applyPixelateFilter,
+  applyFindEdgesFilter,
+  applyGlowFilter,
+  applyHalftoneFilter,
+  applyRefractionFilter,
+  processNoiseGeneratorFilter
+} from '@/lib/filterAlgorithms';
 import { filterCategories } from '@/lib/filterCategories';
 
 export function useFilterGraph() {
