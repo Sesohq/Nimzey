@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { MinusIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FilterNodeData } from '@/types';
 import NodeControls from './NodeControls';
 
@@ -23,12 +24,27 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   };
 
+  const handleToggleEnabled = (checked: boolean) => {
+    if (data.onToggleEnabled) {
+      data.onToggleEnabled(id, checked);
+    }
+  };
+
   return (
-    <Card className={`shadow-md w-[220px] bg-white ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <Card className={`shadow-md w-[220px] bg-white ${selected ? 'ring-2 ring-primary' : ''} ${!data.enabled ? 'opacity-60' : ''}`}>
       <div 
         className="bg-accent text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move"
       >
-        <span>{data.label}</span>
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id={`enable-${id}`}
+            checked={data.enabled}
+            onCheckedChange={handleToggleEnabled}
+            className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span>{data.label}</span>
+        </div>
         <div className="flex space-x-1">
           <button 
             className="hover:bg-purple-700 rounded p-1" 
@@ -54,6 +70,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     step={param.step}
                     className="flex-1 mr-2"
                     onValueChange={(values) => handleParamChange(param.name, values[0])}
+                    disabled={!data.enabled}
                   />
                   <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
                     {param.value}{param.unit || ''}
@@ -65,6 +82,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 <Select 
                   value={param.value as string} 
                   onValueChange={(value) => handleParamChange(param.name, value)}
+                  disabled={!data.enabled}
                 >
                   <SelectTrigger className="w-full text-sm">
                     <SelectValue placeholder={param.options?.[0]} />
@@ -83,16 +101,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         </div>
       )}
 
-      <div className="px-3 pb-2 flex justify-between relative">
+      <div className="px-3 pb-2 flex justify-between relative h-6">
         <Handle
           type="target"
           position={Position.Left}
-          className="w-3 h-3 bg-primary left-[-8px]"
+          className="w-9 h-9 rounded-full -ml-4 bg-primary"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
         <Handle
           type="source"
           position={Position.Right}
-          className="w-3 h-3 bg-accent right-[-8px]"
+          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
       </div>
     </Card>

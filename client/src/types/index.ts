@@ -41,7 +41,9 @@ export type FilterNodeData = {
   label: string;
   filterType: FilterType;
   params: FilterParam[];
+  enabled: boolean;
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
+  onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
 };
 
 export type ImageNodeData = {

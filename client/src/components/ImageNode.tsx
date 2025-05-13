@@ -25,11 +25,12 @@ const ImageNode = ({ data, selected }: NodeProps<ImageNodeData>) => {
         )}
       </div>
       
-      <div className="px-3 pb-2 flex justify-end relative">
+      <div className="px-3 pb-2 flex justify-end relative h-6">
         <Handle
           type="source"
           position={Position.Right}
-          className="w-3 h-3 bg-accent right-[-8px]"
+          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
       </div>
     </Card>

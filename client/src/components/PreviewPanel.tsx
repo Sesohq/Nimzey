@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { Node } from 'reactflow';
+import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
 
 interface PreviewPanelProps {
@@ -19,6 +19,8 @@ interface PreviewPanelProps {
   nodePreview: string | null;
   processedImage: string | null;
   onExportImage: (format?: string, quality?: number) => void;
+  nodes: Node[];
+  edges: Edge[];
 }
 
 export default function PreviewPanel({ 
@@ -26,26 +28,97 @@ export default function PreviewPanel({
   selectedNode, 
   nodePreview,
   processedImage,
-  onExportImage 
+  onExportImage,
+  nodes,
+  edges 
 }: PreviewPanelProps) {
   const [exportFormat, setExportFormat] = useState('png');
   const [exportQuality, setExportQuality] = useState(90);
 
-  // Create a chain of nodes up to the selected node
+  // Get all downstream nodes from a given node
+  const getDownstreamNodes = (nodeId: string): Node[] => {
+    const result: Node[] = [];
+    const targetEdges = edges.filter(edge => edge.source === nodeId);
+    
+    for (const edge of targetEdges) {
+      const targetNode = nodes.find(n => n.id === edge.target);
+      if (targetNode) {
+        result.push(targetNode);
+        // Recursively get all downstream nodes
+        const downstreamNodes = getDownstreamNodes(targetNode.id);
+        result.push(...downstreamNodes);
+      }
+    }
+    
+    return result;
+  };
+
+  // Get the filter chain (selected node and all downstream nodes)
   const getFilterChain = (node: Node<FilterNodeData | ImageNodeData>) => {
     const isSourceNode = node.type === 'imageNode';
-    const nodeLabel = isSourceNode 
-      ? 'Source Image' 
-      : (node.data as FilterNodeData).label;
+    const nodeChain = [node, ...getDownstreamNodes(node.id)];
     
-    // For now we just show a simple view, but in a real implementation
-    // we'd traverse the graph to find the actual chain
     return (
       <div className="space-y-2">
-        <div className="flex items-center text-sm">
-          <div className={`w-2 h-2 rounded-full ${isSourceNode ? 'bg-blue-500' : 'bg-accent'} mr-2`}></div>
-          <span>{nodeLabel}</span>
-        </div>
+        {nodeChain.map((chainNode) => {
+          const isChainNodeSource = chainNode.type === 'imageNode';
+          const nodeLabel = isChainNodeSource 
+            ? 'Source Image' 
+            : (chainNode.data as FilterNodeData).label;
+          
+          const isEnabled = isChainNodeSource 
+            ? true 
+            : (chainNode.data as FilterNodeData).enabled;
+            
+          return (
+            <div key={chainNode.id} className="flex items-center text-sm">
+              <div 
+                className={`w-2 h-2 rounded-full ${
+                  isChainNodeSource 
+                    ? 'bg-blue-500' 
+                    : isEnabled 
+                      ? 'bg-accent' 
+                      : 'bg-gray-600'
+                } mr-2`}
+              ></div>
+              <span className={`${!isEnabled ? 'line-through text-gray-500' : ''}`}>
+                {nodeLabel}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Get the display image based on selection state
+  const getDisplayImage = () => {
+    // If a node is selected, show its preview
+    if (nodePreview) {
+      return (
+        <img 
+          src={nodePreview} 
+          alt="Preview" 
+          className="w-full h-auto"
+        />
+      );
+    }
+    
+    // If no node is selected but we have a processed image, show that
+    if (processedImage) {
+      return (
+        <img 
+          src={processedImage} 
+          alt="Final Output" 
+          className="w-full h-auto"
+        />
+      );
+    }
+    
+    // Otherwise show a placeholder
+    return (
+      <div className="w-full h-[200px] flex items-center justify-center text-gray-400">
+        No image available
       </div>
     );
   };
@@ -61,17 +134,7 @@ export default function PreviewPanel({
             : 'None'}</span>
         </div>
         <div className="bg-gray-800 rounded-md overflow-hidden">
-          {nodePreview ? (
-            <img 
-              src={nodePreview} 
-              alt="Preview" 
-              className="w-full h-auto"
-            />
-          ) : (
-            <div className="w-full h-[200px] flex items-center justify-center text-gray-400">
-              {processedImage ? 'Select a node to preview' : 'No image available'}
-            </div>
-          )}
+          {getDisplayImage()}
         </div>
       </div>
       

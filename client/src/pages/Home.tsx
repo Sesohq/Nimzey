@@ -61,6 +61,8 @@ export default function Home() {
           nodePreview={nodePreview}
           processedImage={processedImage}
           onExportImage={exportImage}
+          nodes={nodes}
+          edges={edges}
         />
       </div>
     </div>

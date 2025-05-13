@@ -27,6 +27,27 @@ export function useFilterGraph() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
 
+  // Forward declaration for functions that are used before definition
+  const processImage = useCallback(() => {
+    if (!sourceImageRef.current) return;
+    
+    const canvas = getCanvas();
+    const result = applyFilters(sourceImageRef.current, nodes, edges, canvas);
+    
+    if (result) {
+      setProcessedImage(result);
+      
+      // If a node is selected, update its preview
+      if (selectedNodeId) {
+        const selectedNode = nodes.find(n => n.id === selectedNodeId);
+        if (selectedNode) {
+          const preview = generateNodePreview(selectedNode);
+          setNodePreview(preview);
+        }
+      }
+    }
+  }, [nodes, edges, selectedNodeId]);
+
   // Initialize canvas when needed
   const getCanvas = useCallback(() => {
     if (!canvasRef.current) {
@@ -34,6 +55,14 @@ export function useFilterGraph() {
     }
     return canvasRef.current;
   }, []);
+
+  // Generate a preview for a specific node
+  const generateNodePreview = useCallback((targetNode: Node) => {
+    if (!sourceImageRef.current) return null;
+    
+    const canvas = getCanvas();
+    return applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
+  }, [nodes, edges, getCanvas]);
 
   // Initialize the source node
   useEffect(() => {
@@ -66,40 +95,7 @@ export function useFilterGraph() {
     }
     return null;
   }, []);
-
-  // Function to add a new filter node
-  const addNode = useCallback((filterType: FilterType) => {
-    const filterDef = findFilterByType(filterType);
-    if (!filterDef) return;
-
-    const newNodeId = `${filterType}-${uuidv4().substring(0, 8)}`;
-    
-    // Create the node data with default params
-    const nodeData: FilterNodeData = {
-      label: `${filterDef.name}`,
-      filterType,
-      params: filterDef.params.map(param => ({ ...param })),
-      onParamChange: handleParamChange,
-    };
-
-    // Add the new node
-    setNodes(nds => [
-      ...nds,
-      {
-        id: newNodeId,
-        type: 'filterNode',
-        position: { 
-          x: Math.random() * 300 + 250, 
-          y: Math.random() * 200 + 100
-        },
-        data: nodeData,
-      },
-    ]);
-
-    // Select the new node
-    setSelectedNodeId(newNodeId);
-  }, [findFilterByType]);
-
+  
   // Handle node parameter changes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
     setNodes(nds => 
@@ -122,7 +118,64 @@ export function useFilterGraph() {
 
     // Re-process the image when params change
     processImage();
-  }, []);
+  }, [processImage]);
+  
+  // Handle enabling/disabling a filter node
+  const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              enabled
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    // Re-process the image when a filter is enabled/disabled
+    processImage();
+  }, [processImage]);
+
+  // Function to add a new filter node
+  const addNode = useCallback((filterType: FilterType) => {
+    const filterDef = findFilterByType(filterType);
+    if (!filterDef) return;
+
+    const newNodeId = `${filterType}-${uuidv4().substring(0, 8)}`;
+    
+    // Create the node data with default params
+    const nodeData: FilterNodeData = {
+      label: `${filterDef.name}`,
+      filterType,
+      params: filterDef.params.map(param => ({ ...param })),
+      enabled: true,
+      onParamChange: handleParamChange,
+      onToggleEnabled: handleToggleEnabled,
+    };
+
+    // Add the new node
+    setNodes(nds => [
+      ...nds,
+      {
+        id: newNodeId,
+        type: 'filterNode',
+        position: { 
+          x: Math.random() * 300 + 250, 
+          y: Math.random() * 200 + 100
+        },
+        data: nodeData,
+      },
+    ]);
+
+    // Select the new node
+    setSelectedNodeId(newNodeId);
+  }, [findFilterByType, handleParamChange, handleToggleEnabled]);
 
   // Handle nodes changes
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -151,7 +204,7 @@ export function useFilterGraph() {
 
     // Re-process the image when connections change
     processImage();
-  }, []);
+  }, [processImage]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {
@@ -167,7 +220,7 @@ export function useFilterGraph() {
     } else {
       setNodePreview(null);
     }
-  }, [nodes, sourceImage]);
+  }, [nodes, sourceImage, generateNodePreview]);
 
   // Upload an image
   const uploadImage = useCallback((file: File) => {
@@ -198,36 +251,7 @@ export function useFilterGraph() {
       img.src = imageDataUrl;
     };
     reader.readAsDataURL(file);
-  }, []);
-
-  // Process the image through the filter chain
-  const processImage = useCallback(() => {
-    if (!sourceImageRef.current) return;
-    
-    const canvas = getCanvas();
-    const result = applyFilters(sourceImageRef.current, nodes, edges, canvas);
-    
-    if (result) {
-      setProcessedImage(result);
-      
-      // If a node is selected, update its preview
-      if (selectedNodeId) {
-        const selectedNode = nodes.find(n => n.id === selectedNodeId);
-        if (selectedNode) {
-          const preview = generateNodePreview(selectedNode);
-          setNodePreview(preview);
-        }
-      }
-    }
-  }, [nodes, edges, selectedNodeId, getCanvas]);
-
-  // Generate a preview for a specific node
-  const generateNodePreview = useCallback((targetNode: Node) => {
-    if (!sourceImageRef.current) return null;
-    
-    const canvas = getCanvas();
-    return applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
-  }, [nodes, edges, getCanvas]);
+  }, [processImage]);
 
   // Export the processed image
   const exportImage = useCallback((format = 'png', quality = 0.9) => {
