@@ -85,27 +85,28 @@ export const applyFilters = (
   return canvas.toDataURL();
 };
 
-// Build a processing chain from source to leaf nodes
-const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
+// Build a processing chain from source to all connected nodes
+const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[], visited: Set<string> = new Set()): Node[] => {
   const sourceNode = nodes.find(node => node.id === sourceNodeId);
-  if (!sourceNode) return [];
+  if (!sourceNode || visited.has(sourceNodeId)) return [];
+  
+  // Mark this node as visited to avoid cycles
+  visited.add(sourceNodeId);
   
   const chain = [sourceNode];
   const targetNodes = getTargetNodes(sourceNodeId, nodes, edges);
   
   if (targetNodes.length === 0) return chain;
   
-  // Get the chain of nodes with the most filters (typically the longest path)
-  let longestChain: Node[] = [];
+  // Process all branches from this node
+  let allConnectedNodes: Node[] = [];
   
   for (const targetNode of targetNodes) {
-    const nextChain = buildProcessingChain(targetNode.id, nodes, edges);
-    if (nextChain.length > longestChain.length) {
-      longestChain = nextChain;
-    }
+    const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
+    allConnectedNodes = [...allConnectedNodes, ...nextNodes];
   }
   
-  return [...chain, ...longestChain];
+  return [...chain, ...allConnectedNodes];
 };
 
 // Apply a specific filter based on type
