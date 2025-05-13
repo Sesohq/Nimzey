@@ -252,12 +252,15 @@ export function useFilterGraph() {
       onOpacityChange: handleOpacityChange
     };
 
+    // Determine node type - use blendNode for blend filter type
+    const nodeType = filterType === 'blend' ? 'blendNode' : 'filterNode';
+    
     // Add the new node
     setNodes(nds => [
       ...nds,
       {
         id: newNodeId,
-        type: 'filterNode',
+        type: nodeType,
         position: { 
           x: Math.random() * 300 + 250, 
           y: Math.random() * 200 + 100
@@ -282,9 +285,40 @@ export function useFilterGraph() {
 
   // Handle new connections
   const onConnect = useCallback((connection: Connection) => {
+    // Generate a unique edge ID based on the source, target and target handle if exists
+    // This allows multiple connections to different input handles on the same target node
+    const targetHandle = connection.targetHandle ? `-${connection.targetHandle}` : '';
+    const edgeId = `e-${connection.source}-${connection.target}${targetHandle}`;
+    
+    // Check if we're connecting to a blend node with multiple inputs
+    if (connection.target) {
+      const targetNode = nodes.find(n => n.id === connection.target);
+      
+      // If this is a blend node, we need special handling for the multiple inputs
+      if (targetNode && targetNode.type === 'blendNode') {
+        // For blend nodes, we may already have a connection to one of the input handles
+        // We'll keep that connection and add this one
+        
+        // But first, check if we already have a connection to this specific input handle
+        const existingConnection = edges.find(e => 
+          e.target === connection.target && 
+          e.targetHandle === connection.targetHandle
+        );
+        
+        // If there's already a connection to this handle, we'll remove it before adding the new one
+        if (existingConnection) {
+          setEdges(eds => eds.filter(e => e.id !== existingConnection.id));
+        }
+      } else {
+        // For other node types, we'll remove any existing connections to the target node
+        // as each standard node can only have one input
+        setEdges(eds => eds.filter(e => e.target !== connection.target));
+      }
+    }
+    
     const newEdge = {
       ...connection,
-      id: `e-${connection.source}-${connection.target}`,
+      id: edgeId,
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -297,7 +331,7 @@ export function useFilterGraph() {
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage]);
+  }, [nodes, edges, processImage]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {
