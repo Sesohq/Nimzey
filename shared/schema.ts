@@ -25,10 +25,10 @@ export const projects = pgTable("projects", {
 export const filterPresets = pgTable("filter_presets", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  description: text("description").default(null), // null for no description
+  description: text("description"), // null for no description
   nodes: jsonb("nodes").notNull(), // Store node configurations as JSON
   edges: jsonb("edges").notNull(), // Store edge connections as JSON
-  thumbnail: text("thumbnail").default(null), // Optional base64 thumbnail of the result
+  thumbnail: text("thumbnail"), // Optional base64 thumbnail of the result
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

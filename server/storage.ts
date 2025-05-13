@@ -126,8 +126,12 @@ export class MemStorage implements IStorage {
     const id = this.presetIdCounter++;
     const now = new Date();
     const newPreset: FilterPreset = {
-      ...preset,
       id,
+      name: preset.name,
+      description: preset.description || null,
+      nodes: preset.nodes,
+      edges: preset.edges,
+      thumbnail: preset.thumbnail || null,
       createdAt: now,
       updatedAt: now
     };
@@ -141,11 +145,16 @@ export class MemStorage implements IStorage {
       return undefined;
     }
     
+    const now = new Date();
     const updatedPreset: FilterPreset = {
-      ...existingPreset,
-      ...preset,
       id,
-      updatedAt: new Date()
+      name: preset.name,
+      description: preset.description || null,
+      nodes: preset.nodes,
+      edges: preset.edges,
+      thumbnail: preset.thumbnail || null,
+      createdAt: existingPreset.createdAt,
+      updatedAt: now
     };
     
     this.filterPresets.set(id, updatedPreset);

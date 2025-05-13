@@ -31,18 +31,47 @@ export default function Home() {
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
+  // Add state for selected tab in the left panel
+  const [activeLeftTab, setActiveLeftTab] = useState<'filters' | 'presets'>('filters');
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
       <Header onNewProject={resetCanvas} onExportImage={exportImage} />
       
       <div className="flex flex-1 overflow-hidden">
-        <FilterPanel 
-          width={filtersPanelWidth} 
-          onAddFilter={addNode}
-          onUploadImage={uploadImage}
-          sourceImage={sourceImage}
-        />
+        <div className="h-full" style={{ width: `${filtersPanelWidth}px` }}>
+          <div className="flex border-b">
+            <button 
+              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'filters' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
+              onClick={() => setActiveLeftTab('filters')}
+            >
+              Filters
+            </button>
+            <button 
+              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'presets' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
+              onClick={() => setActiveLeftTab('presets')}
+            >
+              Presets
+            </button>
+          </div>
+          
+          {activeLeftTab === 'filters' ? (
+            <FilterPanel 
+              width={filtersPanelWidth} 
+              onAddFilter={addNode}
+              onUploadImage={uploadImage}
+              sourceImage={sourceImage}
+            />
+          ) : (
+            <PresetPanel
+              width={filtersPanelWidth}
+              nodes={nodes}
+              edges={edges}
+              onLoadPreset={loadPreset}
+              processedImage={processedImage}
+            />
+          )}
+        </div>
         
         <NodeCanvas
           nodes={nodes}
