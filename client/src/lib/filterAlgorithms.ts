@@ -369,6 +369,85 @@ export const applyFilters = (
   return null;
 };
 
+// Process a node with multiple inputs
+const processMultiInputNode = (
+  node: Node, 
+  nodes: Node[], 
+  edges: Edge[], 
+  tempCanvas: HTMLCanvasElement, 
+  tempCtx: CanvasRenderingContext2D,
+  inputHandles: string[] = ['inputA', 'inputB', 'inputC'],
+  processor: (inputs: Record<string, HTMLCanvasElement | null>, resultCtx: CanvasRenderingContext2D, resultCanvas: HTMLCanvasElement, nodeData: FilterNodeData, tempCanvas: HTMLCanvasElement, tempCtx: CanvasRenderingContext2D) => void
+) => {
+  // Get the node data
+  const nodeData = node.data as FilterNodeData;
+  
+  // Skip disabled nodes
+  if (!nodeData.enabled) {
+    // For disabled nodes, just pass through the primary input (inputA) unchanged
+    const sourceNode = getSourceNode(node.id, nodes, edges, inputHandles[0] || undefined);
+    if (sourceNode && nodeResultCache.has(sourceNode.id)) {
+      const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+      
+      // Create a new canvas for this node's result
+      const resultCanvas = document.createElement('canvas');
+      resultCanvas.width = tempCanvas.width;
+      resultCanvas.height = tempCanvas.height;
+      const resultCtx = resultCanvas.getContext('2d')!;
+      
+      // Just copy the source to the result
+      resultCtx.drawImage(sourceCanvas, 0, 0);
+      
+      // Store the result
+      nodeResultCache.set(node.id, resultCanvas);
+    }
+    return;
+  }
+  
+  // Get all input nodes
+  const sourceNodes: Record<string, Node | null> = {};
+  
+  // Check for special handles first
+  inputHandles.forEach(handle => {
+    sourceNodes[handle] = getSourceNode(node.id, nodes, edges, handle);
+  });
+  
+  // Check for the default input (for backwards compatibility)
+  const defaultSourceNode = getSourceNode(node.id, nodes, edges);
+  if (defaultSourceNode && !sourceNodes.inputA) {
+    sourceNodes.inputA = defaultSourceNode;
+  }
+  
+  // Check if we have at least one input
+  const hasAnyInput = Object.values(sourceNodes).some(node => node !== null && nodeResultCache.has(node!.id));
+  if (!hasAnyInput) {
+    console.warn(`Node ${node.id} has no valid input source, skipping`);
+    return;
+  }
+  
+  // Collect all available input canvases
+  const inputCanvases: Record<string, HTMLCanvasElement | null> = {};
+  Object.entries(sourceNodes).forEach(([handle, inputNode]) => {
+    if (inputNode && nodeResultCache.has(inputNode.id)) {
+      inputCanvases[handle] = nodeResultCache.get(inputNode.id)!;
+    } else {
+      inputCanvases[handle] = null;
+    }
+  });
+  
+  // Create a new canvas for this node's result
+  const resultCanvas = document.createElement('canvas');
+  resultCanvas.width = tempCanvas.width;
+  resultCanvas.height = tempCanvas.height;
+  const resultCtx = resultCanvas.getContext('2d')!;
+  
+  // Process the inputs using the provided processor function
+  processor(inputCanvases, resultCtx, resultCanvas, nodeData, tempCanvas, tempCtx);
+  
+  // Store the result in the cache
+  nodeResultCache.set(node.id, resultCanvas);
+};
+
 // Process a filter node
 const processFilterNode = (
   node: Node, 
@@ -379,6 +458,85 @@ const processFilterNode = (
 ) => {
   // Get the filter data
   const filterData = node.data as FilterNodeData;
+  
+  // Check if this is a compositing filter that should use multiple inputs
+  const compositingTypes = ['mask', 'multiply', 'screen', 'mix', 'transform', 'setAlpha'];
+  
+  if (compositingTypes.includes(filterData.filterType)) {
+    // Use multi-input processing for compositing filters
+    processMultiInputNode(
+      node,
+      nodes,
+      edges,
+      tempCanvas,
+      tempCtx,
+      ['inputA', 'inputB', 'inputC'], // Support up to 3 inputs
+      (inputs, resultCtx, resultCanvas, nodeData, tempCanvas, tempCtx) => {
+        // Main input (required)
+        const mainInput = inputs.inputA;
+        if (!mainInput) {
+          console.warn(`Compositing node ${node.id} has no main input`);
+          return;
+        }
+        
+        // Secondary inputs
+        const secondaryInput = inputs.inputB;
+        const tertiaryInput = inputs.inputC;
+        
+        // Draw the main input to our temp canvas for processing
+        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(mainInput, 0, 0);
+        
+        // Process the main input with the filter
+        applyCPUFilter(nodeData.filterType, tempCtx, tempCanvas, nodeData.params);
+        
+        // Draw the filtered result
+        resultCtx.drawImage(tempCanvas, 0, 0);
+        
+        // If we have secondary inputs, blend them in
+        if (secondaryInput) {
+          console.log(`Compositing node ${node.id} processing secondary input`);
+          
+          // Set up a temporary canvas for the secondary input
+          const tempInputCanvas = document.createElement('canvas');
+          tempInputCanvas.width = tempCanvas.width;
+          tempInputCanvas.height = tempCanvas.height;
+          const tempInputCtx = tempInputCanvas.getContext('2d')!;
+          tempInputCtx.drawImage(secondaryInput, 0, 0);
+          
+          // Draw the secondary input with blend mode
+          applyBlendMode(
+            resultCtx, 
+            tempInputCtx, 
+            nodeData.blendMode || 'normal', 
+            secondaryInput,
+            nodeData.opacity !== undefined ? nodeData.opacity / 100 : 1
+          );
+        }
+        
+        if (tertiaryInput) {
+          console.log(`Compositing node ${node.id} processing tertiary input`);
+          
+          // Set up a temporary canvas for the tertiary input
+          const tempInputCanvas = document.createElement('canvas');
+          tempInputCanvas.width = tempCanvas.width;
+          tempInputCanvas.height = tempCanvas.height;
+          const tempInputCtx = tempInputCanvas.getContext('2d')!;
+          tempInputCtx.drawImage(tertiaryInput, 0, 0);
+          
+          // Draw the tertiary input with same blend mode
+          applyBlendMode(
+            resultCtx, 
+            tempInputCtx, 
+            nodeData.blendMode || 'normal', 
+            tertiaryInput,
+            nodeData.opacity !== undefined ? nodeData.opacity / 100 : 0.7 // Slightly less opaque
+          );
+        }
+      }
+    );
+    return;
+  }
   
   // Skip disabled filters
   if (!filterData.enabled) {
