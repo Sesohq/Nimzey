@@ -328,7 +328,7 @@ const applyFilter = (
       applyTextureFilter(data, getParamValue(params, 'intensity', 30));
       break;
     case 'extrude':
-      applyExtrudeFilter(data, canvas.width, canvas.height, getParamValue(params, 'depth', 10));
+      applyExtrudeFilter(data, canvas.width, canvas.height, params);
       break;
     case 'wave':
       applyWaveFilter(data, canvas.width, canvas.height, getParamValue(params, 'amplitude', 10));
@@ -891,19 +891,313 @@ function applyTextureFilter(data: Uint8ClampedArray, intensity: number): void {
   }
 }
 
-// Extrude filter
-function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, depth: number): void {
-  const tempData = new Uint8ClampedArray(data.length);
-  tempData.set(data);
+// Advanced Extrude filter
+function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
   
-  for (let y = depth; y < height; y++) {
-    for (let x = depth; x < width; x++) {
-      const currentIdx = (y * width + x) * 4;
-      const offsetIdx = ((y - depth) * width + (x - depth)) * 4;
+  // Parse parameters
+  const blockSize = parseInt(String(paramsObj.blockSize || '10'));
+  const depth = parseInt(String(paramsObj.depth || '20'));
+  const shape = paramsObj.shape || 'Cube';
+  const lightDirection = paramsObj.lightDirection || 'Top-Left';
+  const materialColor = paramsObj.materialColor || 'Original';
+  const blendOriginal = paramsObj.blendOriginal === 'On';
+  
+  // Save original data
+  const originalData = new Uint8ClampedArray(data.length);
+  originalData.set(data);
+  
+  // Create a temporary canvas for drawing
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
+  
+  // Fill background with white or transparent depending on blend mode
+  if (!blendOriginal) {
+    tempCtx.fillStyle = 'white';
+    tempCtx.fillRect(0, 0, width, height);
+  }
+  
+  // Calculate light direction offsets
+  let lightX = 0, lightY = 0;
+  switch (lightDirection) {
+    case 'Top-Left':
+      lightX = -1; lightY = -1;
+      break;
+    case 'Top-Right':
+      lightX = 1; lightY = -1;
+      break;
+    case 'Bottom-Left':
+      lightX = -1; lightY = 1;
+      break;
+    case 'Bottom-Right':
+      lightX = 1; lightY = 1;
+      break;
+  }
+  
+  // Utility function to get brightness
+  const getBrightness = (r: number, g: number, b: number): number => {
+    return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  };
+  
+  // Process image in blocks
+  for (let y = 0; y < height; y += blockSize) {
+    for (let x = 0; x < width; x += blockSize) {
+      // Define the block boundaries
+      const blockWidth = Math.min(blockSize, width - x);
+      const blockHeight = Math.min(blockSize, height - y);
       
-      for (let c = 0; c < 3; c++) {
-        data[currentIdx + c] = tempData[offsetIdx + c];
+      // Skip if block is too small
+      if (blockWidth < 2 || blockHeight < 2) continue;
+      
+      // Calculate average brightness and color of the block
+      let sumR = 0, sumG = 0, sumB = 0, pixelCount = 0;
+      
+      for (let by = 0; by < blockHeight; by++) {
+        for (let bx = 0; bx < blockWidth; bx++) {
+          const idx = ((y + by) * width + (x + bx)) * 4;
+          sumR += originalData[idx];
+          sumG += originalData[idx + 1];
+          sumB += originalData[idx + 2];
+          pixelCount++;
+        }
       }
+      
+      // Average color
+      const avgR = Math.round(sumR / pixelCount);
+      const avgG = Math.round(sumG / pixelCount);
+      const avgB = Math.round(sumB / pixelCount);
+      
+      // Calculate brightness (0-255)
+      const brightness = getBrightness(avgR, avgG, avgB);
+      
+      // Map brightness to extrusion height (0-depth)
+      const extrusionHeight = Math.round((brightness / 255) * depth);
+      
+      // Determine fill and stroke colors based on material setting
+      let fillR = avgR, fillG = avgG, fillB = avgB;
+      
+      if (materialColor === 'Grayscale') {
+        fillR = fillG = fillB = brightness;
+      } else if (materialColor === 'Blue') {
+        fillR = Math.round(avgR * 0.5);
+        fillG = Math.round(avgG * 0.7);
+        fillB = Math.min(255, Math.round(avgB * 1.3));
+      } else if (materialColor === 'Red') {
+        fillR = Math.min(255, Math.round(avgR * 1.3));
+        fillG = Math.round(avgG * 0.7);
+        fillB = Math.round(avgB * 0.5);
+      } else if (materialColor === 'Green') {
+        fillR = Math.round(avgR * 0.5);
+        fillG = Math.min(255, Math.round(avgG * 1.3));
+        fillB = Math.round(avgB * 0.7);
+      }
+      
+      // Draw the extruded shape
+      tempCtx.save();
+      
+      // Main face color
+      tempCtx.fillStyle = `rgb(${fillR}, ${fillG}, ${fillB})`;
+      
+      if (shape === 'Cube') {
+        // Draw main face
+        tempCtx.fillRect(x, y, blockWidth, blockHeight);
+        
+        // Draw side faces based on light direction
+        if (extrusionHeight > 0) {
+          // Side face 1 (darker)
+          const sideFace1R = Math.max(0, fillR - 40);
+          const sideFace1G = Math.max(0, fillG - 40);
+          const sideFace1B = Math.max(0, fillB - 40);
+          tempCtx.fillStyle = `rgb(${sideFace1R}, ${sideFace1G}, ${sideFace1B})`;
+          
+          if (lightX > 0) {
+            // Light from right, draw left face
+            tempCtx.beginPath();
+            tempCtx.moveTo(x, y);
+            tempCtx.lineTo(x, y + blockHeight);
+            tempCtx.lineTo(x - extrusionHeight, y + blockHeight + extrusionHeight);
+            tempCtx.lineTo(x - extrusionHeight, y + extrusionHeight);
+            tempCtx.closePath();
+            tempCtx.fill();
+          } else {
+            // Light from left, draw right face
+            tempCtx.beginPath();
+            tempCtx.moveTo(x + blockWidth, y);
+            tempCtx.lineTo(x + blockWidth, y + blockHeight);
+            tempCtx.lineTo(x + blockWidth + extrusionHeight, y + blockHeight + extrusionHeight);
+            tempCtx.lineTo(x + blockWidth + extrusionHeight, y + extrusionHeight);
+            tempCtx.closePath();
+            tempCtx.fill();
+          }
+          
+          // Side face 2 (even darker)
+          const sideFace2R = Math.max(0, fillR - 70);
+          const sideFace2G = Math.max(0, fillG - 70);
+          const sideFace2B = Math.max(0, fillB - 70);
+          tempCtx.fillStyle = `rgb(${sideFace2R}, ${sideFace2G}, ${sideFace2B})`;
+          
+          if (lightY > 0) {
+            // Light from bottom, draw top face
+            tempCtx.beginPath();
+            tempCtx.moveTo(x, y);
+            tempCtx.lineTo(x + blockWidth, y);
+            tempCtx.lineTo(x + blockWidth + extrusionHeight, y + extrusionHeight);
+            tempCtx.lineTo(x - extrusionHeight, y + extrusionHeight);
+            tempCtx.closePath();
+            tempCtx.fill();
+          } else {
+            // Light from top, draw bottom face
+            tempCtx.beginPath();
+            tempCtx.moveTo(x, y + blockHeight);
+            tempCtx.lineTo(x + blockWidth, y + blockHeight);
+            tempCtx.lineTo(x + blockWidth + extrusionHeight, y + blockHeight + extrusionHeight);
+            tempCtx.lineTo(x - extrusionHeight, y + blockHeight + extrusionHeight);
+            tempCtx.closePath();
+            tempCtx.fill();
+          }
+        }
+      } 
+      else if (shape === 'Pyramid') {
+        // Calculate pyramid apex at center of block
+        const centerX = x + blockWidth / 2;
+        const centerY = y + blockHeight / 2;
+        const apexX = centerX;
+        const apexY = centerY - extrusionHeight;
+        
+        // Draw pyramid faces
+        // Face 1
+        const face1R = Math.max(0, fillR - 20);
+        const face1G = Math.max(0, fillG - 20);
+        const face1B = Math.max(0, fillB - 20);
+        tempCtx.fillStyle = `rgb(${face1R}, ${face1G}, ${face1B})`;
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, y);
+        tempCtx.lineTo(x + blockWidth, y);
+        tempCtx.lineTo(apexX, apexY);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Face 2
+        const face2R = Math.max(0, fillR - 40);
+        const face2G = Math.max(0, fillG - 40);
+        const face2B = Math.max(0, fillB - 40);
+        tempCtx.fillStyle = `rgb(${face2R}, ${face2G}, ${face2B})`;
+        tempCtx.beginPath();
+        tempCtx.moveTo(x + blockWidth, y);
+        tempCtx.lineTo(x + blockWidth, y + blockHeight);
+        tempCtx.lineTo(apexX, apexY);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Face 3
+        const face3R = Math.max(0, fillR - 60);
+        const face3G = Math.max(0, fillG - 60);
+        const face3B = Math.max(0, fillB - 60);
+        tempCtx.fillStyle = `rgb(${face3R}, ${face3G}, ${face3B})`;
+        tempCtx.beginPath();
+        tempCtx.moveTo(x + blockWidth, y + blockHeight);
+        tempCtx.lineTo(x, y + blockHeight);
+        tempCtx.lineTo(apexX, apexY);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Face 4
+        const face4R = Math.max(0, fillR - 80);
+        const face4G = Math.max(0, fillG - 80);
+        const face4B = Math.max(0, fillB - 80);
+        tempCtx.fillStyle = `rgb(${face4R}, ${face4G}, ${face4B})`;
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, y + blockHeight);
+        tempCtx.lineTo(x, y);
+        tempCtx.lineTo(apexX, apexY);
+        tempCtx.closePath();
+        tempCtx.fill();
+      } 
+      else if (shape === 'Bevel') {
+        // Draw beveled shape
+        const bevelSize = Math.min(blockWidth, blockHeight, extrusionHeight) / 3;
+        
+        // Main face (slightly smaller for bevel)
+        tempCtx.fillRect(
+          x + bevelSize, 
+          y + bevelSize, 
+          blockWidth - 2 * bevelSize, 
+          blockHeight - 2 * bevelSize
+        );
+        
+        // Bevel edges with gradient
+        const bevelR = Math.max(0, fillR - 30);
+        const bevelG = Math.max(0, fillG - 30);
+        const bevelB = Math.max(0, fillB - 30);
+        tempCtx.fillStyle = `rgb(${bevelR}, ${bevelG}, ${bevelB})`;
+        
+        // Top bevel
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, y);
+        tempCtx.lineTo(x + blockWidth, y);
+        tempCtx.lineTo(x + blockWidth - bevelSize, y + bevelSize);
+        tempCtx.lineTo(x + bevelSize, y + bevelSize);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Right bevel
+        tempCtx.beginPath();
+        tempCtx.moveTo(x + blockWidth, y);
+        tempCtx.lineTo(x + blockWidth, y + blockHeight);
+        tempCtx.lineTo(x + blockWidth - bevelSize, y + blockHeight - bevelSize);
+        tempCtx.lineTo(x + blockWidth - bevelSize, y + bevelSize);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Bottom bevel
+        const bottomBevelR = Math.max(0, fillR - 60);
+        const bottomBevelG = Math.max(0, fillG - 60);
+        const bottomBevelB = Math.max(0, fillB - 60);
+        tempCtx.fillStyle = `rgb(${bottomBevelR}, ${bottomBevelG}, ${bottomBevelB})`;
+        
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, y + blockHeight);
+        tempCtx.lineTo(x + blockWidth, y + blockHeight);
+        tempCtx.lineTo(x + blockWidth - bevelSize, y + blockHeight - bevelSize);
+        tempCtx.lineTo(x + bevelSize, y + blockHeight - bevelSize);
+        tempCtx.closePath();
+        tempCtx.fill();
+        
+        // Left bevel
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, y);
+        tempCtx.lineTo(x, y + blockHeight);
+        tempCtx.lineTo(x + bevelSize, y + blockHeight - bevelSize);
+        tempCtx.lineTo(x + bevelSize, y + bevelSize);
+        tempCtx.closePath();
+        tempCtx.fill();
+      }
+      
+      tempCtx.restore();
+    }
+  }
+  
+  // Get the final image data from the temporary canvas
+  const tempImageData = tempCtx.getImageData(0, 0, width, height);
+  
+  // Blend with original if needed or just use the extrude result
+  if (blendOriginal) {
+    // Simple 50/50 blend (could be parameterized further)
+    for (let i = 0; i < data.length; i += 4) {
+      for (let j = 0; j < 3; j++) {
+        data[i + j] = Math.round((originalData[i + j] + tempImageData.data[i + j]) / 2);
+      }
+    }
+  } else {
+    // Use extrude result only
+    for (let i = 0; i < data.length; i++) {
+      data[i] = tempImageData.data[i];
     }
   }
 }

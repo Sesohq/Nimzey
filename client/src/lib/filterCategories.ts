@@ -261,21 +261,52 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'extrude',
         params: [
           {
-            name: 'depth',
-            label: 'Depth',
+            name: 'blockSize',
+            label: 'Block Size',
             type: 'range',
-            min: 1,
+            min: 2,
             max: 50,
             step: 1,
             value: 10,
             unit: 'px'
           },
           {
-            name: 'direction',
-            label: 'Direction',
+            name: 'depth',
+            label: 'Extrude Depth',
+            type: 'range',
+            min: 1,
+            max: 100,
+            step: 1,
+            value: 20,
+            unit: 'px'
+          },
+          {
+            name: 'shape',
+            label: 'Shape',
+            type: 'select',
+            options: ['Cube', 'Pyramid', 'Bevel'],
+            value: 'Cube'
+          },
+          {
+            name: 'lightDirection',
+            label: 'Light Direction',
             type: 'select',
             options: ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right'],
             value: 'Top-Left'
+          },
+          {
+            name: 'materialColor',
+            label: 'Material Color',
+            type: 'select',
+            options: ['Original', 'Grayscale', 'Blue', 'Red', 'Green'],
+            value: 'Original'
+          },
+          {
+            name: 'blendOriginal',
+            label: 'Blend with Original',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'Off'
           }
         ]
       },
