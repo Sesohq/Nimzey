@@ -272,6 +272,8 @@ const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targe
 };
 
 // Find source image by traversing the filter chain upstream
+// This function is used to find the image data to use when a node doesn't have a direct connection
+// to an image source but is part of a filter chain
 const findSourceImage = (
   startNode: Node, 
   nodes: Node[], 
@@ -285,19 +287,35 @@ const findSourceImage = (
   }
   visitedNodes.add(startNode.id);
   
+  console.log(`Searching for source image for node ${startNode.id} (${startNode.type})`);
+  
+  // Check if the current node is already processed
+  if (nodeResultCache.has(startNode.id)) {
+    console.log(`Node ${startNode.id} already has processed data, using it`);
+    return nodeResultCache.get(startNode.id)!;
+  }
+  
+  // If this is an image node, return its processed canvas or the original image
+  if (startNode.type === 'imageNode') {
+    console.log(`Found image node ${startNode.id} directly`);
+    return originalImage;
+  }
+  
   // Get all input nodes for this node
   const inputNodes = getSourceNodesForNode(startNode.id, nodes, edges);
   const inputNodesList = Object.values(inputNodes).filter(Boolean) as Node[];
   
-  // If no inputs, can't find source image
+  // If no inputs, we can't find a source image
   if (inputNodesList.length === 0) {
+    console.log(`Node ${startNode.id} has no input nodes`);
     return null;
   }
   
-  // Check if any of our inputs is an image node
+  // First, check for any direct image node inputs
   for (const inputNode of inputNodesList) {
     if (inputNode.type === 'imageNode') {
-      // Found a direct image node input, use it
+      console.log(`Found direct image node input for ${startNode.id}`);
+      
       if (nodeResultCache.has(inputNode.id)) {
         return nodeResultCache.get(inputNode.id)!;
       } else {
@@ -307,8 +325,17 @@ const findSourceImage = (
     }
   }
   
-  // No image node found directly, try to traverse upstream
+  // Next, check if any input node has already been processed
   for (const inputNode of inputNodesList) {
+    if (nodeResultCache.has(inputNode.id)) {
+      console.log(`Found processed input ${inputNode.id} for ${startNode.id}`);
+      return nodeResultCache.get(inputNode.id)!;
+    }
+  }
+  
+  // Finally, try to recursively traverse upstream to find any source
+  for (const inputNode of inputNodesList) {
+    console.log(`Traversing upstream from ${startNode.id} to ${inputNode.id}`);
     const upstreamImage = findSourceImage(inputNode, nodes, edges, originalImage, new Set(visitedNodes));
     if (upstreamImage) {
       return upstreamImage;
@@ -316,6 +343,7 @@ const findSourceImage = (
   }
   
   // No source image found in the chain
+  console.log(`No source image found for ${startNode.id}`);
   return null;
 };
 
@@ -847,7 +875,7 @@ const processFilterNode = (
   if (!sourceCanvas) {
     console.warn(`Filter node ${node.id} has no valid input (single input mode)`);
     return;
-  };
+  }
   
   // Clear the temp canvas and copy the source image to it
   tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
