@@ -150,6 +150,9 @@ const applyFilter = (
     case 'pixelate':
       applyPixelateFilter(data, canvas.width, canvas.height, getParamValue(params, 'pixelSize', 8));
       break;
+    case 'findEdges':
+      applyFindEdgesFilter(data, canvas.width, canvas.height, params);
+      break;
   }
   
   ctx.putImageData(imageData, 0, 0);

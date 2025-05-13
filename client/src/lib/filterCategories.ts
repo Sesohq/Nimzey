@@ -63,6 +63,53 @@ export const filterCategories: Record<string, FilterCategory> = {
         name: 'Invert',
         type: 'invert',
         params: []
+      },
+      {
+        name: 'Find Edges',
+        type: 'findEdges',
+        params: [
+          {
+            name: 'method',
+            label: 'Method',
+            type: 'select',
+            options: ['Sobel', 'Laplacian', 'Prewitt', 'Canny'],
+            value: 'Sobel'
+          },
+          {
+            name: 'strength',
+            label: 'Strength',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 50,
+            unit: '%'
+          },
+          {
+            name: 'threshold',
+            label: 'Threshold',
+            type: 'range',
+            min: 0,
+            max: 255,
+            step: 1,
+            value: 25,
+            unit: ''
+          },
+          {
+            name: 'invert',
+            label: 'Invert',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'On'
+          },
+          {
+            name: 'preserveColor',
+            label: 'Preserve Color',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'Off'
+          }
+        ]
       }
     ]
   },

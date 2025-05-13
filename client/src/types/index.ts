@@ -10,7 +10,8 @@ export type FilterType =
   | 'texture' 
   | 'extrude' 
   | 'wave' 
-  | 'pixelate';
+  | 'pixelate'
+  | 'findEdges';
 
 export type NodeType = 'filterNode' | 'imageNode';
 
