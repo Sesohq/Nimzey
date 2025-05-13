@@ -3310,6 +3310,9 @@ function applyBlendMode(
   const width = destCtx.canvas.width;
   const height = destCtx.canvas.height;
   
+  // Debug information
+  console.log(`Applying blend mode: ${blendMode} with opacity: ${opacity}`);
+  
   // Get image data from both canvases
   const destData = destCtx.getImageData(0, 0, width, height);
   const srcData = srcCtx.getImageData(0, 0, width, height);
@@ -3320,17 +3323,25 @@ function applyBlendMode(
     const srcR = srcData.data[i];
     const srcG = srcData.data[i + 1];
     const srcB = srcData.data[i + 2];
-    const srcA = srcData.data[i + 3] / 255;
+    const srcA = (srcData.data[i + 3] / 255) * opacity; // Apply opacity to the source/blend layer
     
     const destR = destData.data[i];
     const destG = destData.data[i + 1];
     const destB = destData.data[i + 2];
     
+    // Skip fully transparent pixels in blend layer
+    if (srcA === 0) continue;
+    
     // Calculate blended values based on blend mode
     let resultR = 0, resultG = 0, resultB = 0;
     
+    // Process boundaries and areas of high contrast differently to create
+    // more interesting algorithmic interaction (the "filter baby" effect)
+    const contrast = Math.abs(srcR - destR) + Math.abs(srcG - destG) + Math.abs(srcB - destB);
+    const isHighContrast = contrast > 100; // Threshold for high contrast areas
+    
     // Normalize blend mode to lowercase for case-insensitive comparison
-    const normalizedBlendMode = blendMode.toLowerCase();
+    const normalizedBlendMode = typeof blendMode === 'string' ? blendMode.toLowerCase() : 'normal';
     
     switch (normalizedBlendMode) {
       case 'normal':
