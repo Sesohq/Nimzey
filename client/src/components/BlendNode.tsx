@@ -53,13 +53,7 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     // We could add a subscription to edge changes here if needed
   }, [nodeId, getEdges]);
   
-  // Update preview image when data changes
-  useEffect(() => {
-    // Use any available preview data from the node data
-    if (data.preview) {
-      setPreviewImage(data.preview);
-    }
-  }, [data.preview]);
+  // No preview image management needed
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
@@ -166,46 +160,6 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
           </div>
         </div>
         
-        {/* Node Preview Area */}
-        <div 
-          className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-          style={{ height: '80px' }}
-          onClick={() => setShowLargePreview(!showLargePreview)}
-        >
-          {previewImage ? (
-            <img 
-              src={previewImage} 
-              alt="Node preview" 
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <div className="text-xs text-gray-500 p-2 text-center">
-              Preview will appear here
-            </div>
-          )}
-        </div>
-        
-        {/* Large preview modal */}
-        {showLargePreview && previewImage && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium">{data.label} Preview</h3>
-                <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              <img 
-                src={previewImage} 
-                alt="Node preview (large)" 
-                className="max-w-full" 
-              />
-            </div>
-          </div>
-        )}
-        
         <div className="flex items-center justify-between mb-3">
           <Label htmlFor={`${nodeId}-enabled`} className="text-xs text-slate-500">
             Enabled
@@ -271,61 +225,7 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                 </Select>
               </div>
               
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor={`${nodeId}-opacity`} className="text-xs text-slate-500">
-                    Opacity: {data.opacity}%
-                  </Label>
-                </div>
-                <Slider
-                  id={`${nodeId}-opacity`}
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={[data.opacity || 100]}
-                  onValueChange={(values) => handleOpacityChange(values[0])}
-                  className="my-1 bg-opacity-100"
-                  aria-label="Opacity"
-                />
-              </div>
-              
-              {/* Filter-specific parameters */}
-              {data.params.map((param) => (
-                <div key={param.name} className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor={`${nodeId}-${param.name}`} className="text-xs text-slate-500">
-                      {param.label}: {param.value}{param.unit || ''}
-                    </Label>
-                  </div>
-                  {param.type === 'range' ? (
-                    <Slider
-                      id={`${nodeId}-${param.name}`}
-                      min={param.min || 0}
-                      max={param.max || 100}
-                      step={param.step || 1}
-                      value={[Number(param.value)]}
-                      onValueChange={(values) => handleParamChange(param.name, values[0])}
-                      className="my-1"
-                    />
-                  ) : param.type === 'select' && param.options ? (
-                    <Select
-                      value={String(param.value)}
-                      onValueChange={(value) => handleParamChange(param.name, value)}
-                    >
-                      <SelectTrigger id={`${nodeId}-${param.name}`} className="w-full">
-                        <SelectValue placeholder={`Select ${param.label}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {param.options.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                </div>
-              ))}
+              {/* Filter parameters removed as requested, leaving only blend mode */}
             </div>
             
             <div className="mt-4 bg-slate-50 -mx-4 -mb-4 p-3 rounded-b-lg border-t border-slate-100">
