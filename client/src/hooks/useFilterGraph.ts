@@ -26,6 +26,7 @@ export function useFilterGraph() {
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
+  const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
 
   // Initialize canvas when needed
   const getCanvas = useCallback(() => {
@@ -112,8 +113,8 @@ export function useFilterGraph() {
     processImage();
   }, [processImage]);
 
-  // Define a function for uploading images that will be used by nodes
-  const handleImageUpload = useCallback((file: File) => {
+  // Upload an image function
+  const uploadImage = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageDataUrl = e.target?.result as string;
@@ -127,7 +128,7 @@ export function useFilterGraph() {
               ...node,
               data: { 
                 src: imageDataUrl,
-                onUploadImage: handleImageUpload
+                onUploadImage: uploadFunctionRef.current
               },
             };
           }
@@ -146,6 +147,11 @@ export function useFilterGraph() {
     reader.readAsDataURL(file);
   }, [processImage]);
 
+  // Set the upload function reference for use in image nodes
+  useEffect(() => {
+    uploadFunctionRef.current = uploadImage;
+  }, [uploadImage]);
+
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
     const sourceNodeId = 'source-1';
@@ -156,8 +162,7 @@ export function useFilterGraph() {
         position: { x: 100, y: 100 },
         data: { 
           src: null,
-          // Add the reference to handleImageUpload directly in the node data
-          onUploadImage: handleImageUpload
+          onUploadImage: uploadFunctionRef.current
         },
       },
     ]);
@@ -166,7 +171,7 @@ export function useFilterGraph() {
     setProcessedImage(null);
     setSelectedNodeId(null);
     setNodePreview(null);
-  }, [handleImageUpload]);
+  }, []);
 
   // Initialize the source node
   useEffect(() => {
@@ -268,37 +273,6 @@ export function useFilterGraph() {
       }
     }
   }, [nodes, sourceImage, generateNodePreview, processImage]);
-
-  // Upload an image
-  const uploadImage = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageDataUrl = e.target?.result as string;
-      setSourceImage(imageDataUrl);
-      
-      // Update the source node with the new image
-      setNodes(nds => 
-        nds.map(node => {
-          if (node.id.startsWith('source-')) {
-            return {
-              ...node,
-              data: { src: imageDataUrl },
-            };
-          }
-          return node;
-        })
-      );
-      
-      // Create a new image element to store the original
-      const img = new Image();
-      img.onload = () => {
-        sourceImageRef.current = img;
-        processImage();
-      };
-      img.src = imageDataUrl;
-    };
-    reader.readAsDataURL(file);
-  }, [processImage]);
 
   // Export the processed image
   const exportImage = useCallback((format = 'png', quality = 0.9) => {

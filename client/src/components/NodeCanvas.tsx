@@ -51,7 +51,7 @@ export default function NodeCanvas({
   zoomLevel,
   onUploadImage
 }: NodeCanvasProps) {
-  // Using a simple approach: add onUploadImage to image nodes data in useFilterGraph
+  // NodeCanvas component - renders the node-based editor
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
 
