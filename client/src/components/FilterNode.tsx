@@ -32,15 +32,27 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   };
   
-  // Enhanced debug logging for the filter node rendering
-  console.log(`FilterNode [${id}] (${data.filterType}) rendering:`, {
-    hasPreview: !!data.preview,
-    previewType: data.preview ? typeof data.preview : 'none',
-    previewStart: data.preview ? data.preview.slice(0, 30) + '...' : 'none',
-    dataKeys: Object.keys(data),
-    enabled: data.enabled,
-    params: data.params
-  });
+  // Use an effect to monitor preview changes
+  useEffect(() => {
+    // Enhanced debug logging whenever preview changes
+    console.log(`FilterNode [${id}] (${data.filterType}) preview changed:`, {
+      hasPreview: !!data.preview,
+      previewType: data.preview ? typeof data.preview : 'none',
+      previewStart: data.preview ? data.preview.slice(0, 30) + '...' : 'none',
+      enabled: data.enabled
+    });
+  }, [data.preview, id, data.filterType, data.enabled]);
+  
+  // Log initial render
+  useEffect(() => {
+    console.log(`FilterNode [${id}] (${data.filterType}) mounted`);
+    
+    // When the component mounts, we can trigger a preview update if needed
+    if (!data.preview && data.onTriggerPreviewUpdate) {
+      console.log(`Auto-triggering preview for node ${id} on mount`);
+      data.onTriggerPreviewUpdate(id);
+    }
+  }, []);
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -99,7 +111,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   src={data.preview} 
                   alt={`${data.filterType} preview`}
                   className="w-full h-full object-cover"
-                  style={{ border: '2px solid red' }}
                   onLoad={() => console.log(`Preview image loaded for ${id} (${data.filterType})`)}
                   onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
                 />

@@ -1645,6 +1645,11 @@ export function useFilterGraph() {
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
   }, [uploadImage, uploadFunctionRef]);
+  
+  // Connect updateAllNodePreviews to its ref
+  useEffect(() => {
+    updateAllNodePreviewsRef.current = updateAllNodePreviews;
+  }, [updateAllNodePreviews]);
 
   // Reset the graph
   const resetGraph = useCallback(() => {
