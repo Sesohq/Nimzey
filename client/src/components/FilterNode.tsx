@@ -31,6 +31,9 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       data.onParamChange(id, paramName, value);
     }
   };
+  
+  // Log when the component renders to check if preview data is available
+  console.log(`FilterNode ${id} rendering with preview:`, data.preview ? 'has preview' : 'no preview');
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -84,11 +87,19 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             onClick={() => setShowLargePreview(!showLargePreview)}
           >
             {data.preview ? (
-              <img 
-                src={data.preview} 
-                alt="Node preview" 
-                className="max-w-full max-h-full object-contain"
-              />
+              <>
+                <img 
+                  src={data.preview} 
+                  alt="Node preview" 
+                  className="max-w-full max-h-full object-contain"
+                  onLoad={() => console.log(`Preview image loaded for ${id}`)}
+                  onError={(e) => console.error(`Preview image failed to load for ${id}`, e)}
+                />
+                {/* Only for debugging - hidden from view */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0">
+                  <span className="hidden" />
+                </div>
+              </>
             ) : (
               <div className="text-xs text-gray-500 p-2 text-center">
                 Preview will appear here

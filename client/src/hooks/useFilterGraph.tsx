@@ -540,6 +540,12 @@ export function useFilterGraph() {
     if (!sourceImageRef.current) return;
     
     console.log("Generating previews for all nodes...");
+    console.log("Current nodes state:", nodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      filterType: node.type === 'filterNode' ? (node.data as FilterNodeData).filterType : 'n/a',
+      hasPreview: node.type === 'filterNode' ? !!((node.data as FilterNodeData).preview) : false,
+    })));
     
     // Generate preview for selected node (for the preview panel)
     if (selectedNodeId) {
@@ -580,20 +586,29 @@ export function useFilterGraph() {
           );
           
           // Update the node's preview directly to avoid circular updates
-          setNodes(prevNodes => prevNodes.map(n => {
-            if (n.id === node.id) {
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  preview: result
-                }
-              };
-            }
-            return n;
-          }));
+          console.log(`About to update preview for node ${node.id}, preview URL length: ${result ? result.length : 0}`);
           
-          console.log(`Set preview for node ${node.id}`);
+          setNodes(prevNodes => {
+            const updatedNodes = prevNodes.map(n => {
+              if (n.id === node.id) {
+                console.log(`Setting preview for node ${n.id}`);
+                const updatedNode = {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    preview: result
+                  }
+                };
+                console.log(`Updated node ${n.id} with preview`);
+                return updatedNode;
+              }
+              return n;
+            });
+            console.log(`Returning ${updatedNodes.length} nodes after update`);
+            return updatedNodes;
+          });
+          
+          console.log(`Finished setting preview for node ${node.id}`);
         } catch (error) {
           console.error(`Error generating preview for node ${node.id}:`, error);
         }
