@@ -1,4 +1,87 @@
-import { FilterCategory } from '@/types';
+import { FilterCategory, FilterType } from '@/types';
+
+// Color scheme for filter categories
+export const categoryColors = {
+  basic: {
+    name: 'Basic Filters',
+    color: 'bg-gray-600',
+    textColor: 'text-white',
+    borderColor: 'border-gray-700'
+  },
+  texture: {
+    name: 'Texture Filters',
+    color: 'bg-blue-600',
+    textColor: 'text-white',
+    borderColor: 'border-blue-700'
+  },
+  distortion: {
+    name: 'Distortion Filters',
+    color: 'bg-red-600',
+    textColor: 'text-white',
+    borderColor: 'border-red-700'
+  },
+  compositing: {
+    name: 'Compositing',
+    color: 'bg-orange-600',
+    textColor: 'text-white',
+    borderColor: 'border-orange-700'
+  },
+  blending: {
+    name: 'Blending Effects',
+    color: 'bg-pink-600',
+    textColor: 'text-white',
+    borderColor: 'border-pink-700'
+  },
+  effects: {
+    name: 'Effects',
+    color: 'bg-green-600',
+    textColor: 'text-white',
+    borderColor: 'border-green-700'
+  }
+};
+
+// Helper function to get the category of a filter type
+export function getFilterCategory(filterType: FilterType): string {
+  // Map each filter type to its category
+  const categoryMap: Record<FilterType, string> = {
+    // Basic filters
+    'blur': 'basic',
+    'sharpen': 'basic',
+    'grayscale': 'basic',
+    'invert': 'basic',
+    'findEdges': 'basic',
+    
+    // Texture filters
+    'noise': 'texture',
+    'dither': 'texture',
+    'texture': 'texture',
+    
+    // Distortion filters
+    'extrude': 'distortion',
+    'wave': 'distortion',
+    'pixelate': 'distortion',
+    
+    // Compositing nodes
+    'mask': 'compositing',
+    'multiply': 'compositing',
+    'screen': 'compositing',
+    'mix': 'compositing',
+    'transform': 'compositing',
+    'setAlpha': 'compositing',
+    'blend': 'compositing',
+    
+    // Blending effects
+    'motionBlur': 'blending',
+    'noiseDistortion': 'blending',
+    
+    // Effects
+    'glow': 'effects',
+    'halftone': 'effects',
+    'refraction': 'effects'
+  };
+  
+  return categoryMap[filterType] || 'basic';
+}
 
 export const filterCategories: Record<string, FilterCategory> = {
   basic: {

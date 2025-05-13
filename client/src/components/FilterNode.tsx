@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,10 +11,15 @@ import { FilterNodeData, BlendMode } from '@/types';
 import NodeControls from './NodeControls';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
-
+  
+  // Determine the filter category and get the appropriate color
+  const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
+  const categoryStyle = useMemo(() => categoryColors[category as keyof typeof categoryColors], [category]);
+  
   const handleToggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsMinimized(!isMinimized);
@@ -47,7 +52,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   return (
     <Card className={`shadow-md w-[220px] bg-white ${selected ? 'ring-2 ring-primary' : ''} ${!data.enabled ? 'opacity-60' : ''}`}>
       <div 
-        className="bg-accent text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move"
+        className={`${categoryStyle.color} ${categoryStyle.textColor} px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
       >
         <div className="flex items-center space-x-2">
           <Checkbox 

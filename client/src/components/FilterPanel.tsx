@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { filterCategories } from '@/lib/filterCategories';
+import { filterCategories, categoryColors, getFilterCategory } from '@/lib/filterCategories';
 import { Upload } from 'lucide-react';
 import { NodeType, FilterType } from '@/types';
 
