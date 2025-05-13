@@ -537,6 +537,33 @@ export const filterCategories: Record<string, FilterCategory> = {
             step: 1,
             value: 100,
             unit: '%'
+          },
+          {
+            name: 'intensity',
+            label: 'Intensity',
+            type: 'range',
+            min: 0,
+            max: 200,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'contrastBoost',
+            label: 'Contrast Boost',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'preserveAlpha',
+            label: 'Preserve Alpha',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'On'
           }
         ]
       },
@@ -552,6 +579,36 @@ export const filterCategories: Record<string, FilterCategory> = {
             max: 100,
             step: 1,
             value: 100,
+            unit: '%'
+          },
+          {
+            name: 'intensity',
+            label: 'Intensity',
+            type: 'range',
+            min: 0,
+            max: 200,
+            step: 1,
+            value: 100,
+            unit: '%'
+          },
+          {
+            name: 'highlightBoost',
+            label: 'Highlight Boost',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'colorShift',
+            label: 'Color Shift',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 0,
             unit: '%'
           }
         ]

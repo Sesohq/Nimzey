@@ -232,11 +232,24 @@ const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targe
   return nodes.find(node => node.id === connectedEdge.source) || null;
 };
 
-// Helper function to find all source nodes for a blend node (with multiple inputs)
+// Helper function to find all source nodes for a node with multiple inputs
+const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[], inputHandles: string[] = ['inputA', 'inputB']): Record<string, Node | null> => {
+  const result: Record<string, Node | null> = {};
+  
+  // Get all inputs by their handles
+  inputHandles.forEach(handle => {
+    result[handle] = getSourceNode(nodeId, nodes, edges, handle);
+  });
+  
+  return result;
+};
+
+// For backward compatibility, kept but calls the more general function
 const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: Edge[]): { inputA: Node | null, inputB: Node | null } => {
+  const inputs = getSourceNodesForNode(blendNodeId, nodes, edges);
   return {
-    inputA: getSourceNode(blendNodeId, nodes, edges, 'inputA'),
-    inputB: getSourceNode(blendNodeId, nodes, edges, 'inputB')
+    inputA: inputs.inputA,
+    inputB: inputs.inputB
   };
 };
 
@@ -4018,6 +4031,9 @@ function applyMultiplyFilter(
   });
   
   const strength = parseInt(String(paramsObj.strength || 100)) / 100;
+  const intensity = parseInt(String(paramsObj.intensity || 100)) / 100;
+  const preserveAlpha = paramsObj.preserveAlpha === 'On';
+  const contrastBoost = parseInt(String(paramsObj.contrastBoost || 0)) / 100;
   
   // Create a copy of the original data
   const originalData = new Uint8ClampedArray(data.length);
@@ -4031,16 +4047,52 @@ function applyMultiplyFilter(
     const srcR = originalData[i];
     const srcG = originalData[i + 1];
     const srcB = originalData[i + 2];
+    const srcA = originalData[i + 3];
     
-    // Multiply operation (same as in the multiply blend mode)
-    const resultR = (srcR * srcR) / 255;
-    const resultG = (srcG * srcG) / 255;
-    const resultB = (srcB * srcB) / 255;
+    // Apply contrast boost if needed (before multiply)
+    let adjustedR = srcR;
+    let adjustedG = srcG;
+    let adjustedB = srcB;
+    
+    if (contrastBoost !== 0) {
+      // Convert to -1 to 1 range for contrast adjustment
+      const normalizedR = (adjustedR / 255) * 2 - 1;
+      const normalizedG = (adjustedG / 255) * 2 - 1;
+      const normalizedB = (adjustedB / 255) * 2 - 1;
+      
+      // Apply contrast formula: x = (x * (1 + boost)) / (1 + boost * abs(x))
+      const adjustR = (normalizedR * (1 + contrastBoost)) / (1 + contrastBoost * Math.abs(normalizedR));
+      const adjustG = (normalizedG * (1 + contrastBoost)) / (1 + contrastBoost * Math.abs(normalizedG));
+      const adjustB = (normalizedB * (1 + contrastBoost)) / (1 + contrastBoost * Math.abs(normalizedB));
+      
+      // Convert back to 0-255 range
+      adjustedR = Math.round(((adjustR + 1) / 2) * 255);
+      adjustedG = Math.round(((adjustG + 1) / 2) * 255);
+      adjustedB = Math.round(((adjustB + 1) / 2) * 255);
+      
+      // Clamp values
+      adjustedR = Math.max(0, Math.min(255, adjustedR));
+      adjustedG = Math.max(0, Math.min(255, adjustedG));
+      adjustedB = Math.max(0, Math.min(255, adjustedB));
+    }
+    
+    // Multiply operation (with intensity control)
+    const resultR = (adjustedR * adjustedR * intensity) / 255;
+    const resultG = (adjustedG * adjustedG * intensity) / 255;
+    const resultB = (adjustedB * adjustedB * intensity) / 255;
     
     // Apply strength factor
     data[i] = Math.round(srcR + (resultR - srcR) * strength);
     data[i + 1] = Math.round(srcG + (resultG - srcG) * strength);
     data[i + 2] = Math.round(srcB + (resultB - srcB) * strength);
+    
+    // Preserve or modify alpha as specified
+    if (!preserveAlpha) {
+      // Multiply the alpha by average RGB strength proportional to intensity
+      const luminance = (data[i] + data[i + 1] + data[i + 2]) / (3 * 255);
+      const alphaFactor = 1 - (1 - luminance) * intensity * 0.5;
+      data[i + 3] = Math.round(srcA * alphaFactor);
+    }
   }
 }
 
@@ -4058,6 +4110,9 @@ function applyScreenFilter(
   });
   
   const strength = parseInt(String(paramsObj.strength || 100)) / 100;
+  const intensity = parseInt(String(paramsObj.intensity || 100)) / 100;
+  const highlightBoost = parseInt(String(paramsObj.highlightBoost || 0)) / 100;
+  const colorShift = parseInt(String(paramsObj.colorShift || 0)) / 100;
   
   // Create a copy of the original data
   const originalData = new Uint8ClampedArray(data.length);
@@ -4072,10 +4127,57 @@ function applyScreenFilter(
     const srcG = originalData[i + 1];
     const srcB = originalData[i + 2];
     
-    // Screen operation (same as in the screen blend mode)
-    const resultR = 255 - ((255 - srcR) * (255 - srcR)) / 255;
-    const resultG = 255 - ((255 - srcG) * (255 - srcG)) / 255;
-    const resultB = 255 - ((255 - srcB) * (255 - srcB)) / 255;
+    // Apply highlight boost if needed
+    let adjustedR = srcR;
+    let adjustedG = srcG;
+    let adjustedB = srcB;
+    
+    if (highlightBoost !== 0) {
+      // Boost highlights using a power curve
+      const hlBoostFactor = 1 - highlightBoost * 0.5; // Adjust for gentler effect
+      
+      // Apply power curve to each channel (higher values will be boosted more)
+      adjustedR = Math.pow(srcR / 255, hlBoostFactor) * 255;
+      adjustedG = Math.pow(srcG / 255, hlBoostFactor) * 255;
+      adjustedB = Math.pow(srcB / 255, hlBoostFactor) * 255;
+    }
+    
+    // Apply color shift if needed (subtle RGB shift for creative effects)
+    if (colorShift !== 0) {
+      // Boost red in highlights, blue in shadows, green in midtones
+      const normalizedR = adjustedR / 255;
+      const normalizedG = adjustedG / 255;
+      const normalizedB = adjustedB / 255;
+      
+      // Apply different strength to different luminance ranges
+      const luminance = 0.299 * normalizedR + 0.587 * normalizedG + 0.114 * normalizedB;
+      
+      // Highlights - boost red
+      if (luminance > 0.7) {
+        adjustedR += (255 - adjustedR) * colorShift * (luminance - 0.7) * 3;
+      }
+      
+      // Midtones - boost green
+      if (luminance > 0.3 && luminance < 0.7) {
+        const midtoneFactor = 1 - Math.abs(luminance - 0.5) * 2.5;
+        adjustedG += (255 - adjustedG) * colorShift * midtoneFactor;
+      }
+      
+      // Shadows - boost blue
+      if (luminance < 0.3) {
+        adjustedB += (255 - adjustedB) * colorShift * (0.3 - luminance) * 3;
+      }
+      
+      // Clamp values
+      adjustedR = Math.max(0, Math.min(255, adjustedR));
+      adjustedG = Math.max(0, Math.min(255, adjustedG));
+      adjustedB = Math.max(0, Math.min(255, adjustedB));
+    }
+    
+    // Screen operation (with intensity control)
+    const resultR = 255 - ((255 - adjustedR) * (255 - adjustedR) * intensity) / 255;
+    const resultG = 255 - ((255 - adjustedG) * (255 - adjustedG) * intensity) / 255;
+    const resultB = 255 - ((255 - adjustedB) * (255 - adjustedB) * intensity) / 255;
     
     // Apply strength factor
     data[i] = Math.round(srcR + (resultR - srcR) * strength);
