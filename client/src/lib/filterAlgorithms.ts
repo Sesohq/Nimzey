@@ -682,7 +682,7 @@ const processFilterNode = (
     const resultCtx = resultCanvas.getContext('2d')!;
     
     // Process using the texture generator filter
-    processTextureGeneratorFilter(
+    processNoiseGeneratorFilter(
       {}, // Empty inputs since texture generator creates its own content
       resultCtx,
       resultCanvas,
@@ -2316,7 +2316,7 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 // Processor function for the texture generator node
 // This function is called when a noiseGenerator node is being processed
-function processTextureGeneratorFilter(
+function processNoiseGeneratorFilter(
   inputs: Record<string, HTMLCanvasElement | null>,
   resultCtx: CanvasRenderingContext2D,
   resultCanvas: HTMLCanvasElement,
