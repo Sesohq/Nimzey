@@ -333,33 +333,26 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
     return canvas.toDataURL();
   };
   
-  // Use direct preview from node data if available
+  // Generate texture when parameters change
   useEffect(() => {
-    if (data.preview && data.preview.startsWith('data:image/')) {
-      console.log(`Using provided preview for ${id} (noiseGenerator)`);
-      setInternalPreviewUrl(data.preview);
-    } else {
-      console.log(`No valid preview found for ${id} (noiseGenerator), generating locally`);
+    console.log(`NoiseGenerator [${id}] parameters changed:`, { 
+      params: data.params.map(p => `${p.name}: ${p.value}`).join(', ') 
+    });
+    
+    // Always regenerate texture when parameters change
+    const textureDataUrl = generateNoiseTexture();
+    
+    if (textureDataUrl) {
+      console.log(`Generated new texture for ${id} with updated parameters`);
+      setInternalPreviewUrl(textureDataUrl);
       
-      // Generate our own preview
-      const textureDataUrl = generateNoiseTexture();
-      
-      if (textureDataUrl) {
-        setInternalPreviewUrl(textureDataUrl);
-        
-        // Also update the node data with the preview
-        if (data.onParamChange) {
-          // Store in official preview prop
-          data.onParamChange(id, 'preview', textureDataUrl);
-        }
-      } else {
-        // Reset internal preview if texture generation failed
-        if (internalPreviewUrl) {
-          setInternalPreviewUrl(null);
-        }
+      // Also update the node data with the preview
+      if (data.onParamChange) {
+        // Store in official preview prop
+        data.onParamChange(id, 'preview', textureDataUrl);
       }
     }
-  }, [data.preview, data.params, id, internalPreviewUrl]);
+  }, [data.params, id]);
   
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
