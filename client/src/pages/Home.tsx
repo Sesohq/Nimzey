@@ -53,6 +53,7 @@ export default function Home() {
           zoomIn={zoomIn}
           zoomOut={zoomOut}
           zoomLevel={zoomLevel}
+          onUploadImage={uploadImage}
         />
         
         <PreviewPanel 
