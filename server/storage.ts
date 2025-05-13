@@ -80,8 +80,12 @@ export class MemStorage implements IStorage {
     const id = this.projectIdCounter++;
     const now = new Date().toISOString();
     const newProject: Project = { 
-      ...project, 
       id,
+      name: project.name,
+      nodes: project.nodes,
+      edges: project.edges,
+      userId: project.userId || null,
+      thumbnail: project.thumbnail || null,
       createdAt: now,
       updatedAt: now
     };
@@ -95,11 +99,16 @@ export class MemStorage implements IStorage {
       return undefined;
     }
     
+    const now = new Date().toISOString();
     const updatedProject: Project = {
-      ...existingProject,
-      ...project,
       id,
-      updatedAt: new Date().toISOString()
+      name: project.name,
+      nodes: project.nodes,
+      edges: project.edges,
+      userId: project.userId || null,
+      thumbnail: project.thumbnail || null,
+      createdAt: existingProject.createdAt,
+      updatedAt: now
     };
     
     this.projects.set(id, updatedProject);
