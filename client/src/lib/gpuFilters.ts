@@ -1,5 +1,7 @@
 import { FilterType } from '@/types';
 
+// Define shader sources first to avoid declaration order issues
+
 // Vertex shader for all filters - simply passes coordinates
 const vertexShaderSource = `
   attribute vec2 a_position;
@@ -330,185 +332,234 @@ export function applyFilterGPU(
   canvas: HTMLCanvasElement,
   params: any[] = []
 ): boolean {
-  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
-  if (!gl) {
-    console.error('WebGL not supported');
-    return false;
-  }
-  
-  // Set canvas dimensions to match the image
-  canvas.width = sourceImage.width;
-  canvas.height = sourceImage.height;
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  
-  // Choose the right shader based on filter type and parameters
-  let fragmentShaderSource = '';
-  
-  // Get specific parameters
-  const noiseTypeParam = params.find(p => p.name === 'noiseType');
-  const noiseType = noiseTypeParam ? noiseTypeParam.value as string : 'random';
-  
-  // Select shader based on filter and subtype
-  if (filterType === 'blur') {
-    fragmentShaderSource = blurFragmentShaderSource;
-  } 
-  else if (filterType === 'sharpen') {
-    fragmentShaderSource = sharpenFragmentShaderSource;
-  }
-  else if (filterType === 'noise') {
-    // Choose noise shader based on the noiseType parameter
-    switch (noiseType) {
-      case 'perlin':
-        fragmentShaderSource = perlinNoiseShaderSource;
-        break;
-      case 'simplex':
-        fragmentShaderSource = simplexNoiseShaderSource;
-        break;
-      default:
-        // Default to basic noise
-        fragmentShaderSource = noiseFragmentShaderSource;
+  try {
+    // Check if WebGL is supported
+    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+    if (!gl) {
+      console.error('WebGL not supported');
+      return false;
     }
-  }
-  else if (filterType === 'halftone') {
-    // Use the halftone shader
-    fragmentShaderSource = halftoneFragmentShaderSource;
-  }
-  else if (filterType === 'glow') {
-    // Use the glow shader for highlight glow
-    fragmentShaderSource = glowFragmentShaderSource;
-  }
-  else {
-    // If we don't have a GPU implementation for this filter, return false
-    console.log(`No GPU implementation for filter type: ${filterType}`);
-    return false;
-  }
-  
-  // Create and use the shader program
-  const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
-  if (!program) return false;
-  
-  gl.useProgram(program);
-  
-  // Set up WebGL context
-  if (!setupWebGL(gl, program, sourceImage)) return false;
-  
-  // Set common uniforms
-  const textureSizeLocation = gl.getUniformLocation(program, 'u_textureSize');
-  if (textureSizeLocation) {
-    gl.uniform2f(textureSizeLocation, sourceImage.width, sourceImage.height);
-  }
-  
-  // Generate a random seed value for noise variations
-  const randomSeed = Math.random() * 1000;
-  
-  // Set filter-specific uniforms
-  switch (filterType) {
-    case 'blur': {
-      const radiusParam = params.find(p => p.name === 'radius');
-      const radius = radiusParam ? parseFloat(radiusParam.value as string) : 5.0;
-      const radiusLocation = gl.getUniformLocation(program, 'u_radius');
-      if (radiusLocation) gl.uniform1f(radiusLocation, radius);
-      break;
+    
+    // Verify the source image is valid
+    if (!sourceImage || !sourceImage.complete || !sourceImage.width || !sourceImage.height) {
+      console.error('Invalid source image for GPU processing');
+      return false;
     }
-    case 'sharpen': {
-      const amountParam = params.find(p => p.name === 'amount');
-      const amount = amountParam ? parseFloat(amountParam.value as string) : 50.0;
-      const amountLocation = gl.getUniformLocation(program, 'u_amount');
-      if (amountLocation) gl.uniform1f(amountLocation, amount);
-      break;
+    
+    // Set canvas dimensions to match the image
+    canvas.width = sourceImage.width;
+    canvas.height = sourceImage.height;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    
+    // Choose the right shader based on filter type and parameters
+    let fragmentShaderSource = '';
+    
+    // Extract parameters properly to match our noise filter implementation
+    const paramsObj: Record<string, any> = {};
+    params.forEach(param => {
+      paramsObj[param.name] = param.value;
+    });
+    
+    // Get noise type, respecting the value structure in the actual filter
+    const noiseType = paramsObj.noiseType || 'Uniform';
+    
+    // Map our internal noise types to the actual implementations used
+    const mappedNoiseType = noiseType.includes('Perlin') ? 'perlin' : 
+                           noiseType.includes('Simplex') ? 'simplex' : 'random';
+    
+    // Select shader based on filter and subtype
+    if (filterType === 'blur') {
+      fragmentShaderSource = blurFragmentShaderSource;
+    } 
+    else if (filterType === 'sharpen') {
+      fragmentShaderSource = sharpenFragmentShaderSource;
     }
-    case 'noise': {
-      // Common noise parameters
-      const amountParam = params.find(p => p.name === 'amount');
-      const amount = amountParam ? parseFloat(amountParam.value as string) : 25.0;
-      const amountLocation = gl.getUniformLocation(program, 'u_amount');
-      if (amountLocation) gl.uniform1f(amountLocation, amount);
-      
-      // Add a random seed for noise variation
-      const seedLocation = gl.getUniformLocation(program, 'u_seed');
-      if (seedLocation) gl.uniform1f(seedLocation, randomSeed);
-      
-      // Advanced noise parameters - these will be ignored if the shader doesn't use them
-      if (noiseType === 'perlin' || noiseType === 'simplex') {
-        // Scale parameter affects noise frequency
-        const scaleParam = params.find(p => p.name === 'scale');
-        const scale = scaleParam ? parseFloat(scaleParam.value as string) : 10.0;
-        const scaleLocation = gl.getUniformLocation(program, 'u_scale');
-        if (scaleLocation) gl.uniform1f(scaleLocation, scale);
-        
-        // Colorize parameter (only for simplex noise)
-        if (noiseType === 'simplex') {
-          const colorizeParam = params.find(p => p.name === 'colorize');
-          const colorize = colorizeParam ? (colorizeParam.value === 'true' ? 1.0 : 0.0) : 0.0;
-          const colorizeLocation = gl.getUniformLocation(program, 'u_colorize');
-          if (colorizeLocation) gl.uniform1f(colorizeLocation, colorize);
-        }
+    else if (filterType === 'noise') {
+      // Choose noise shader based on the mapped noise type
+      switch (mappedNoiseType) {
+        case 'perlin':
+          fragmentShaderSource = perlinNoiseShaderSource;
+          break;
+        case 'simplex':
+          fragmentShaderSource = simplexNoiseShaderSource;
+          break;
+        default:
+          // Default to basic noise
+          fragmentShaderSource = noiseFragmentShaderSource;
       }
-      break;
+      
+      console.log(`Using ${mappedNoiseType} noise shader for noise type: ${noiseType}`);
     }
-    case 'halftone': {
-      // Set halftone parameters
-      // Size of dots
-      const dotSizeParam = params.find(p => p.name === 'dotSize');
-      const dotSize = dotSizeParam ? parseFloat(dotSizeParam.value as string) : 50.0;
-      const dotSizeLocation = gl.getUniformLocation(program, 'u_dotSize');
-      if (dotSizeLocation) gl.uniform1f(dotSizeLocation, dotSize);
-      
-      // Grid spacing
-      const spacingParam = params.find(p => p.name === 'gridSize');
-      const spacing = spacingParam ? parseFloat(spacingParam.value as string) : 8.0;
-      const spacingLocation = gl.getUniformLocation(program, 'u_spacing');
-      if (spacingLocation) gl.uniform1f(spacingLocation, spacing);
-      
-      // Rotation angle
-      const angleParam = params.find(p => p.name === 'angle');
-      const angle = angleParam ? parseFloat(angleParam.value as string) : 45.0;
-      const angleLocation = gl.getUniformLocation(program, 'u_angle');
-      if (angleLocation) gl.uniform1f(angleLocation, angle);
-      
-      // Brightness adjustment
-      const brightnessParam = params.find(p => p.name === 'brightnessAdjust');
-      const brightness = brightnessParam ? parseFloat(brightnessParam.value as string) : 0.0;
-      const brightnessLocation = gl.getUniformLocation(program, 'u_brightness');
-      if (brightnessLocation) gl.uniform1f(brightnessLocation, brightness);
-      
-      break;
+    else if (filterType === 'halftone') {
+      // Use the halftone shader
+      fragmentShaderSource = halftoneFragmentShaderSource;
     }
-    case 'glow': {
-      // Set glow parameters
-      // Intensity of the glow
-      const intensityParam = params.find(p => p.name === 'intensity');
-      const intensity = intensityParam ? parseFloat(intensityParam.value as string) / 100.0 : 0.5;
-      const intensityLocation = gl.getUniformLocation(program, 'u_intensity');
-      if (intensityLocation) gl.uniform1f(intensityLocation, intensity);
-      
-      // Threshold to determine highlights (0-1)
-      const thresholdParam = params.find(p => p.name === 'threshold');
-      const threshold = thresholdParam ? parseFloat(thresholdParam.value as string) / 100.0 : 0.6;
-      const thresholdLocation = gl.getUniformLocation(program, 'u_threshold');
-      if (thresholdLocation) gl.uniform1f(thresholdLocation, threshold);
-      
-      // Blur radius for the glow
-      const radiusParam = params.find(p => p.name === 'radius');
-      const radius = radiusParam ? parseFloat(radiusParam.value as string) : 10.0;
-      const radiusLocation = gl.getUniformLocation(program, 'u_radius');
-      if (radiusLocation) gl.uniform1f(radiusLocation, radius);
-      
-      break;
+    else if (filterType === 'glow') {
+      // Use the glow shader for highlight glow
+      fragmentShaderSource = glowFragmentShaderSource;
     }
+    else {
+      // If we don't have a GPU implementation for this filter, return false
+      console.log(`No GPU implementation for filter type: ${filterType}`);
+      return false;
+    }
+    
+    // Create and use the shader program
+    const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+    if (!program) return false;
+    
+    gl.useProgram(program);
+    
+    // Set up WebGL context
+    if (!setupWebGL(gl, program, sourceImage)) return false;
+    
+    // Set common uniforms
+    const textureSizeLocation = gl.getUniformLocation(program, 'u_textureSize');
+    if (textureSizeLocation) {
+      gl.uniform2f(textureSizeLocation, sourceImage.width, sourceImage.height);
+    }
+    
+    // Generate a random seed value for noise variations
+    const randomSeed = Math.random() * 1000;
+    
+    // Set filter-specific uniforms
+    switch (filterType) {
+      case 'blur': {
+        const radiusParam = params.find(p => p.name === 'radius');
+        const radius = radiusParam ? parseFloat(radiusParam.value as string) : 5.0;
+        const radiusLocation = gl.getUniformLocation(program, 'u_radius');
+        if (radiusLocation) gl.uniform1f(radiusLocation, radius);
+        break;
+      }
+      case 'sharpen': {
+        const amountParam = params.find(p => p.name === 'amount');
+        const amount = amountParam ? parseFloat(amountParam.value as string) : 50.0;
+        const amountLocation = gl.getUniformLocation(program, 'u_amount');
+        if (amountLocation) gl.uniform1f(amountLocation, amount);
+        break;
+      }
+      case 'noise': {
+        // Common noise parameters
+        const amountParam = params.find(p => p.name === 'amount');
+        const amount = amountParam ? parseFloat(amountParam.value as string) : 25.0;
+        const amountLocation = gl.getUniformLocation(program, 'u_amount');
+        if (amountLocation) gl.uniform1f(amountLocation, amount);
+        
+        // Add a random seed for noise variation
+        const seedLocation = gl.getUniformLocation(program, 'u_seed');
+        if (seedLocation) gl.uniform1f(seedLocation, randomSeed);
+        
+        // Advanced noise parameters - these will be ignored if the shader doesn't use them
+        if (mappedNoiseType === 'perlin' || mappedNoiseType === 'simplex') {
+          // Scale parameter affects noise frequency
+          const scaleParam = params.find(p => p.name === 'scale');
+          const scale = scaleParam ? parseFloat(scaleParam.value as string) : 10.0;
+          const scaleLocation = gl.getUniformLocation(program, 'u_scale');
+          if (scaleLocation) gl.uniform1f(scaleLocation, scale);
+          
+          // Colorize parameter (only for simplex noise)
+          if (mappedNoiseType === 'simplex') {
+            const colorizeParam = params.find(p => p.name === 'colorize');
+            const colorize = colorizeParam ? (colorizeParam.value === 'true' ? 1.0 : 0.0) : 0.0;
+            const colorizeLocation = gl.getUniformLocation(program, 'u_colorize');
+            if (colorizeLocation) gl.uniform1f(colorizeLocation, colorize);
+          }
+        }
+        break;
+      }
+      case 'halftone': {
+        // Set halftone parameters
+        // Size of dots
+        const dotSizeParam = params.find(p => p.name === 'dotSize');
+        const dotSize = dotSizeParam ? parseFloat(dotSizeParam.value as string) : 50.0;
+        const dotSizeLocation = gl.getUniformLocation(program, 'u_dotSize');
+        if (dotSizeLocation) gl.uniform1f(dotSizeLocation, dotSize);
+        
+        // Grid spacing
+        const spacingParam = params.find(p => p.name === 'gridSize');
+        const spacing = spacingParam ? parseFloat(spacingParam.value as string) : 8.0;
+        const spacingLocation = gl.getUniformLocation(program, 'u_spacing');
+        if (spacingLocation) gl.uniform1f(spacingLocation, spacing);
+        
+        // Rotation angle
+        const angleParam = params.find(p => p.name === 'angle');
+        const angle = angleParam ? parseFloat(angleParam.value as string) : 45.0;
+        const angleLocation = gl.getUniformLocation(program, 'u_angle');
+        if (angleLocation) gl.uniform1f(angleLocation, angle);
+        
+        // Brightness adjustment
+        const brightnessParam = params.find(p => p.name === 'brightnessAdjust');
+        const brightness = brightnessParam ? parseFloat(brightnessParam.value as string) : 0.0;
+        const brightnessLocation = gl.getUniformLocation(program, 'u_brightness');
+        if (brightnessLocation) gl.uniform1f(brightnessLocation, brightness);
+        
+        break;
+      }
+      case 'glow': {
+        // Set glow parameters
+        // Intensity of the glow
+        const intensityParam = params.find(p => p.name === 'intensity');
+        const intensity = intensityParam ? parseFloat(intensityParam.value as string) / 100.0 : 0.5;
+        const intensityLocation = gl.getUniformLocation(program, 'u_intensity');
+        if (intensityLocation) gl.uniform1f(intensityLocation, intensity);
+        
+        // Threshold to determine highlights (0-1)
+        const thresholdParam = params.find(p => p.name === 'threshold');
+        const threshold = thresholdParam ? parseFloat(thresholdParam.value as string) / 100.0 : 0.6;
+        const thresholdLocation = gl.getUniformLocation(program, 'u_threshold');
+        if (thresholdLocation) gl.uniform1f(thresholdLocation, threshold);
+        
+        // Blur radius for the glow
+        const radiusParam = params.find(p => p.name === 'radius');
+        const radius = radiusParam ? parseFloat(radiusParam.value as string) : 10.0;
+        const radiusLocation = gl.getUniformLocation(program, 'u_radius');
+        if (radiusLocation) gl.uniform1f(radiusLocation, radius);
+        
+        break;
+      }
+    }
+    
+    // Draw the rectangle
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    
+    return true;
+  } catch (error) {
+    console.error('Error applying GPU filter:', error);
+    return false;
   }
-  
-  // Draw the rectangle
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  
-  return true;
 }
 
 // Helper to check if GPU acceleration is available
 export function isGPUAccelerationAvailable(): boolean {
-  const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl');
-  return !!gl;
+  try {
+    const canvas = document.createElement('canvas');
+    // Check for both WebGL 1 and 2
+    const gl = (
+      canvas.getContext('webgl') || 
+      canvas.getContext('webgl2') || 
+      canvas.getContext('experimental-webgl')
+    ) as WebGLRenderingContext | null;
+    
+    // Test if WebGL actually works by creating a simple shader
+    if (gl) {
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      if (vertexShader) {
+        gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }');
+        gl.compileShader(vertexShader);
+        
+        // If compilation succeeded, WebGL is truly available
+        const compileStatus = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+        gl.deleteShader(vertexShader);
+        
+        return !!compileStatus;
+      }
+    }
+    
+    return false;
+  } catch (e) {
+    console.warn('Error checking WebGL availability:', e);
+    return false;
+  }
 }
 
 // Fragment shader for halftone filter
