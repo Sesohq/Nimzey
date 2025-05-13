@@ -32,14 +32,15 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
   };
 
   return (
-    <div className="w-64 bg-[#0A0D14] text-white flex flex-col" style={{ width: `${width}px` }}>
-      <div className="p-3 font-semibold text-white flex items-center">
+    <div className="w-64 bg-[#0A0D14] text-white flex flex-col relative" style={{ width: `${width}px` }}>
+      <div className="p-3 font-semibold text-white flex items-center border-b border-gray-800">
         <div className="h-2 w-2 rounded-full bg-blue-500 mr-2 shadow-[0_0_5px_#2A5DCE]"></div>
         <span>Filter Library</span>
       </div>
       
-      <ScrollArea className="flex-1">
-        <div className="p-2">
+      {/* Main scrollable area for filters - with bottom padding to make room for sticky button */}
+      <ScrollArea className="flex-1" style={{ paddingBottom: "70px" }}>
+        <div className="p-2 pb-16">
           <Accordion 
             type="multiple" 
             defaultValue={Object.keys(filterCategories)}
@@ -105,7 +106,8 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         </div>
       </ScrollArea>
       
-      <div className="p-3">
+      {/* Sticky upload button */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-[#0A0D14] border-t border-gray-800 z-10">
         <Button 
           variant="default" 
           className="w-full py-3 text-base font-semibold relative overflow-hidden"
