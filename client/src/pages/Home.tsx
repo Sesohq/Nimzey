@@ -4,6 +4,8 @@ import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
 import PresetPanel from '@/components/PresetPanel';
+import CustomNodesPanel from '@/components/CustomNodesPanel';
+import CreateCustomNodeDialog from '@/components/CreateCustomNodeDialog';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
 
 export default function Home() {
@@ -32,7 +34,10 @@ export default function Home() {
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
   // Add state for selected tab in the left panel
-  const [activeLeftTab, setActiveLeftTab] = useState<'filters' | 'presets'>('filters');
+  const [activeLeftTab, setActiveLeftTab] = useState<'filters' | 'presets' | 'customNodes'>('filters');
+  
+  // State for custom node creation dialog
+  const [createCustomNodeOpen, setCreateCustomNodeOpen] = useState(false);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
@@ -53,6 +58,12 @@ export default function Home() {
             >
               Presets
             </button>
+            <button 
+              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'customNodes' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
+              onClick={() => setActiveLeftTab('customNodes')}
+            >
+              Custom
+            </button>
           </div>
           
           {activeLeftTab === 'filters' ? (
@@ -62,13 +73,20 @@ export default function Home() {
               onUploadImage={uploadImage}
               sourceImage={sourceImage}
             />
-          ) : (
+          ) : activeLeftTab === 'presets' ? (
             <PresetPanel
               width={filtersPanelWidth}
               nodes={nodes}
               edges={edges}
               onLoadPreset={loadPreset}
               processedImage={processedImage}
+            />
+          ) : (
+            <CustomNodesPanel
+              width={filtersPanelWidth}
+              onAddCustomNode={() => {}}
+              onCreateCustomNode={() => setCreateCustomNodeOpen(true)} 
+              onDeleteCustomNode={() => {}}
             />
           )}
         </div>
@@ -97,6 +115,19 @@ export default function Home() {
           edges={edges}
         />
       </div>
+      
+      {/* Custom Node Creation Dialog */}
+      <CreateCustomNodeDialog
+        open={createCustomNodeOpen}
+        onOpenChange={setCreateCustomNodeOpen}
+        selectedNodes={nodes.filter(node => node.selected)}
+        edges={edges}
+        onCreateCustomNode={(customNodeData) => {
+          // TODO: Implement actual custom node creation logic
+          console.log('Creating custom node:', customNodeData);
+          setCreateCustomNodeOpen(false);
+        }}
+      />
     </div>
   );
 }
