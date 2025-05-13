@@ -1308,6 +1308,28 @@ export function useFilterGraph() {
       return () => clearTimeout(timer);
     }
   }, [sourceImageRef.current, nodes, updateAllNodePreviews]);
+  
+  // Effect to update node previews when parameters are changed or nodes are enabled/disabled
+  useEffect(() => {
+    // Get a simple string representation of all nodes' parameters state
+    const paramsState = nodes
+      .filter(node => node.type === 'filterNode')
+      .map(node => {
+        const data = node.data as FilterNodeData;
+        return `${node.id}:${data.enabled}:${data.params.map(p => p.value).join(',')}`;
+      })
+      .join('|');
+    
+    // This dependency will trigger a re-render when params or enabled state changes
+    if (sourceImageRef.current && nodes.length > 0) {
+      console.log("Filter parameters changed, updating previews");
+      const timer = setTimeout(() => {
+        updateAllNodePreviews();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, updateAllNodePreviews, sourceImageRef]); // paramsState isn't needed in deps since we use nodes
 
   // Find a filter by type
   const findFilterByType = useCallback((filterType: FilterType) => {
