@@ -109,9 +109,13 @@ function applyRefractionFilter(
       // Get height value (thickness) at this point
       const thickness = heightMap[hmIdx] * size;
       
+      // Apply substantially increased strength factor to give more dramatic effect
+      // This makes the current 100% setting show much more visible refraction
+      const amplificationFactor = 15.0;
+      
       // Calculate refraction offset based on Snell's law
-      // offset = gradient * thickness * (1 - iorRatio)
-      const strengthFactor = thickness * (1 - iorRatio) * refractionAmount;
+      // offset = gradient * thickness * (1 - iorRatio) * amplification
+      const strengthFactor = thickness * (1 - iorRatio) * refractionAmount * amplificationFactor;
       const offsetX = gradX * strengthFactor;
       const offsetY = gradY * strengthFactor;
       
@@ -1511,15 +1515,58 @@ function applyErrorDiffusionDithering(
 }
 
 // Texture filter
-function applyTextureFilter(data: Uint8ClampedArray, intensity: number): void {
-  const factor = intensity / 100 * 255;
+function applyTextureFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+  // Extract parameters from params array
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+  
+  const intensity = parseInt(String(paramsObj.intensity || 30)) / 100;
+  const brightness = parseInt(String(paramsObj.brightness || 0));
+  const pattern = paramsObj.pattern || 'Grain';
+  
+  // Apply brightness adjustment factor (-100 to 100 range)
+  const brightnessFactor = brightness / 100;
   
   for (let i = 0; i < data.length; i += 4) {
-    // Generate texture pattern (could be more complex in a real app)
-    const texture = Math.sin(i * 0.01) * Math.cos(i * 0.005) * factor;
+    // Get position coordinates
+    const x = (i / 4) % width;
+    const y = Math.floor((i / 4) / width);
     
+    // Choose pattern based on the selected type
+    let texture = 0;
+    if (pattern === 'Noise') {
+      // Random noise (less structured)
+      texture = (Math.random() * 2 - 1) * intensity * 100;
+    } else if (pattern === 'Grain') {
+      // Film grain-like texture (more consistent)
+      const grainSeed = (x * 0.3) + (y * 0.7);
+      texture = (Math.sin(grainSeed) * 0.5 + 0.5) * intensity * 80;
+    } else if (pattern === 'Canvas') {
+      // Canvas-like pattern (structured horizontal/vertical)
+      const canvasPattern = (Math.sin(x * 0.2) * Math.cos(y * 0.2)) * intensity * 60;
+      texture = canvasPattern;
+    }
+    
+    // Apply texture
     for (let j = 0; j < 3; j++) {
       data[i + j] = Math.min(255, Math.max(0, data[i + j] + texture));
+    }
+    
+    // Apply brightness adjustment
+    if (brightness !== 0) {
+      if (brightnessFactor > 0) {
+        // Increase brightness (move toward white)
+        for (let j = 0; j < 3; j++) {
+          data[i + j] = Math.min(255, data[i + j] + (255 - data[i + j]) * brightnessFactor);
+        }
+      } else {
+        // Decrease brightness (move toward black)
+        for (let j = 0; j < 3; j++) {
+          data[i + j] = Math.max(0, data[i + j] + data[i + j] * brightnessFactor);
+        }
+      }
     }
   }
 }

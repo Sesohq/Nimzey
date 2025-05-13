@@ -86,6 +86,16 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            name: 'brightness',
+            label: 'Brightness',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
             name: 'threshold',
             label: 'Threshold',
             type: 'range',
@@ -305,6 +315,16 @@ export const filterCategories: Record<string, FilterCategory> = {
             max: 100,
             step: 1,
             value: 30,
+            unit: '%'
+          },
+          {
+            name: 'brightness',
+            label: 'Brightness',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
             unit: '%'
           },
           {
