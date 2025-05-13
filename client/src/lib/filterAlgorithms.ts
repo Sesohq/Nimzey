@@ -572,7 +572,24 @@ export const applyFilters = (
     // Draw the result to the output canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(resultCanvas, 0, 0);
-    return canvas.toDataURL();
+    
+    // Explicitly specify PNG format for best compatibility
+    try {
+      console.log(`Generating data URL from canvas (${canvas.width}x${canvas.height})...`);
+      const dataUrl = canvas.toDataURL('image/png');
+      
+      // Validate the data URL
+      if (!dataUrl || !dataUrl.startsWith('data:image/png')) {
+        console.error('Generated invalid data URL format', dataUrl ? dataUrl.substring(0, 30) + '...' : 'null');
+        return null;
+      }
+      
+      console.log(`Successfully generated data URL of length ${dataUrl.length}`);
+      return dataUrl;
+    } catch (error) {
+      console.error('Error generating data URL:', error);
+      return null;
+    }
   }
   
   return null;
