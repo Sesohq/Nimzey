@@ -376,7 +376,7 @@ export function useFilterGraph() {
       setNodePreview(result);
       
       // Also update the node's own preview
-      if (targetNode.type !== 'imageNode') {
+      if (targetNode.type !== 'imageNode' && result) {
         handleParamChange(targetNode.id, 'preview', result);
       }
     } catch (error) {

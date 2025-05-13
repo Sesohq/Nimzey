@@ -2234,7 +2234,7 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 // Processor function for the texture generator node
 // This function is called when a noiseGenerator node is being processed
-function processNoiseGeneratorFilter(
+export function processNoiseGeneratorFilter(
   inputs: Record<string, HTMLCanvasElement | null>,
   resultCtx: CanvasRenderingContext2D,
   resultCanvas: HTMLCanvasElement,
@@ -2508,7 +2508,7 @@ export function applyNoiseFilter(
 }
 
 // Enhanced dither filter with multiple algorithms and parameters based on detailed requirements
-function applyDitherFilter(
+export function applyDitherFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 
@@ -2898,7 +2898,7 @@ function applyErrorDiffusionDithering(
 }
 
 // Texture filter
-function applyTextureFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+export function applyTextureFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
   // Extract parameters from params array
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
@@ -2955,7 +2955,7 @@ function applyTextureFilter(data: Uint8ClampedArray, width: number, height: numb
 }
 
 // Advanced Extrude filter
-function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+export function applyExtrudeFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {
