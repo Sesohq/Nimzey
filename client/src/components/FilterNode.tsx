@@ -180,15 +180,48 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       </div>
       
       <div className="px-3 pb-2 flex justify-between relative h-6">
+        {/* Default primary input handle */}
         <Handle
           type="target"
           position={Position.Left}
+          id="inputA"
           className="w-9 h-9 rounded-full -ml-4 bg-primary"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
+        
+        {/* Additional input handles for compositing nodes */}
+        {(data.filterType === 'mask' || 
+          data.filterType === 'multiply' || 
+          data.filterType === 'screen' || 
+          data.filterType === 'mix' || 
+          data.filterType === 'transform' || 
+          data.filterType === 'setAlpha') && (
+          <>
+            {/* Secondary input from top */}
+            <Handle
+              type="target"
+              position={Position.Top}
+              id="inputB"
+              className="w-9 h-9 rounded-full -mt-4 bg-purple-400"
+              style={{ left: '50%', transform: 'translateX(-50%)' }}
+            />
+            
+            {/* Tertiary input from bottom */}
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="inputC"
+              className="w-9 h-9 rounded-full -mb-4 bg-blue-400"
+              style={{ left: '50%', transform: 'translateX(-50%)' }}
+            />
+          </>
+        )}
+        
+        {/* Output handle */}
         <Handle
           type="source"
           position={Position.Right}
+          id="output"
           className="w-9 h-9 rounded-full -mr-4 bg-accent"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
