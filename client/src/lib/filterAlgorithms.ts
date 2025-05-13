@@ -292,7 +292,7 @@ function applyNoiseFilter(data: Uint8ClampedArray, amount: number): void {
   }
 }
 
-// Enhanced dither filter with multiple algorithms and parameters
+// Enhanced dither filter with multiple algorithms and parameters based on detailed requirements
 function applyDitherFilter(
   data: Uint8ClampedArray, 
   width: number, 
@@ -306,102 +306,138 @@ function applyDitherFilter(
   });
 
   const ditherType = paramsObj.ditherType || 'Floyd-Steinberg';
-  const size = paramsObj.size !== undefined ? paramsObj.size : 5;
-  const brightness = paramsObj.brightness !== undefined ? paramsObj.brightness / 100 : 0;
-  const contrast = paramsObj.contrast !== undefined ? paramsObj.contrast / 100 : 0;
-  const threshold = paramsObj.threshold !== undefined ? paramsObj.threshold : 128;
-  const noise = paramsObj.noise !== undefined ? paramsObj.noise / 100 : 0;
+  const ditherSize = paramsObj.size !== undefined ? parseFloat(paramsObj.size) : 5;
+  const brightness = paramsObj.brightness !== undefined ? parseInt(paramsObj.brightness) : 0;
+  const contrast = paramsObj.contrast !== undefined ? parseInt(paramsObj.contrast) : 0;
+  const threshold = paramsObj.threshold !== undefined ? parseInt(paramsObj.threshold) : 128;
+  const noiseAmount = paramsObj.noise !== undefined ? parseInt(paramsObj.noise) : 0;
   const useGrayscale = paramsObj.useGrayscale === 'On';
   const applyGradient = paramsObj.applyGradient === 'On';
   
-  // Create temporary buffer to avoid affecting results during processing
-  const tempData = new Uint8ClampedArray(data.length);
+  // Create a temporary canvas for processing with ditherSize
+  const tempCanvas = document.createElement('canvas');
+  const effectiveWidth = Math.max(1, Math.floor(width / ditherSize));
+  const effectiveHeight = Math.max(1, Math.floor(height / ditherSize));
+  tempCanvas.width = effectiveWidth;
+  tempCanvas.height = effectiveHeight;
   
-  // Step 1: Apply brightness and contrast adjustments
-  for (let i = 0; i < data.length; i += 4) {
-    // Apply brightness and contrast
-    for (let j = 0; j < 3; j++) {
-      let pixel = data[i + j];
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+  if (!tempCtx) return;
+  
+  // Create an intermediate ImageData for processing
+  const tempImageData = tempCtx.createImageData(effectiveWidth, effectiveHeight);
+  const tempData = tempImageData.data;
+  
+  // Step 1: Downscale image based on ditherSize (spatial resolution control)
+  // Sample pixels from the original data to the smaller canvas
+  for (let y = 0; y < effectiveHeight; y++) {
+    for (let x = 0; x < effectiveWidth; x++) {
+      const targetIdx = (y * effectiveWidth + x) * 4;
       
-      // Brightness adjustment
-      pixel = pixel + 255 * brightness;
+      // Find the corresponding pixel in the original image
+      const sourceX = Math.min(Math.floor(x * ditherSize), width - 1);
+      const sourceY = Math.min(Math.floor(y * ditherSize), height - 1);
+      const sourceIdx = (sourceY * width + sourceX) * 4;
       
-      // Contrast adjustment (using standard contrast formula)
-      pixel = ((pixel / 255 - 0.5) * (contrast + 1) + 0.5) * 255;
-      
-      // Clamp values
-      tempData[i + j] = Math.max(0, Math.min(255, Math.round(pixel)));
+      // Copy pixel values
+      tempData[targetIdx] = data[sourceIdx];
+      tempData[targetIdx + 1] = data[sourceIdx + 1];
+      tempData[targetIdx + 2] = data[sourceIdx + 2];
+      tempData[targetIdx + 3] = data[sourceIdx + 3];
     }
-    
-    // Copy alpha
-    tempData[i + 3] = data[i + 3];
   }
   
-  // Step 2: Convert to grayscale if needed
+  // Step 2: Apply brightness adjustment (linear shift)
+  if (brightness !== 0) {
+    for (let i = 0; i < tempData.length; i += 4) {
+      for (let j = 0; j < 3; j++) {
+        // Direct addition as specified in requirements
+        tempData[i + j] = Math.max(0, Math.min(255, tempData[i + j] + brightness));
+      }
+    }
+  }
+  
+  // Step 3: Apply contrast adjustment (nonlinear amplification)
+  if (contrast !== 0) {
+    // Using the exact contrast formula as provided in the requirements
+    for (let i = 0; i < tempData.length; i += 4) {
+      for (let j = 0; j < 3; j++) {
+        // Apply the contrast formula: (pixel - 128) * (contrast+1) / 256 + 128
+        const pixelValue = tempData[i + j];
+        const newValue = ((pixelValue / 255 - 0.5) * (contrast / 100 + 1) + 0.5) * 255;
+        tempData[i + j] = Math.max(0, Math.min(255, Math.round(newValue)));
+      }
+    }
+  }
+  
+  // Step 4: Convert to grayscale if needed
   if (useGrayscale) {
     for (let i = 0; i < tempData.length; i += 4) {
+      // Using proper luminance weights for grayscale conversion
       const gray = Math.round(0.299 * tempData[i] + 0.587 * tempData[i + 1] + 0.114 * tempData[i + 2]);
       tempData[i] = tempData[i + 1] = tempData[i + 2] = gray;
     }
   }
   
-  // Step 3: Apply noise if specified
-  if (noise > 0) {
+  // Step 5: Apply noise if specified
+  if (noiseAmount > 0) {
     for (let i = 0; i < tempData.length; i += 4) {
-      for (let j = 0; j < 3; j++) {
-        // Random noise between -noise/2 and +noise/2
-        const noiseValue = (Math.random() - 0.5) * noise * 255;
-        tempData[i + j] = Math.max(0, Math.min(255, Math.round(tempData[i + j] + noiseValue)));
+      if (Math.random() > 0.5) { // Only apply to some pixels for more natural noise
+        for (let j = 0; j < 3; j++) {
+          // Apply noise proportional to the specified amount
+          const noise = (Math.random() - 0.5) * 2 * noiseAmount; // Range: -noiseAmount to +noiseAmount
+          tempData[i + j] = Math.max(0, Math.min(255, Math.round(tempData[i + j] + noise)));
+        }
       }
     }
   }
   
-  // Step 4: Apply dithering based on the selected algorithm
+  // Step 6: Apply dithering based on the selected algorithm
   switch (ditherType) {
     case 'Bayer 4x4':
-      applyBayerDithering(tempData, width, height, 4, threshold);
+      applyBayerDithering(tempData, effectiveWidth, effectiveHeight, 4, threshold);
       break;
     case 'Bayer 8x8':
-      applyBayerDithering(tempData, width, height, 8, threshold);
+      applyBayerDithering(tempData, effectiveWidth, effectiveHeight, 8, threshold);
       break;
     case 'Blue Noise':
-      applyBlueNoiseDithering(tempData, width, height, threshold);
+      applyBlueNoiseDithering(tempData, effectiveWidth, effectiveHeight, threshold);
       break;
     case 'Floyd-Steinberg':
-      applyErrorDiffusionDithering(tempData, width, height, 'floyd-steinberg', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'floyd-steinberg', threshold, 1);
       break;
     case 'Sierra Lite':
-      applyErrorDiffusionDithering(tempData, width, height, 'sierra-lite', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'sierra-lite', threshold, 1);
       break;
     case 'Stucki Sharp':
-      applyErrorDiffusionDithering(tempData, width, height, 'stucki', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'stucki', threshold, 1);
       break;
     case 'Burkes Flow':
-      applyErrorDiffusionDithering(tempData, width, height, 'burkes', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'burkes', threshold, 1);
       break;
     case 'Stevenson-Arce':
-      applyErrorDiffusionDithering(tempData, width, height, 'stevenson-arce', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'stevenson-arce', threshold, 1);
       break;
     case 'Fan Spread Pro':
-      applyErrorDiffusionDithering(tempData, width, height, 'fan', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'fan', threshold, 1);
       break;
     case 'Atkinson':
-      applyErrorDiffusionDithering(tempData, width, height, 'atkinson', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'atkinson', threshold, 1);
       break;
     case 'Jarvis':
-      applyErrorDiffusionDithering(tempData, width, height, 'jarvis', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'jarvis', threshold, 1);
       break;
     default:
-      applyErrorDiffusionDithering(tempData, width, height, 'floyd-steinberg', threshold, size);
+      applyErrorDiffusionDithering(tempData, effectiveWidth, effectiveHeight, 'floyd-steinberg', threshold, 1);
   }
   
-  // Step 5: Apply gradient if specified
+  // Step 7: Apply gradient if specified
   if (applyGradient) {
-    for (let y = 0; y < height; y++) {
-      const gradientFactor = y / height; // Simple vertical gradient
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
-        if (tempData[idx] === 255) { // Only adjust white pixels
+    for (let y = 0; y < effectiveHeight; y++) {
+      const gradientFactor = y / effectiveHeight; // Vertical gradient
+      for (let x = 0; x < effectiveWidth; x++) {
+        const idx = (y * effectiveWidth + x) * 4;
+        if (tempData[idx] === 255) { // Only apply to white pixels
           const gradientValue = Math.round(255 * (1 - gradientFactor));
           tempData[idx] = tempData[idx + 1] = tempData[idx + 2] = gradientValue;
         }
@@ -409,9 +445,29 @@ function applyDitherFilter(
     }
   }
   
-  // Copy the result back to the original data
-  for (let i = 0; i < data.length; i++) {
-    data[i] = tempData[i];
+  // Step 8: Put the processed image data back to the temp context
+  tempCtx.putImageData(tempImageData, 0, 0);
+  
+  // Step 9: Scale back up to original size and draw to the output canvas
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width = width;
+  finalCanvas.height = height;
+  const finalCtx = finalCanvas.getContext('2d');
+  
+  if (finalCtx) {
+    // Set proper pixel scaling for crisp dithered results
+    finalCtx.imageSmoothingEnabled = false;
+    
+    // Draw the processed dithered image scaled back to original size
+    finalCtx.drawImage(tempCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+    
+    // Get the final image data
+    const finalImageData = finalCtx.getImageData(0, 0, width, height);
+    
+    // Copy the result back to the original data array
+    for (let i = 0; i < data.length; i++) {
+      data[i] = finalImageData.data[i];
+    }
   }
 }
 
