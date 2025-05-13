@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { FilterNodeData } from '@/types';
-
-// Extended interface to include node ID
-interface BlendNodeProps extends NodeProps<FilterNodeData> {
-  id?: string;
-  data: FilterNodeData & {
-    id?: string;
-    onRemoveNode?: () => void;
-  };
-}
 import { Slider } from '@/components/ui/slider';
 import { 
   Select,
@@ -28,32 +19,32 @@ import {
   X
 } from 'lucide-react';
 
-export default function BlendNode({ data, selected, id }: BlendNodeProps) {
-  // Use the ID from props or from data
-  const nodeId = id || data.id;
+export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeData>) {
+  // Access the node ID from props
+  const nodeId = id;
   const [isMinimized, setIsMinimized] = useState(false);
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
-      data.onParamChange(data.id as string, paramName, value);
+      data.onParamChange(nodeId, paramName, value);
     }
   };
   
   const handleBlendModeChange = (value: string) => {
     if (data.onBlendModeChange) {
-      data.onBlendModeChange(data.id as string, value as any);
+      data.onBlendModeChange(nodeId, value as any);
     }
   };
   
   const handleOpacityChange = (value: number) => {
     if (data.onOpacityChange) {
-      data.onOpacityChange(data.id as string, value);
+      data.onOpacityChange(nodeId, value);
     }
   };
   
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
-      data.onToggleEnabled(data.id as string, checked);
+      data.onToggleEnabled(nodeId, checked);
     }
   };
   
@@ -101,11 +92,11 @@ export default function BlendNode({ data, selected, id }: BlendNodeProps) {
         </div>
         
         <div className="flex items-center justify-between mb-3">
-          <Label htmlFor={`${data.id}-enabled`} className="text-xs text-slate-500">
+          <Label htmlFor={`${nodeId}-enabled`} className="text-xs text-slate-500">
             Enabled
           </Label>
           <Switch 
-            id={`${data.id}-enabled`}
+            id={`${nodeId}-enabled`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
             className="data-[state=checked]:bg-blue-500"
@@ -116,14 +107,14 @@ export default function BlendNode({ data, selected, id }: BlendNodeProps) {
           <>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor={`${data.id}-blend-mode`} className="text-xs text-slate-500">
+                <Label htmlFor={`${nodeId}-blend-mode`} className="text-xs text-slate-500">
                   Blend Mode
                 </Label>
                 <Select
                   value={data.blendMode}
                   onValueChange={handleBlendModeChange}
                 >
-                  <SelectTrigger id={`${data.id}-blend-mode`} className="w-full">
+                  <SelectTrigger id={`${nodeId}-blend-mode`} className="w-full">
                     <SelectValue placeholder="Select blend mode" />
                   </SelectTrigger>
                   <SelectContent>
@@ -149,12 +140,12 @@ export default function BlendNode({ data, selected, id }: BlendNodeProps) {
               
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <Label htmlFor={`${data.id}-opacity`} className="text-xs text-slate-500">
+                  <Label htmlFor={`${nodeId}-opacity`} className="text-xs text-slate-500">
                     Opacity: {data.opacity}%
                   </Label>
                 </div>
                 <Slider
-                  id={`${data.id}-opacity`}
+                  id={`${nodeId}-opacity`}
                   min={0}
                   max={100}
                   step={1}
@@ -168,13 +159,13 @@ export default function BlendNode({ data, selected, id }: BlendNodeProps) {
               {data.params.map((param) => (
                 <div key={param.name} className="space-y-2">
                   <div className="flex justify-between">
-                    <Label htmlFor={`${data.id}-${param.name}`} className="text-xs text-slate-500">
+                    <Label htmlFor={`${nodeId}-${param.name}`} className="text-xs text-slate-500">
                       {param.label}: {param.value}{param.unit || ''}
                     </Label>
                   </div>
                   {param.type === 'range' ? (
                     <Slider
-                      id={`${data.id}-${param.name}`}
+                      id={`${nodeId}-${param.name}`}
                       min={param.min || 0}
                       max={param.max || 100}
                       step={param.step || 1}
@@ -187,7 +178,7 @@ export default function BlendNode({ data, selected, id }: BlendNodeProps) {
                       value={String(param.value)}
                       onValueChange={(value) => handleParamChange(param.name, value)}
                     >
-                      <SelectTrigger id={`${data.id}-${param.name}`} className="w-full">
+                      <SelectTrigger id={`${nodeId}-${param.name}`} className="w-full">
                         <SelectValue placeholder={`Select ${param.label}`} />
                       </SelectTrigger>
                       <SelectContent>

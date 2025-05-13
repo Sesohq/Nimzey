@@ -68,10 +68,12 @@ export type FilterNodeData = {
   enabled: boolean;
   blendMode: BlendMode;
   opacity: number;
+  id?: string; // Optional ID that can be used in component props
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
   onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
   onOpacityChange?: (nodeId: string, opacity: number) => void;
+  onRemoveNode?: () => void; // Function to remove a node
 };
 
 export type ImageNodeData = {
