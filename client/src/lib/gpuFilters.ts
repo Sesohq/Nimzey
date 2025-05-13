@@ -339,103 +339,237 @@ const glowFragmentShaderSource = `
   }
 `;
 
-// Utility function to create and compile a shader
+// Utility function to create and compile a shader with enhanced error handling
 function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
-  const shader = gl.createShader(type);
-  if (!shader) return null;
-  
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  
-  // Check if shader compiled successfully
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
+  try {
+    const shader = gl.createShader(type);
+    if (!shader) {
+      console.error('Failed to create shader object');
+      return null;
+    }
+    
+    // Set the shader source
+    gl.shaderSource(shader, source);
+    
+    // Attempt to compile the shader
+    gl.compileShader(shader);
+    
+    // Check if shader compiled successfully
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const errorLog = gl.getShaderInfoLog(shader);
+      const shaderType = type === gl.VERTEX_SHADER ? 'VERTEX' : 'FRAGMENT';
+      console.error(`${shaderType} shader compile error:`, errorLog);
+      
+      // Log the problematic shader source with line numbers for debugging
+      const lines = source.split('\n');
+      console.error('Shader source:');
+      lines.forEach((line, index) => {
+        console.error(`${index + 1}: ${line}`);
+      });
+      
+      gl.deleteShader(shader);
+      return null;
+    }
+    
+    return shader;
+  } catch (e) {
+    console.error('Exception in compileShader:', e);
     return null;
   }
-  
-  return shader;
 }
 
-// Utility function to create a shader program from vertex and fragment shaders
+// Utility function to create a shader program from vertex and fragment shaders with better error handling
 function createShaderProgram(
   gl: WebGLRenderingContext, 
   vertexSource: string, 
   fragmentSource: string
 ): WebGLProgram | null {
-  const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-  
-  if (!vertexShader || !fragmentShader) return null;
-  
-  const program = gl.createProgram();
-  if (!program) return null;
-  
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  
-  // Check if program linked successfully
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error('Program link error:', gl.getProgramInfoLog(program));
-    gl.deleteProgram(program);
+  try {
+    // Compile the shaders
+    const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+    if (!vertexShader) {
+      console.error('Failed to compile vertex shader');
+      return null;
+    }
+    
+    const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    if (!fragmentShader) {
+      console.error('Failed to compile fragment shader');
+      gl.deleteShader(vertexShader); // Clean up the vertex shader
+      return null;
+    }
+    
+    // Create the program and attach shaders
+    const program = gl.createProgram();
+    if (!program) {
+      console.error('Failed to create WebGL program');
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      return null;
+    }
+    
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    
+    // Link the program
+    gl.linkProgram(program);
+    
+    // Check if program linked successfully
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      const errorLog = gl.getProgramInfoLog(program);
+      console.error('Program link error:', errorLog);
+      
+      // Clean up resources
+      gl.deleteProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      return null;
+    }
+    
+    // Validate the program
+    gl.validateProgram(program);
+    if (!gl.getProgramParameter(program, gl.VALIDATE_STATUS)) {
+      console.error('Program validation error:', gl.getProgramInfoLog(program));
+      gl.deleteProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      return null;
+    }
+    
+    // Clean up shader objects as they're now linked into the program
+    gl.detachShader(program, vertexShader);
+    gl.detachShader(program, fragmentShader);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    
+    return program;
+  } catch (e) {
+    console.error('Exception in createShaderProgram:', e);
     return null;
   }
-  
-  return program;
 }
 
-// Setup WebGL context and buffers
+// Setup WebGL context and buffers with error handling
 function setupWebGL(
   gl: WebGLRenderingContext,
   program: WebGLProgram,
   image: HTMLImageElement
 ): boolean {
-  // Set up position and texture coordinate attributes
-  const positionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  // Define the corners of a rectangle that covers the entire canvas
-  const positions = [
-    -1, -1,  // bottom left
-     1, -1,  // bottom right
-    -1,  1,  // top left
-     1,  1,  // top right
-  ];
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-  
-  const positionLocation = gl.getAttribLocation(program, 'a_position');
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-  
-  // Set up texture coordinates
-  const texCoordBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-  const texCoords = [
-    0, 0,  // bottom left
-    1, 0,  // bottom right
-    0, 1,  // top left
-    1, 1,  // top right
-  ];
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
-  
-  const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
-  gl.enableVertexAttribArray(texCoordLocation);
-  gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-  
-  // Create and set up the texture
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  
-  // Set texture parameters
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  
-  // Upload the image into the texture
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-  
-  return true;
+  try {
+    // Set up position and texture coordinate attributes
+    const positionBuffer = gl.createBuffer();
+    if (!positionBuffer) {
+      console.error('Failed to create position buffer');
+      return false;
+    }
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    // Define the corners of a rectangle that covers the entire canvas
+    const positions = [
+      -1, -1,  // bottom left
+       1, -1,  // bottom right
+      -1,  1,  // top left
+       1,  1,  // top right
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+    
+    const positionLocation = gl.getAttribLocation(program, 'a_position');
+    if (positionLocation === -1) {
+      console.error('Failed to get attribute location for a_position');
+      return false;
+    }
+    
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    
+    // Set up texture coordinates
+    const texCoordBuffer = gl.createBuffer();
+    if (!texCoordBuffer) {
+      console.error('Failed to create texture coordinate buffer');
+      return false;
+    }
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    const texCoords = [
+      0, 0,  // bottom left
+      1, 0,  // bottom right
+      0, 1,  // top left
+      1, 1,  // top right
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+    
+    const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
+    if (texCoordLocation === -1) {
+      console.error('Failed to get attribute location for a_texCoord');
+      return false;
+    }
+    
+    gl.enableVertexAttribArray(texCoordLocation);
+    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+    
+    // Create and set up the texture
+    const texture = gl.createTexture();
+    if (!texture) {
+      console.error('Failed to create texture');
+      return false;
+    }
+    
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    
+    // Set texture parameters with error checking
+    try {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    } catch (e) {
+      console.error('Error setting texture parameters:', e);
+      return false;
+    }
+    
+    // Upload the image into the texture with error checking
+    try {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    
+      // Check for any WebGL errors
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        console.error('WebGL error when uploading texture:', error);
+        return false;
+      }
+    } catch (e) {
+      console.error('Exception uploading texture:', e);
+      return false;
+    }
+    
+    // Specific check for Replit environment - some instances might have limited WebGL support
+    if (typeof window !== 'undefined' && window.location.hostname.includes('replit')) {
+      console.log('Running in Replit environment - checking WebGL limitations');
+      
+      // Additional validation for Replit environment
+      try {
+        // Test a small draw operation to ensure rendering works
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        
+        const testError = gl.getError();
+        if (testError !== gl.NO_ERROR) {
+          console.error('WebGL test draw failed in Replit:', testError);
+          // We'll still proceed, but log a warning
+          console.warn('WebGL might have limited functionality in this environment');
+        }
+      } catch (e) {
+        console.warn('WebGL test in Replit environment failed:', e);
+        // Continue anyway, as this is just a test
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in setupWebGL:', error);
+    return false;
+  }
 }
 
 // Apply filter using WebGL
@@ -446,15 +580,42 @@ export function applyFilterGPU(
   params: any[] = []
 ): boolean {
   try {
-    // Check if WebGL is supported
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+    // Enhanced WebGL context acquisition
+    let gl: WebGLRenderingContext | null = null;
+    try {
+      // Try regular webgl first
+      gl = canvas.getContext('webgl', { 
+        preserveDrawingBuffer: true,
+        failIfMajorPerformanceCaveat: false 
+      }) as WebGLRenderingContext;
+      
+      // If that fails, try webgl2
+      if (!gl) {
+        gl = canvas.getContext('webgl2', { 
+          preserveDrawingBuffer: true,
+          failIfMajorPerformanceCaveat: false 
+        }) as WebGLRenderingContext;
+      }
+      
+      // If that also fails, try experimental webgl
+      if (!gl) {
+        gl = canvas.getContext('experimental-webgl', { 
+          preserveDrawingBuffer: true,
+          failIfMajorPerformanceCaveat: false 
+        }) as WebGLRenderingContext;
+      }
+    } catch (e) {
+      console.error('Error obtaining WebGL context:', e);
+    }
+    
+    // Final check if WebGL is available
     if (!gl) {
-      console.error('WebGL not supported');
+      console.error('WebGL not supported in this environment');
       return false;
     }
     
     // Verify the source image is valid
-    if (!sourceImage || !sourceImage.complete || !sourceImage.width || !sourceImage.height) {
+    if (!sourceImage || !sourceImage.complete || sourceImage.width === 0 || sourceImage.height === 0) {
       console.error('Invalid source image for GPU processing');
       return false;
     }
@@ -517,14 +678,25 @@ export function applyFilterGPU(
       return false;
     }
     
-    // Create and use the shader program
+    // Create and use the shader program with detailed error handling
     const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
-    if (!program) return false;
+    if (!program) {
+      console.error(`Failed to create shader program for ${filterType}`);
+      return false;
+    }
     
     gl.useProgram(program);
     
-    // Set up WebGL context
-    if (!setupWebGL(gl, program, sourceImage)) return false;
+    // Set up WebGL context with better error handling
+    try {
+      if (!setupWebGL(gl, program, sourceImage)) {
+        console.error(`Failed to set up WebGL for ${filterType}`);
+        return false;
+      }
+    } catch (err) {
+      console.error(`Error setting up WebGL for ${filterType}:`, err);
+      return false;
+    }
     
     // Set common uniforms
     const textureSizeLocation = gl.getUniformLocation(program, 'u_textureSize');
@@ -645,28 +817,75 @@ export function applyFilterGPU(
 // Helper to check if GPU acceleration is available
 export function isGPUAccelerationAvailable(): boolean {
   try {
-    const canvas = document.createElement('canvas');
-    // Check for both WebGL 1 and 2
-    const gl = (
-      canvas.getContext('webgl') || 
-      canvas.getContext('webgl2') || 
-      canvas.getContext('experimental-webgl')
-    ) as WebGLRenderingContext | null;
+    // First check if we're in a browser environment
+    if (typeof window === 'undefined' || !window.document) {
+      console.warn('Not in browser environment, WebGL not available');
+      return false;
+    }
     
-    if (!gl) return false;
+    // Create a canvas element for testing
+    const canvas = document.createElement('canvas');
+    
+    // Try multiple WebGL context variants
+    let gl: WebGLRenderingContext | null = null;
+    
+    // Try different context options with error handling for each
+    try {
+      gl = canvas.getContext('webgl', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+      if (!gl) throw new Error('webgl context failed');
+    } catch (e1) {
+      console.warn('Failed to get webgl context:', e1);
+      
+      try {
+        gl = canvas.getContext('webgl2', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+        if (!gl) throw new Error('webgl2 context failed');
+      } catch (e2) {
+        console.warn('Failed to get webgl2 context:', e2);
+        
+        try {
+          gl = canvas.getContext('experimental-webgl', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+          if (!gl) throw new Error('experimental-webgl context failed');
+        } catch (e3) {
+          console.warn('Failed to get experimental-webgl context:', e3);
+          return false;
+        }
+      }
+    }
+    
+    // If we got this far, we have a WebGL context, but let's verify it works
     
     // Test if WebGL actually works by creating a simple shader
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    if (!vertexShader) return false;
+    if (!vertexShader) {
+      console.warn('Failed to create vertex shader');
+      return false;
+    }
     
+    // Try a very simple shader
     gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }');
     gl.compileShader(vertexShader);
     
     // If compilation succeeded, WebGL is truly available
     const compileStatus = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+    
+    // Check for any errors
+    if (!compileStatus) {
+      const error = gl.getShaderInfoLog(vertexShader);
+      console.warn('Shader compilation failed:', error);
+      gl.deleteShader(vertexShader);
+      return false;
+    }
+    
+    // Clean up
     gl.deleteShader(vertexShader);
     
-    return !!compileStatus;
+    // Log WebGL capabilities for debugging
+    console.log('WebGL Vendor:', gl.getParameter(gl.VENDOR));
+    console.log('WebGL Renderer:', gl.getParameter(gl.RENDERER));
+    console.log('WebGL Version:', gl.getParameter(gl.VERSION));
+    console.log('WebGL Shading Language Version:', gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+    
+    return true;
   } catch (e) {
     console.warn('Error checking WebGL availability:', e);
     return false;
