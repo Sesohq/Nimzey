@@ -48,12 +48,14 @@ export function useFilterGraph() {
     if (!sourceImageRef.current) return;
     
     const canvas = getCanvas();
+    // Always process the complete filter chain
     const result = applyFilters(sourceImageRef.current, nodes, edges, canvas);
     
     if (result) {
+      // Always update the processed image with the complete chain result
       setProcessedImage(result);
       
-      // If a node is selected, update its preview
+      // If a node is selected, update its node-specific preview
       if (selectedNodeId) {
         const selectedNode = nodes.find(n => n.id === selectedNodeId);
         if (selectedNode) {
@@ -221,8 +223,13 @@ export function useFilterGraph() {
       // When no node is selected, clear the node preview so that
       // the preview panel will show the final processed image instead
       setNodePreview(null);
+      
+      // Make sure we're showing the processed image with all filters applied
+      if (sourceImageRef.current) {
+        processImage();
+      }
     }
-  }, [nodes, sourceImage, generateNodePreview]);
+  }, [nodes, sourceImage, generateNodePreview, processImage]);
 
   // Upload an image
   const uploadImage = useCallback((file: File) => {
