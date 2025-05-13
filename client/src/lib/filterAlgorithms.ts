@@ -631,6 +631,8 @@ const processFilterNode = (
   tempCanvas: HTMLCanvasElement, 
   tempCtx: CanvasRenderingContext2D
 ) => {
+  console.log(`Processing filter node ${node.id} (${node.type}) - ${(node.data as FilterNodeData).filterType}`);
+  
   // Get the filter data
   const filterData = node.data as FilterNodeData;
   
@@ -719,11 +721,24 @@ const processFilterNode = (
   
   // Skip disabled filters
   if (!filterData.enabled) {
-    // Just pass through the input to the output without processing
+    // For disabled filters, we still need to pass through the input to the output
+    console.log(`Filter ${node.id} is disabled, passing through input`);
+    
+    // Try to find an appropriate source image for this node
+    let inputCanvas = null;
+    
+    // First check direct connections
     const sourceNode = getSourceNode(node.id, nodes, edges);
     if (sourceNode && nodeResultCache.has(sourceNode.id)) {
-      const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
-      
+      inputCanvas = nodeResultCache.get(sourceNode.id)!;
+      console.log(`Using direct source node ${sourceNode.id} for disabled filter ${node.id}`);
+    } else {
+      // Try using our findSourceImage helper
+      inputCanvas = findSourceImage(node, nodes, edges, tempCanvas);
+      console.log(`Using upstream source image for disabled filter ${node.id}`);
+    }
+    
+    if (inputCanvas) {
       // Create a new canvas for this node's result
       const resultCanvas = document.createElement('canvas');
       resultCanvas.width = tempCanvas.width;
@@ -731,10 +746,13 @@ const processFilterNode = (
       const resultCtx = resultCanvas.getContext('2d')!;
       
       // Just copy the source to the result
-      resultCtx.drawImage(sourceCanvas, 0, 0);
+      resultCtx.drawImage(inputCanvas, 0, 0);
       
-      // Store the result
+      // Store the result for downstream nodes to use
       nodeResultCache.set(node.id, resultCanvas);
+      console.log(`Stored pass-through result for disabled filter ${node.id}`);
+    } else {
+      console.warn(`Cannot find any source image for disabled filter ${node.id}`);
     }
     return;
   }
@@ -1101,6 +1119,8 @@ const processBlendNode = (
 };
 
 // Build a processing chain from source to all connected nodes
+// This function builds a chain of nodes to process starting from the source
+// and following all connections
 const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[], visited: Set<string> = new Set()): Node[] => {
   const sourceNode = nodes.find(node => node.id === sourceNodeId);
   if (!sourceNode || visited.has(sourceNodeId)) return [];
@@ -1108,34 +1128,48 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
   // Mark this node as visited to avoid cycles
   visited.add(sourceNodeId);
   
+  // Start the chain with this node
   const chain = [sourceNode];
+  
+  // Debug the chain building
+  console.log(`Building chain from node ${sourceNodeId} (${sourceNode.type})`);
+  
+  // Get all nodes that this node connects to
   const targetNodes = getTargetNodes(sourceNodeId, nodes, edges);
+  console.log(`Node ${sourceNodeId} connects to ${targetNodes.length} target nodes`);
   
   if (targetNodes.length === 0) return chain;
   
-  // Process all branches from this node
+  // We need to process all outgoing connections from this node
   let allConnectedNodes: Node[] = [];
   
+  // Add the target node first
+  allConnectedNodes = [...targetNodes];
+  
+  // Then recursively process each target node
   for (const targetNode of targetNodes) {
-    // For blend nodes, we need special handling
+    console.log(`Processing targets from ${sourceNodeId} to ${targetNode.id} (${targetNode.type})`);
+    
+    // For blend nodes, we need to also ensure their other input is processed
     if (targetNode.type === 'blendNode') {
-      // Each blend node needs to process both of its inputs to produce the correct result
-      // First, mark the blend node itself as visited to avoid cycles
-      visited.add(targetNode.id);
-      
-      // We'll include the blend node in the chain
-      allConnectedNodes.push(targetNode);
+      // We've already added the blend node to allConnectedNodes, now handle its outgoing connections
       
       // Then continue with any nodes after the blend node
       const nodesAfterBlend = getTargetNodes(targetNode.id, nodes, edges);
       for (const nextNode of nodesAfterBlend) {
-        const nextNodeChain = buildProcessingChain(nextNode.id, nodes, edges, visited);
-        allConnectedNodes = [...allConnectedNodes, ...nextNodeChain];
+        if (!visited.has(nextNode.id)) {
+          console.log(`Following blend node connection: ${targetNode.id} -> ${nextNode.id}`);
+          const nextNodeChain = buildProcessingChain(nextNode.id, nodes, edges, new Set(visited));
+          allConnectedNodes = [...allConnectedNodes, ...nextNodeChain.filter(n => n.id !== targetNode.id)];
+        }
       }
     } else {
       // For regular nodes, just continue building the chain normally
-      const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
-      allConnectedNodes = [...allConnectedNodes, ...nextNodes];
+      if (!visited.has(targetNode.id)) {
+        console.log(`Following connection: ${sourceNodeId} -> ${targetNode.id}`);
+        const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, new Set(visited));
+        allConnectedNodes = [...allConnectedNodes, ...nextNodes.filter(n => n.id !== targetNode.id)];
+      }
     }
   }
   
