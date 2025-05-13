@@ -458,11 +458,10 @@ const NoiseGeneratorNode = ({ data, selected, id }: NodeProps<FilterNodeData>) =
                 }
               }}
             >
-              {/* Show loading animation */}
-              <div className="w-6 h-6 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin mb-2"></div>
-              <div>Generating texture...</div>
+              {/* Simple message, no loading animation */}
+              <div>No texture preview</div>
               <div className="text-[9px] text-purple-500 mt-2">
-                Click to retry preview
+                Click to generate texture
               </div>
             </div>
           )}
