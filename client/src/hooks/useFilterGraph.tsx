@@ -428,16 +428,13 @@ export function useFilterGraph() {
           )
         );
 
-        // Also update the node's own preview
-        if (targetNode.type !== "imageNode" && result) {
-          handleParamChange(targetNode.id, "preview", result);
-        }
+        // Node preview update complete
       } catch (error) {
         console.error("Error generating node preview:", error);
         setNodePreview(null);
       }
     },
-    [nodes, edges, sourceImageRef, handleParamChange],
+    [nodes, edges, sourceImageRef, setNodes, setNodePreview],
   );
 
   // Gets all nodes and edges in a chain leading to a specific node
