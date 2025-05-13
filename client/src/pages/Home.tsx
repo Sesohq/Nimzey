@@ -123,6 +123,7 @@ export default function Home() {
         open={createCustomNodeOpen}
         onOpenChange={setCreateCustomNodeOpen}
         selectedNodes={nodes.filter(node => node.selected)}
+        allNodes={nodes}
         edges={edges}
         onCreateCustomNode={async (customNodeData) => {
           await createCustomNode(customNodeData);

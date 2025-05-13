@@ -64,13 +64,41 @@ export default function NodeCanvas({
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const handlePaneClick = () => {
-    // Deselect node when clicking on the pane
-    onNodeClick('');
+  const handlePaneClick = (event: React.MouseEvent) => {
+    // Only clear selections if not in multi-select mode
+    const isMultiSelectMode = event.ctrlKey || event.metaKey || event.shiftKey;
+    
+    if (!isMultiSelectMode) {
+      // Deselect all nodes
+      nodes.forEach(node => {
+        if (node.selected) {
+          onNodesChange([{ type: 'select', id: node.id, selected: false }]);
+        }
+      });
+      
+      // Clear the focused node
+      onNodeClick('');
+    }
   };
 
-  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
-    onNodeClick(node.id);
+  const handleNodeClick = (event: React.MouseEvent, node: Node) => {
+    // Support for multi-select with keyboard modifiers
+    const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey for Mac
+    const isShiftPressed = event.shiftKey;
+    
+    if (isCtrlPressed || isShiftPressed) {
+      // Multi-select mode - toggle selection without changing the focused node
+      const updatedNode = {
+        ...node,
+        selected: !node.selected
+      };
+      
+      // Update node selection state
+      onNodesChange([{ type: 'select', id: node.id, selected: updatedNode.selected }]);
+    } else {
+      // Single select mode - normal behavior
+      onNodeClick(node.id);
+    }
   };
 
   return (
@@ -87,8 +115,13 @@ export default function NodeCanvas({
             {zoomLevel}%
           </Badge>
         </div>
-        <div className="ml-auto text-sm text-gray-500">
-          Drag to connect nodes • Double-click to delete connections
+        <div className="flex items-center ml-auto">
+          <div className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 mr-3">
+            Use Ctrl+Click (⌘+Click on Mac) or Shift+Click to select multiple nodes
+          </div>
+          <div className="text-sm text-gray-500">
+            Drag to connect nodes • Double-click to delete connections
+          </div>
         </div>
       </div>
       
