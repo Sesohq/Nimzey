@@ -28,7 +28,7 @@ export default function CustomNodesPanel({
     // Fetch custom nodes from the server
     const fetchCustomNodes = async () => {
       try {
-        const response = await fetch('/api/customNodes');
+        const response = await fetch('/api/custom-nodes');
         if (response.ok) {
           const data = await response.json();
           setCustomNodes(data);
@@ -55,7 +55,7 @@ export default function CustomNodesPanel({
   const handleDelete = async () => {
     if (selectedNodeId !== null) {
       try {
-        const response = await fetch(`/api/customNodes/${selectedNodeId}`, {
+        const response = await fetch(`/api/custom-nodes/${selectedNodeId}`, {
           method: 'DELETE',
         });
         

@@ -11,7 +11,7 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterType, FilterNodeData, ImageNodeData, BlendMode } from '@/types';
+import { FilterType, FilterNodeData, ImageNodeData, CustomNodeData, BlendMode } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
 
@@ -449,6 +449,78 @@ export function useFilterGraph() {
     }, 100);
   }, [sourceImage, sourceImageRef, processImage]);
 
+  // Create a custom node from selected nodes
+  const createCustomNode = useCallback(async (customNodeData: Omit<CustomNodeData, 'id'>) => {
+    try {
+      // First save to backend
+      const response = await fetch('/api/custom-nodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: customNodeData.name,
+          category: customNodeData.category,
+          description: customNodeData.description || '',
+          thumbnail: customNodeData.thumbnail || '',
+          nodesData: JSON.stringify(customNodeData.internalNodes),
+          edgesData: JSON.stringify(customNodeData.internalEdges),
+          paramsData: JSON.stringify(customNodeData.params),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save custom node');
+      }
+
+      const savedNode = await response.json();
+      
+      // Optionally add the custom node to the canvas
+      const nodeId = uuidv4();
+      const newNode: Node<CustomNodeData> = {
+        id: nodeId,
+        type: 'customNode',
+        position: { x: 250, y: 250 },
+        data: {
+          ...customNodeData,
+          id: savedNode.id.toString(),
+          onParamChange: handleParamChange,
+          onToggleEnabled: handleToggleEnabled,
+          onBlendModeChange: handleBlendModeChange,
+          onOpacityChange: handleOpacityChange
+        },
+      };
+      
+      setNodes((nds) => [...nds, newNode]);
+      
+      return savedNode;
+    } catch (error) {
+      console.error('Failed to create custom node:', error);
+      return null;
+    }
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
+
+  // Load a custom node from the server and add it to the canvas
+  const addCustomNode = useCallback((customNodeData: CustomNodeData & { id: number }) => {
+    const nodeId = uuidv4();
+    const newNode: Node<CustomNodeData> = {
+      id: nodeId,
+      type: 'customNode',
+      position: { x: 250, y: 250 },
+      data: {
+        ...customNodeData,
+        onParamChange: handleParamChange,
+        onToggleEnabled: handleToggleEnabled,
+        onBlendModeChange: handleBlendModeChange,
+        onOpacityChange: handleOpacityChange
+      },
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+    
+    return nodeId;
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange]);
+
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
 
@@ -460,6 +532,8 @@ export function useFilterGraph() {
     onConnect,
     onNodeSelect,
     addNode,
+    addCustomNode,
+    createCustomNode,
     selectedNode,
     selectedNodeId,
     processedImage,

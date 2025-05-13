@@ -17,6 +17,8 @@ export default function Home() {
     onConnect,
     onNodeSelect,
     addNode,
+    addCustomNode,
+    createCustomNode,
     selectedNode,
     selectedNodeId,
     processedImage,
@@ -84,7 +86,7 @@ export default function Home() {
           ) : (
             <CustomNodesPanel
               width={filtersPanelWidth}
-              onAddCustomNode={() => {}}
+              onAddCustomNode={addCustomNode}
               onCreateCustomNode={() => setCreateCustomNodeOpen(true)} 
               onDeleteCustomNode={() => {}}
             />
@@ -122,9 +124,8 @@ export default function Home() {
         onOpenChange={setCreateCustomNodeOpen}
         selectedNodes={nodes.filter(node => node.selected)}
         edges={edges}
-        onCreateCustomNode={(customNodeData) => {
-          // TODO: Implement actual custom node creation logic
-          console.log('Creating custom node:', customNodeData);
+        onCreateCustomNode={async (customNodeData) => {
+          await createCustomNode(customNodeData);
           setCreateCustomNodeOpen(false);
         }}
       />
