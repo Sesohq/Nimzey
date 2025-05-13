@@ -271,6 +271,54 @@ const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targe
   return nodes.find(node => node.id === connectedEdge.source) || null;
 };
 
+// Find source image by traversing the filter chain upstream
+const findSourceImage = (
+  startNode: Node, 
+  nodes: Node[], 
+  edges: Edge[], 
+  originalImage: HTMLCanvasElement,
+  visitedNodes: Set<string> = new Set()
+): HTMLCanvasElement | null => {
+  // Prevent infinite loops
+  if (visitedNodes.has(startNode.id)) {
+    return null;
+  }
+  visitedNodes.add(startNode.id);
+  
+  // Get all input nodes for this node
+  const inputNodes = getSourceNodesForNode(startNode.id, nodes, edges);
+  const inputNodesList = Object.values(inputNodes).filter(Boolean) as Node[];
+  
+  // If no inputs, can't find source image
+  if (inputNodesList.length === 0) {
+    return null;
+  }
+  
+  // Check if any of our inputs is an image node
+  for (const inputNode of inputNodesList) {
+    if (inputNode.type === 'imageNode') {
+      // Found a direct image node input, use it
+      if (nodeResultCache.has(inputNode.id)) {
+        return nodeResultCache.get(inputNode.id)!;
+      } else {
+        // Image node exists but isn't processed yet, use the original image
+        return originalImage;
+      }
+    }
+  }
+  
+  // No image node found directly, try to traverse upstream
+  for (const inputNode of inputNodesList) {
+    const upstreamImage = findSourceImage(inputNode, nodes, edges, originalImage, new Set(visitedNodes));
+    if (upstreamImage) {
+      return upstreamImage;
+    }
+  }
+  
+  // No source image found in the chain
+  return null;
+};
+
 // Helper function to find all source nodes for a node with multiple inputs
 const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Record<string, Node | null> => {
   const result: Record<string, Node | null> = {};
@@ -639,32 +687,53 @@ const processFilterNode = (
     resultCanvas.height = tempCanvas.height;
     const resultCtx = resultCanvas.getContext('2d')!;
     
-    // Get the main input - the image node should be the primary
-    // Look for any inputs coming from an image node first
+    // Get the main input
     let primaryInputHandle = inputKeys[0];
     let primaryInputNode = null;
+    let primaryInputCanvas = null;
     
-    // First check if we have a direct connection from the source node
+    // Try multiple strategies to find the primary input
+    
+    // 1. First check if we have a direct connection from an image node
     for (const key of inputKeys) {
       const inputNode = inputNodes[key];
-      if (inputNode && inputNode.type === 'imageNode') {
+      if (inputNode && inputNode.type === 'imageNode' && nodeResultCache.has(inputNode.id)) {
         primaryInputHandle = key;
         primaryInputNode = inputNode;
+        primaryInputCanvas = nodeResultCache.get(inputNode.id)!;
         break;
       }
     }
     
-    // If no source node is directly connected, use the first available
+    // 2. If no image node, check for any valid processed node
     if (!primaryInputNode) {
-      primaryInputNode = inputNodes[primaryInputHandle];
+      for (const key of inputKeys) {
+        const inputNode = inputNodes[key];
+        if (inputNode && nodeResultCache.has(inputNode.id)) {
+          primaryInputHandle = key;
+          primaryInputNode = inputNode;
+          primaryInputCanvas = nodeResultCache.get(inputNode.id)!;
+          break;
+        }
+      }
     }
     
-    if (!primaryInputNode || !nodeResultCache.has(primaryInputNode.id)) {
+    // 3. If still no valid input, look upstream through the filter chain
+    // using our findSourceImage helper
+    if (!primaryInputNode) {
+      // Create a source image canvas by searching upstream
+      const sourceImageCanvas = findSourceImage(node, nodes, edges, tempCanvas);
+      if (sourceImageCanvas) {
+        // Create a temporary node to act as our source
+        primaryInputCanvas = sourceImageCanvas;
+      }
+    }
+    
+    // If we still don't have a valid input, report error
+    if (!primaryInputCanvas) {
       console.warn(`Filter node ${node.id} has no valid primary input`);
       return;
     }
-    
-    const primaryInputCanvas = nodeResultCache.get(primaryInputNode.id)!;
     
     // Clear the temp canvas and copy the primary input to it for processing
     tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
@@ -699,10 +768,21 @@ const processFilterNode = (
     for (let i = 1; i < inputKeys.length; i++) {
       const inputHandle = inputKeys[i];
       const inputNode = inputNodes[inputHandle];
+      let additionalInputCanvas = null;
       
+      // Try to get the canvas for this input
       if (inputNode && nodeResultCache.has(inputNode.id)) {
-        const inputCanvas = nodeResultCache.get(inputNode.id)!;
-        
+        additionalInputCanvas = nodeResultCache.get(inputNode.id)!;
+      } else if (inputNode) {
+        // If this node exists but hasn't been processed yet, 
+        // try to recursively process it or find its source image
+        const sourceCanvas = findSourceImage(inputNode, nodes, edges, tempCanvas);
+        if (sourceCanvas) {
+          additionalInputCanvas = sourceCanvas;
+        }
+      }
+      
+      if (additionalInputCanvas) {
         // Create a temp canvas for this input
         const inputTempCanvas = document.createElement('canvas');
         inputTempCanvas.width = tempCanvas.width;
@@ -711,7 +791,7 @@ const processFilterNode = (
         
         // Draw the input to the temp canvas
         inputTempCtx.clearRect(0, 0, inputTempCanvas.width, inputTempCanvas.height);
-        inputTempCtx.drawImage(inputCanvas, 0, 0);
+        inputTempCtx.drawImage(additionalInputCanvas, 0, 0);
         
         // Apply the filter to this input as well
         if (shouldUseGPU) {
@@ -750,12 +830,24 @@ const processFilterNode = (
   }
   
   // Fall back to single input processing if no inputs were found
-  // Get the input node
-  const sourceNode = getSourceNode(node.id, nodes, edges);
-  if (!sourceNode || !nodeResultCache.has(sourceNode.id)) return;
+  // Try multiple methods to find a valid input
+  let sourceCanvas: HTMLCanvasElement | null = null;
   
-  // Get the source image from the cache
-  const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+  // Method 1: Use the direct input node
+  const sourceNode = getSourceNode(node.id, nodes, edges);
+  if (sourceNode && nodeResultCache.has(sourceNode.id)) {
+    sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+  } 
+  // Method 2: Try to find the source image by traversing upstream
+  else {
+    sourceCanvas = findSourceImage(node, nodes, edges, tempCanvas);
+  }
+  
+  // If we still don't have a source, give up
+  if (!sourceCanvas) {
+    console.warn(`Filter node ${node.id} has no valid input (single input mode)`);
+    return;
+  };
   
   // Clear the temp canvas and copy the source image to it
   tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
