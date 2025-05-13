@@ -2352,7 +2352,7 @@ function processNoiseGeneratorFilter(
   // Copy to result canvas with blend mode if specified
   resultCtx.clearRect(0, 0, width, height);
   
-  if (nodeData.blendMode === 'normal' || nodeData.blendMode === 'source-over') {
+  if (nodeData.blendMode === 'normal') {
     resultCtx.globalAlpha = nodeData.opacity / 100;
     resultCtx.drawImage(tempCanvas, 0, 0);
     resultCtx.globalAlpha = 1.0;

@@ -33,7 +33,17 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   };
   
   // Log when the component renders to check if preview data is available
-  console.log(`FilterNode ${id} rendering with preview:`, data.preview ? 'has preview' : 'no preview');
+  console.log(`FilterNode ${id} rendering with preview:`, data.preview ? `preview URL of length ${data.preview.length}` : 'no preview');
+  
+  // For debugging: check if preview is a valid data URL
+  if (data.preview) {
+    const isValidDataUrl = data.preview.startsWith('data:image/');
+    console.log(`FilterNode ${id} preview is ${isValidDataUrl ? 'a valid' : 'an INVALID'} data URL`);
+    
+    if (!isValidDataUrl) {
+      console.error(`Invalid preview data for node ${id}:`, data.preview.substring(0, 100) + '...');
+    }
+  }
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -86,7 +96,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             style={{ height: '80px' }}
             onClick={() => setShowLargePreview(!showLargePreview)}
           >
-            {data.preview ? (
+            {data.preview && data.preview.startsWith('data:image/') ? (
               <>
                 <img 
                   src={data.preview} 
@@ -95,20 +105,23 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   onLoad={() => console.log(`Preview image loaded for ${id}`)}
                   onError={(e) => console.error(`Preview image failed to load for ${id}`, e)}
                 />
-                {/* Only for debugging - hidden from view */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0">
-                  <span className="hidden" />
+                {/* Debug information for development */}
+                <div className="hidden">
+                  Preview data available for {id}: {data.filterType}
                 </div>
               </>
             ) : (
-              <div className="text-xs text-gray-500 p-2 text-center">
-                Preview will appear here
+              <div className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full">
+                <div>Preview generating...</div>
+                <div className="text-[10px] mt-1 text-gray-400">
+                  {data.preview ? 'Invalid data format' : 'No preview data yet'}
+                </div>
               </div>
             )}
           </div>
           
           {/* Large preview modal */}
-          {showLargePreview && data.preview && (
+          {showLargePreview && data.preview && data.preview.startsWith('data:image/') && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
               <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
                 <div className="flex justify-between items-center mb-2">
@@ -123,6 +136,8 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   src={data.preview} 
                   alt="Node preview (large)" 
                   className="max-w-full" 
+                  onLoad={() => console.log(`Large preview image loaded for ${id}`)}
+                  onError={(e) => console.error(`Large preview image failed to load for ${id}`, e)}
                 />
               </div>
             </div>
