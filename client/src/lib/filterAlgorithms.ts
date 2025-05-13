@@ -805,6 +805,36 @@ const isGPUAvailable = (): boolean => {
   if (gpuAccelerationAvailable === null) {
     gpuAccelerationAvailable = isGPUAccelerationAvailable();
     console.log('GPU acceleration ' + (gpuAccelerationAvailable ? 'enabled ✅' : 'not available ❌'));
+    
+    // Display a notification to the user about GPU acceleration status
+    if (typeof document !== 'undefined') {
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.style.position = 'fixed';
+      notification.style.bottom = '20px';
+      notification.style.right = '20px';
+      notification.style.padding = '10px 15px';
+      notification.style.background = gpuAccelerationAvailable ? 'rgba(0, 128, 0, 0.8)' : 'rgba(128, 0, 0, 0.8)';
+      notification.style.color = 'white';
+      notification.style.borderRadius = '5px';
+      notification.style.zIndex = '9999';
+      notification.style.fontFamily = 'sans-serif';
+      notification.style.fontSize = '14px';
+      notification.style.fontWeight = 'bold';
+      notification.textContent = gpuAccelerationAvailable 
+        ? '✅ GPU Acceleration Enabled' 
+        : '⚠️ Using CPU Fallback';
+      
+      // Add to document
+      document.body.appendChild(notification);
+      
+      // Remove after 5 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 5000);
+    }
   }
   return gpuAccelerationAvailable === true;
 };
@@ -886,6 +916,7 @@ const applyCPUFilter = (
       console.log(`Applying CPU ${noiseType} noise filter`);
       
       // Apply the appropriate noise algorithm based on type
+      // Pass the noiseType as override to ensure it uses the correct algorithm
       applyNoiseFilter(data, canvas.width, canvas.height, params, noiseType);
       break;
     }
@@ -1067,7 +1098,9 @@ function applyNoiseFilter(
     paramsObj[param.name] = param.value;
   });
   
-  const noiseType = paramsObj.noiseType || 'Uniform';
+  // If noiseTypeOverride is provided (from GPU acceleration code), use that instead of the parameter
+  // This allows us to use the same noise algorithms from both CPU and GPU pathways
+  const noiseType = noiseTypeOverride || paramsObj.noiseType || 'Uniform';
   const amount = parseInt(String(paramsObj.amount || 25)) / 100 * 255;
   const scale = parseFloat(String(paramsObj.scale || 0.1));
   const octaves = parseInt(String(paramsObj.octaves || 4));

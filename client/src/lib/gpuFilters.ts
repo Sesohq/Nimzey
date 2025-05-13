@@ -369,6 +369,14 @@ export function applyFilterGPU(
         fragmentShaderSource = noiseFragmentShaderSource;
     }
   }
+  else if (filterType === 'halftone') {
+    // Use the halftone shader
+    fragmentShaderSource = halftoneFragmentShaderSource;
+  }
+  else if (filterType === 'glow') {
+    // Use the glow shader for highlight glow
+    fragmentShaderSource = glowFragmentShaderSource;
+  }
   else {
     // If we don't have a GPU implementation for this filter, return false
     console.log(`No GPU implementation for filter type: ${filterType}`);
@@ -438,6 +446,56 @@ export function applyFilterGPU(
       }
       break;
     }
+    case 'halftone': {
+      // Set halftone parameters
+      // Size of dots
+      const dotSizeParam = params.find(p => p.name === 'dotSize');
+      const dotSize = dotSizeParam ? parseFloat(dotSizeParam.value as string) : 50.0;
+      const dotSizeLocation = gl.getUniformLocation(program, 'u_dotSize');
+      if (dotSizeLocation) gl.uniform1f(dotSizeLocation, dotSize);
+      
+      // Grid spacing
+      const spacingParam = params.find(p => p.name === 'gridSize');
+      const spacing = spacingParam ? parseFloat(spacingParam.value as string) : 8.0;
+      const spacingLocation = gl.getUniformLocation(program, 'u_spacing');
+      if (spacingLocation) gl.uniform1f(spacingLocation, spacing);
+      
+      // Rotation angle
+      const angleParam = params.find(p => p.name === 'angle');
+      const angle = angleParam ? parseFloat(angleParam.value as string) : 45.0;
+      const angleLocation = gl.getUniformLocation(program, 'u_angle');
+      if (angleLocation) gl.uniform1f(angleLocation, angle);
+      
+      // Brightness adjustment
+      const brightnessParam = params.find(p => p.name === 'brightnessAdjust');
+      const brightness = brightnessParam ? parseFloat(brightnessParam.value as string) : 0.0;
+      const brightnessLocation = gl.getUniformLocation(program, 'u_brightness');
+      if (brightnessLocation) gl.uniform1f(brightnessLocation, brightness);
+      
+      break;
+    }
+    case 'glow': {
+      // Set glow parameters
+      // Intensity of the glow
+      const intensityParam = params.find(p => p.name === 'intensity');
+      const intensity = intensityParam ? parseFloat(intensityParam.value as string) / 100.0 : 0.5;
+      const intensityLocation = gl.getUniformLocation(program, 'u_intensity');
+      if (intensityLocation) gl.uniform1f(intensityLocation, intensity);
+      
+      // Threshold to determine highlights (0-1)
+      const thresholdParam = params.find(p => p.name === 'threshold');
+      const threshold = thresholdParam ? parseFloat(thresholdParam.value as string) / 100.0 : 0.6;
+      const thresholdLocation = gl.getUniformLocation(program, 'u_threshold');
+      if (thresholdLocation) gl.uniform1f(thresholdLocation, threshold);
+      
+      // Blur radius for the glow
+      const radiusParam = params.find(p => p.name === 'radius');
+      const radius = radiusParam ? parseFloat(radiusParam.value as string) : 10.0;
+      const radiusLocation = gl.getUniformLocation(program, 'u_radius');
+      if (radiusLocation) gl.uniform1f(radiusLocation, radius);
+      
+      break;
+    }
   }
   
   // Draw the rectangle
@@ -453,10 +511,127 @@ export function isGPUAccelerationAvailable(): boolean {
   return !!gl;
 }
 
+// Fragment shader for halftone filter
+const halftoneFragmentShaderSource = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_textureSize;
+  uniform float u_dotSize;
+  uniform float u_spacing;
+  uniform float u_angle;
+  uniform float u_brightness;
+  varying vec2 v_texCoord;
+  
+  // Function to convert RGB to grayscale
+  float toGrayscale(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+  }
+  
+  void main() {
+    // Get original pixel color
+    vec4 texColor = texture2D(u_image, v_texCoord);
+    
+    // Convert to grayscale and apply brightness adjustment
+    float brightness = toGrayscale(texColor.rgb);
+    brightness = clamp(brightness + u_brightness / 100.0 - 0.5, 0.0, 1.0);
+    
+    // Calculate grid coordinates
+    float spacing = max(2.0, u_spacing);
+    float angle = radians(u_angle);
+    
+    // Rotate coordinates
+    vec2 rotatedCoord = vec2(
+      v_texCoord.x * cos(angle) - v_texCoord.y * sin(angle),
+      v_texCoord.x * sin(angle) + v_texCoord.y * cos(angle)
+    );
+    
+    // Scale to grid
+    vec2 scaledCoord = rotatedCoord * u_textureSize / spacing;
+    
+    // Calculate grid cell center
+    vec2 cell = floor(scaledCoord) + 0.5;
+    
+    // Distance from center
+    float dist = distance(scaledCoord, cell);
+    
+    // Calculate dot size based on brightness and max dot size
+    float maxRadius = u_dotSize / 100.0 * spacing / 2.0;
+    float radius = maxRadius * brightness;
+    
+    // Determine if we're inside a dot
+    float inDot = step(dist, radius);
+    
+    // Final color
+    gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 1.0), texColor, inDot);
+  }
+`;
+
+// Fragment shader for glow filter
+const glowFragmentShaderSource = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_textureSize;
+  uniform float u_intensity;
+  uniform float u_threshold;
+  uniform float u_radius;
+  varying vec2 v_texCoord;
+  
+  // Function to convert RGB to luminance
+  float luminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+  }
+  
+  // Gaussian blur function
+  vec4 blur(sampler2D image, vec2 uv, vec2 resolution, float radius) {
+    vec4 color = vec4(0.0);
+    float total = 0.0;
+    
+    // Blur size in pixels
+    float blurSize = radius / 2.0;
+    
+    // Number of samples for a reasonable quality
+    float samples = 9.0;
+    
+    for (float x = -samples; x <= samples; x++) {
+      for (float y = -samples; y <= samples; y++) {
+        vec2 offset = vec2(x, y) * blurSize / resolution;
+        // Calculate Gaussian weight
+        float weight = exp(-(x*x + y*y) / (2.0 * radius * radius));
+        color += texture2D(image, uv + offset) * weight;
+        total += weight;
+      }
+    }
+    
+    return color / total;
+  }
+  
+  void main() {
+    // Get original pixel color
+    vec4 originalColor = texture2D(u_image, v_texCoord);
+    
+    // Calculate luminance for threshold check
+    float lum = luminance(originalColor.rgb);
+    
+    // Create a blurred version of the image for the glow
+    vec4 blurredColor = blur(u_image, v_texCoord, u_textureSize, u_radius);
+    
+    // Only apply glow to highlights above threshold
+    float highlightMask = smoothstep(u_threshold, 1.0, lum);
+    
+    // Calculate the glow color - make it stronger in highlights
+    vec4 glowColor = blurredColor * highlightMask * u_intensity;
+    
+    // Combine original color with glow
+    gl_FragColor = originalColor + glowColor;
+  }
+`;
+
 // List of filters that support GPU acceleration
 export const gpuAcceleratedFilters: FilterType[] = [
   'blur',
   'sharpen',
   'noise',
+  'halftone',
+  'glow',
   // We'll expand this list as we add more GPU-accelerated filters
 ];
