@@ -541,11 +541,14 @@ export function useFilterGraph() {
           }
           
           // Process the image through the node chain
+          // Important: Do not clear cache during preview generation to maintain other nodes' previews
           const result = applyFilters(
             sourceImageRef.current!, 
             nodeChain.nodes, 
             nodeChain.edges, 
-            tempCanvas
+            tempCanvas,
+            undefined, // no targetNodeId
+            false // do not clear cache
           );
           
           // If applyFilters failed, try using the nodeResultCache directly

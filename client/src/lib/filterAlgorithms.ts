@@ -483,10 +483,16 @@ export const applyFilters = (
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
-  targetNodeId?: string
+  targetNodeId?: string,
+  clearCache: boolean = false
 ): string | null => {
-  // Clear the cache before each processing run
-  nodeResultCache.clear();
+  // Only clear the cache if explicitly requested, to maintain preview images
+  if (clearCache) {
+    console.log('Clearing node result cache');
+    nodeResultCache.clear();
+  } else {
+    console.log('Preserving node result cache for previews');
+  }
   
   console.log('=== Starting filter processing ===');
   console.log(`Processing with ${nodes.length} nodes and ${edges.length} edges`);
