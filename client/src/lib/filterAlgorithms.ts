@@ -562,7 +562,15 @@ const processBlendNode = (
   // Now blend the second input onto the first using the specified blend mode
   // The opacity comes from the blend node's settings (0-100 value)
   const opacity = blendData.opacity / 100; // Convert from percentage (0-100) to decimal (0-1)
-  applyBlendMode(resultCtx, tempCtx, blendData.blendMode, opacity);
+  
+  // Log the blending operation for debugging
+  console.log(`Blending with mode: ${blendData.blendMode}, opacity: ${opacity}`);
+  
+  // Map any alias blend modes to their standard names
+  const normalizedBlendMode = blendData.blendMode === 'linear-dodge' ? 'add' : blendData.blendMode;
+  
+  // Apply the blend operation
+  applyBlendMode(resultCtx, tempCtx, normalizedBlendMode, opacity);
   
   // Store the result
   nodeResultCache.set(node.id, resultCanvas);
