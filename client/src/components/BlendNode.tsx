@@ -175,19 +175,36 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   <SelectTrigger id={`${nodeId}-blend-mode`} className="w-full bg-white">
                     <SelectValue placeholder="Select blend mode" />
                   </SelectTrigger>
-                  <SelectContent position="popper" className="bg-white z-50 shadow-xl border border-gray-200">
+                  <SelectContent position="popper" className="bg-white z-50 shadow-xl border border-gray-200 max-h-[320px]">
+                    <div className="p-1 border-b text-xs font-medium text-gray-500">Normal</div>
                     <SelectItem value="normal">Normal</SelectItem>
+                    
+                    <div className="p-1 border-b text-xs font-medium text-gray-500 mt-1">Darken</div>
                     <SelectItem value="multiply">Multiply</SelectItem>
-                    <SelectItem value="screen">Screen</SelectItem>
-                    <SelectItem value="overlay">Overlay</SelectItem>
                     <SelectItem value="darken">Darken</SelectItem>
+                    <SelectItem value="color-burn">Color Burn</SelectItem>
+                    <SelectItem value="linear-burn">Linear Burn</SelectItem>
+                    
+                    <div className="p-1 border-b text-xs font-medium text-gray-500 mt-1">Lighten</div>
+                    <SelectItem value="screen">Screen</SelectItem>
                     <SelectItem value="lighten">Lighten</SelectItem>
                     <SelectItem value="color-dodge">Color Dodge</SelectItem>
-                    <SelectItem value="color-burn">Color Burn</SelectItem>
+                    <SelectItem value="linear-dodge">Linear Dodge (Add)</SelectItem>
+                    
+                    <div className="p-1 border-b text-xs font-medium text-gray-500 mt-1">Contrast</div>
+                    <SelectItem value="overlay">Overlay</SelectItem>
                     <SelectItem value="hard-light">Hard Light</SelectItem>
                     <SelectItem value="soft-light">Soft Light</SelectItem>
+                    <SelectItem value="vivid-light">Vivid Light</SelectItem>
+                    <SelectItem value="linear-light">Linear Light</SelectItem>
+                    
+                    <div className="p-1 border-b text-xs font-medium text-gray-500 mt-1">Comparative</div>
                     <SelectItem value="difference">Difference</SelectItem>
                     <SelectItem value="exclusion">Exclusion</SelectItem>
+                    <SelectItem value="subtract">Subtract</SelectItem>
+                    <SelectItem value="divide">Divide</SelectItem>
+                    
+                    <div className="p-1 border-b text-xs font-medium text-gray-500 mt-1">HSY Component</div>
                     <SelectItem value="hue">Hue</SelectItem>
                     <SelectItem value="saturation">Saturation</SelectItem>
                     <SelectItem value="color">Color</SelectItem>

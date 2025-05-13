@@ -3300,6 +3300,83 @@ function applyCannyEdgeDetection(
 
 
 
+// HSY color model conversion functions
+// These functions convert between RGB and HSY color spaces
+// HSY handles human perception of brightness better than HSL/HSV
+function rgbToHsy(r: number, g: number, b: number): [number, number, number] {
+  // First normalize RGB values to 0-1 range
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  
+  // Calculate perceived luminance using the standard coefficients
+  // These coefficients account for human eye sensitivity to different colors
+  const y = 0.299 * rn + 0.587 * gn + 0.114 * bn;
+  
+  // Calculate hue and saturation (similar to HSL calculation)
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const chroma = max - min;
+  
+  let h = 0;
+  if (chroma !== 0) {
+    if (max === rn) {
+      h = ((gn - bn) / chroma) % 6;
+    } else if (max === gn) {
+      h = (bn - rn) / chroma + 2;
+    } else {
+      h = (rn - gn) / chroma + 4;
+    }
+  }
+  
+  h = (h * 60) % 360;
+  if (h < 0) h += 360;
+  
+  // Calculate saturation (0 for black/white/gray, higher for more colorful)
+  let s = 0;
+  if (y > 0 && y < 1) {
+    s = chroma / (1 - Math.abs(2 * y - 1));
+  }
+  
+  // Return HSY values (hue in 0-360, saturation and luminance in 0-1)
+  return [h, s, y];
+}
+
+function hsyToRgb(h: number, s: number, y: number): [number, number, number] {
+  // If saturation is 0, it's a shade of gray
+  if (s === 0) {
+    return [y * 255, y * 255, y * 255];
+  }
+  
+  // Calculate chroma and other HSL intermediates
+  const c = (1 - Math.abs(2 * y - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = y - c / 2;
+  
+  let r = 0, g = 0, b = 0;
+  
+  if (h >= 0 && h < 60) {
+    [r, g, b] = [c, x, 0];
+  } else if (h >= 60 && h < 120) {
+    [r, g, b] = [x, c, 0];
+  } else if (h >= 120 && h < 180) {
+    [r, g, b] = [0, c, x];
+  } else if (h >= 180 && h < 240) {
+    [r, g, b] = [0, x, c];
+  } else if (h >= 240 && h < 300) {
+    [r, g, b] = [x, 0, c];
+  } else {
+    [r, g, b] = [c, 0, x];
+  }
+  
+  // Apply the luminance adjustment and convert back to 0-255 range
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ];
+}
+
 // Implement blend modes for combining layers
 function applyBlendMode(
   destCtx: CanvasRenderingContext2D, 
@@ -3421,16 +3498,87 @@ function applyBlendMode(
         resultB = destB + srcB - (2 * destB * srcB) / 255;
         break;
         
-      // Additional blend modes - simplified implementations
+      case 'linear-light':
+        resultR = srcR < 128 
+          ? Math.max(0, destR + 2 * srcR - 255)
+          : Math.min(255, destR + 2 * (srcR - 128));
+        resultG = srcG < 128 
+          ? Math.max(0, destG + 2 * srcG - 255)
+          : Math.min(255, destG + 2 * (srcG - 128));
+        resultB = srcB < 128 
+          ? Math.max(0, destB + 2 * srcB - 255)
+          : Math.min(255, destB + 2 * (srcB - 128));
+        break;
+        
+      case 'vivid-light':
+        resultR = srcR < 128 
+          ? (destR === 0 ? 0 : Math.max(0, 255 - ((255 - 2 * srcR) * 255) / destR))
+          : (destR === 255 ? 255 : Math.min(255, ((2 * srcR - 256) * 255) / (255 - destR)));
+        resultG = srcG < 128 
+          ? (destG === 0 ? 0 : Math.max(0, 255 - ((255 - 2 * srcG) * 255) / destG))
+          : (destG === 255 ? 255 : Math.min(255, ((2 * srcG - 256) * 255) / (255 - destG)));
+        resultB = srcB < 128 
+          ? (destB === 0 ? 0 : Math.max(0, 255 - ((255 - 2 * srcB) * 255) / destB))
+          : (destB === 255 ? 255 : Math.min(255, ((2 * srcB - 256) * 255) / (255 - destB)));
+        break;
+      
+      case 'add':
+        resultR = Math.min(255, destR + srcR);
+        resultG = Math.min(255, destG + srcG);
+        resultB = Math.min(255, destB + srcB);
+        break;
+        
+      case 'subtract':
+        resultR = Math.max(0, destR - srcR);
+        resultG = Math.max(0, destG - srcG);
+        resultB = Math.max(0, destB - srcB);
+        break;
+        
+      case 'divide':
+        resultR = srcR === 0 ? 255 : Math.min(255, (destR / srcR) * 255);
+        resultG = srcG === 0 ? 255 : Math.min(255, (destG / srcG) * 255);
+        resultB = srcB === 0 ? 255 : Math.min(255, (destB / srcB) * 255);
+        break;
+        
+      // Additional blend modes using HSY color model for perception-based blending
       case 'hue':
+        // Take hue from source, saturation and luminance from destination
+        const destHsy = rgbToHsy(destR, destG, destB);
+        const srcHsy = rgbToHsy(srcR, srcG, srcB);
+        const hueResult = hsyToRgb(srcHsy[0], destHsy[1], destHsy[2]);
+        resultR = hueResult[0];
+        resultG = hueResult[1];
+        resultB = hueResult[2];
+        break;
+        
       case 'saturation':
+        // Take saturation from source, hue and luminance from destination
+        const destHsySat = rgbToHsy(destR, destG, destB);
+        const srcHsySat = rgbToHsy(srcR, srcG, srcB);
+        const satResult = hsyToRgb(destHsySat[0], srcHsySat[1], destHsySat[2]);
+        resultR = satResult[0];
+        resultG = satResult[1];
+        resultB = satResult[2];
+        break;
+        
       case 'color':
+        // Take hue and saturation from source, luminance from destination
+        const destHsyColor = rgbToHsy(destR, destG, destB);
+        const srcHsyColor = rgbToHsy(srcR, srcG, srcB);
+        const colorResult = hsyToRgb(srcHsyColor[0], srcHsyColor[1], destHsyColor[2]);
+        resultR = colorResult[0];
+        resultG = colorResult[1];
+        resultB = colorResult[2];
+        break;
+        
       case 'luminosity':
-        // These modes require RGB to HSL conversion
-        // For simplicity, we'll implement a basic version
-        resultR = srcR;
-        resultG = srcG;
-        resultB = srcB;
+        // Take luminance from source, hue and saturation from destination
+        const destHsyLum = rgbToHsy(destR, destG, destB);
+        const srcHsyLum = rgbToHsy(srcR, srcG, srcB);
+        const lumResult = hsyToRgb(destHsyLum[0], destHsyLum[1], srcHsyLum[2]);
+        resultR = lumResult[0];
+        resultG = lumResult[1];
+        resultB = lumResult[2];
         break;
         
       default:
@@ -3447,11 +3595,29 @@ function applyBlendMode(
     resultG = destG + (resultG - destG) * opacity * srcA;
     resultB = destB + (resultB - destB) * opacity * srcA;
     
+    // Create the "filter baby" effect at high contrast boundaries
+    // This helps create a more interesting algorithmic combination of the two filters
+    if (isHighContrast) {
+      // Calculate a blend factor based on contrast
+      const blendFactor = Math.min(1.0, contrast / 300);
+      
+      // Create subtle variation at boundaries to enhance the algorithmic interaction
+      const variation = Math.sin(i * 0.01) * 15 * blendFactor;
+      
+      // Apply the variation to create more interesting hybrid effects at boundaries
+      resultR = Math.min(255, Math.max(0, resultR + variation));
+      resultG = Math.min(255, Math.max(0, resultG + variation));
+      resultB = Math.min(255, Math.max(0, resultB + variation));
+    }
+    
     // Write back the blended values
     destData.data[i] = Math.round(resultR);
     destData.data[i + 1] = Math.round(resultG);
     destData.data[i + 2] = Math.round(resultB);
   }
+  
+  // Log that we've completed the blend operation
+  console.log(`Completed blend with mode: ${blendMode}`);
   
   // Put the modified pixels back on the destination canvas
   destCtx.putImageData(destData, 0, 0);
