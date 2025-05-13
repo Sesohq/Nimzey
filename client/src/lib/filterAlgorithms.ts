@@ -877,9 +877,18 @@ const applyCPUFilter = (
     case 'invert':
       applyInvertFilter(data);
       break;
-    case 'noise':
-      applyNoiseFilter(data, canvas.width, canvas.height, params);
+    case 'noise': {
+      // Check for noise type parameter to match the GPU implementation
+      const noiseTypeParam = params.find(p => p.name === 'noiseType');
+      const noiseType = noiseTypeParam ? noiseTypeParam.value as string : 'random';
+      
+      // Log which noise type is being processed by CPU
+      console.log(`Applying CPU ${noiseType} noise filter`);
+      
+      // Apply the appropriate noise algorithm based on type
+      applyNoiseFilter(data, canvas.width, canvas.height, params, noiseType);
       break;
+    }
     case 'dither':
       applyDitherFilter(data, canvas.width, canvas.height, params);
       break;
@@ -1045,7 +1054,13 @@ function applyInvertFilter(data: Uint8ClampedArray): void {
 
 // Noise filter with Perlin and Simplex noise support
 
-function applyNoiseFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
+function applyNoiseFilter(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  params: any[] = [], 
+  noiseTypeOverride?: string
+): void {
   // Extract parameters
   const paramsObj: Record<string, any> = {};
   params.forEach(param => {

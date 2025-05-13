@@ -341,21 +341,38 @@ export function applyFilterGPU(
   canvas.height = sourceImage.height;
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   
-  // Choose the right shader based on filter type
+  // Choose the right shader based on filter type and parameters
   let fragmentShaderSource = '';
-  switch (filterType) {
-    case 'blur':
-      fragmentShaderSource = blurFragmentShaderSource;
-      break;
-    case 'sharpen':
-      fragmentShaderSource = sharpenFragmentShaderSource;
-      break;
-    case 'noise':
-      fragmentShaderSource = noiseFragmentShaderSource;
-      break;
-    default:
-      // If we don't have a GPU implementation for this filter, return false
-      return false;
+  
+  // Get specific parameters
+  const noiseTypeParam = params.find(p => p.name === 'noiseType');
+  const noiseType = noiseTypeParam ? noiseTypeParam.value as string : 'random';
+  
+  // Select shader based on filter and subtype
+  if (filterType === 'blur') {
+    fragmentShaderSource = blurFragmentShaderSource;
+  } 
+  else if (filterType === 'sharpen') {
+    fragmentShaderSource = sharpenFragmentShaderSource;
+  }
+  else if (filterType === 'noise') {
+    // Choose noise shader based on the noiseType parameter
+    switch (noiseType) {
+      case 'perlin':
+        fragmentShaderSource = perlinNoiseShaderSource;
+        break;
+      case 'simplex':
+        fragmentShaderSource = simplexNoiseShaderSource;
+        break;
+      default:
+        // Default to basic noise
+        fragmentShaderSource = noiseFragmentShaderSource;
+    }
+  }
+  else {
+    // If we don't have a GPU implementation for this filter, return false
+    console.log(`No GPU implementation for filter type: ${filterType}`);
+    return false;
   }
   
   // Create and use the shader program
@@ -367,34 +384,58 @@ export function applyFilterGPU(
   // Set up WebGL context
   if (!setupWebGL(gl, program, sourceImage)) return false;
   
-  // Set filter-specific uniforms
+  // Set common uniforms
   const textureSizeLocation = gl.getUniformLocation(program, 'u_textureSize');
-  gl.uniform2f(textureSizeLocation, sourceImage.width, sourceImage.height);
+  if (textureSizeLocation) {
+    gl.uniform2f(textureSizeLocation, sourceImage.width, sourceImage.height);
+  }
   
+  // Generate a random seed value for noise variations
+  const randomSeed = Math.random() * 1000;
+  
+  // Set filter-specific uniforms
   switch (filterType) {
     case 'blur': {
       const radiusParam = params.find(p => p.name === 'radius');
       const radius = radiusParam ? parseFloat(radiusParam.value as string) : 5.0;
       const radiusLocation = gl.getUniformLocation(program, 'u_radius');
-      gl.uniform1f(radiusLocation, radius);
+      if (radiusLocation) gl.uniform1f(radiusLocation, radius);
       break;
     }
     case 'sharpen': {
       const amountParam = params.find(p => p.name === 'amount');
       const amount = amountParam ? parseFloat(amountParam.value as string) : 50.0;
       const amountLocation = gl.getUniformLocation(program, 'u_amount');
-      gl.uniform1f(amountLocation, amount);
+      if (amountLocation) gl.uniform1f(amountLocation, amount);
       break;
     }
     case 'noise': {
+      // Common noise parameters
       const amountParam = params.find(p => p.name === 'amount');
       const amount = amountParam ? parseFloat(amountParam.value as string) : 25.0;
       const amountLocation = gl.getUniformLocation(program, 'u_amount');
-      gl.uniform1f(amountLocation, amount);
+      if (amountLocation) gl.uniform1f(amountLocation, amount);
       
       // Add a random seed for noise variation
       const seedLocation = gl.getUniformLocation(program, 'u_seed');
-      gl.uniform1f(seedLocation, Math.random() * 1000);
+      if (seedLocation) gl.uniform1f(seedLocation, randomSeed);
+      
+      // Advanced noise parameters - these will be ignored if the shader doesn't use them
+      if (noiseType === 'perlin' || noiseType === 'simplex') {
+        // Scale parameter affects noise frequency
+        const scaleParam = params.find(p => p.name === 'scale');
+        const scale = scaleParam ? parseFloat(scaleParam.value as string) : 10.0;
+        const scaleLocation = gl.getUniformLocation(program, 'u_scale');
+        if (scaleLocation) gl.uniform1f(scaleLocation, scale);
+        
+        // Colorize parameter (only for simplex noise)
+        if (noiseType === 'simplex') {
+          const colorizeParam = params.find(p => p.name === 'colorize');
+          const colorize = colorizeParam ? (colorizeParam.value === 'true' ? 1.0 : 0.0) : 0.0;
+          const colorizeLocation = gl.getUniformLocation(program, 'u_colorize');
+          if (colorizeLocation) gl.uniform1f(colorizeLocation, colorize);
+        }
+      }
       break;
     }
   }
@@ -413,4 +454,9 @@ export function isGPUAccelerationAvailable(): boolean {
 }
 
 // List of filters that support GPU acceleration
-export const gpuAcceleratedFilters: FilterType[] = ['blur', 'sharpen', 'noise'];
+export const gpuAcceleratedFilters: FilterType[] = [
+  'blur',
+  'sharpen',
+  'noise',
+  // We'll expand this list as we add more GPU-accelerated filters
+];
