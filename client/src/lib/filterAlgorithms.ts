@@ -400,26 +400,75 @@ const processFilterNode = (
   tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
   tempCtx.drawImage(sourceCanvas, 0, 0);
   
-  // Apply the filter to the temp canvas
-  applyFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
-  
   // Create a new canvas for this node's result
   const resultCanvas = document.createElement('canvas');
   resultCanvas.width = tempCanvas.width;
   resultCanvas.height = tempCanvas.height;
   const resultCtx = resultCanvas.getContext('2d')!;
   
-  // If this is a node after the first filter and has a non-normal blend mode,
-  // we need to blend it with the original source
-  if (filterData.blendMode !== 'normal') {
-    // Copy the original source
-    resultCtx.drawImage(sourceCanvas, 0, 0);
+  // Create another canvas to keep a copy of the original input (for blend operations)
+  const originalCanvas = document.createElement('canvas');
+  originalCanvas.width = tempCanvas.width;
+  originalCanvas.height = tempCanvas.height;
+  const originalCtx = originalCanvas.getContext('2d')!;
+  originalCtx.drawImage(sourceCanvas, 0, 0);
+  
+  // Apply the filter to the temp canvas - Check for GPU acceleration
+  if (isGPUAvailable() && gpuAcceleratedFilters.includes(filterData.filterType)) {
+    console.log(`Using GPU acceleration for ${filterData.filterType} filter`);
     
-    // Now blend the filtered result on top using the specified blend mode
-    applyBlendMode(resultCtx, tempCtx, filterData.blendMode, filterData.opacity);
+    // Create an image from the current canvas state
+    const image = new Image();
+    image.src = tempCanvas.toDataURL();
+    
+    // Use a synchronous approach for now
+    const processResult = () => {
+      // Apply blend mode if needed
+      if (filterData.blendMode !== 'normal') {
+        // For non-normal blend mode, we need to blend with the original
+        resultCtx.drawImage(originalCanvas, 0, 0);
+        applyBlendMode(resultCtx, tempCtx, filterData.blendMode, filterData.opacity / 100);
+      } else {
+        // For normal blend, just copy the filtered result
+        resultCtx.drawImage(tempCanvas, 0, 0);
+      }
+      
+      // Store the result
+      nodeResultCache.set(node.id, resultCanvas);
+    };
+    
+    // Start loading the image and process when ready
+    image.onload = () => {
+      const success = applyFilterGPU(filterData.filterType, image, tempCanvas, filterData.params);
+      
+      if (!success) {
+        // Fallback to CPU if GPU acceleration fails
+        console.log(`GPU acceleration failed for ${filterData.filterType}, using CPU fallback`);
+        applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+      }
+      
+      // Complete processing
+      processResult();
+    };
+    
+    // For synchronous behavior, use CPU processing for now
+    // The GPU version will update the cache when it's ready
+    applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
   } else {
-    // For normal blend mode, just copy the filtered result
-    resultCtx.drawImage(tempCanvas, 0, 0);
+    // Use CPU processing for this filter
+    applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+    
+    // Handle blend modes
+    if (filterData.blendMode !== 'normal') {
+      // Copy the original source
+      resultCtx.drawImage(sourceCanvas, 0, 0);
+      
+      // Now blend the filtered result on top using the specified blend mode
+      applyBlendMode(resultCtx, tempCtx, filterData.blendMode, filterData.opacity / 100);
+    } else {
+      // For normal blend mode, just copy the filtered result
+      resultCtx.drawImage(tempCanvas, 0, 0);
+    }
   }
   
   // Store the result
@@ -748,7 +797,65 @@ function applyGlowFilter(
 }
 
 // Apply a specific filter based on type
+// Check if GPU acceleration is available (cached for performance)
+let gpuAccelerationAvailable: boolean | null = null;
+
+// Helper to check GPU availability with caching
+const isGPUAvailable = (): boolean => {
+  if (gpuAccelerationAvailable === null) {
+    gpuAccelerationAvailable = isGPUAccelerationAvailable();
+    console.log('GPU acceleration ' + (gpuAccelerationAvailable ? 'enabled ✅' : 'not available ❌'));
+  }
+  return gpuAccelerationAvailable === true;
+};
+
 const applyFilter = (
+  filterType: FilterType,
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  params: { name: string; value: number | string }[]
+): void => {
+  // Check if we can use GPU acceleration for this filter
+  if (isGPUAvailable() && gpuAcceleratedFilters.includes(filterType)) {
+    // Get the current image from the canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    
+    const tempCtx = tempCanvas.getContext('2d');
+    if (tempCtx) {
+      // Copy the current canvas content to our temp canvas
+      tempCtx.drawImage(canvas, 0, 0);
+      
+      // Create an image object from the current canvas state
+      const image = new Image();
+      image.src = tempCanvas.toDataURL();
+      
+      // Once the image is loaded, apply GPU filter
+      image.onload = () => {
+        // Try to apply the filter using GPU
+        const success = applyFilterGPU(filterType, image, canvas, params);
+        
+        // If GPU filtering failed, fall back to CPU implementation
+        if (!success) {
+          console.log(`GPU acceleration failed for ${filterType}, falling back to CPU`);
+          applyCPUFilter(filterType, ctx, canvas, params);
+        } else {
+          console.log(`Applied ${filterType} filter using GPU acceleration`);
+        }
+      };
+      
+      // Start loading the image
+      return;
+    }
+  }
+  
+  // Fall back to CPU implementation if GPU is not available or not supported for this filter
+  applyCPUFilter(filterType, ctx, canvas, params);
+};
+
+// The original CPU-based filter implementation
+const applyCPUFilter = (
   filterType: FilterType,
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
