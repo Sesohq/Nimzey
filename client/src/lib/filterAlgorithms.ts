@@ -213,6 +213,45 @@ function applyRefractionFilter(
   }
 }
 
+// Helper function to blend multiple inputs into a single canvas
+const blendMultipleInputs = (inputs: Record<string, Node | null>, resultCtx: CanvasRenderingContext2D, resultCanvas: HTMLCanvasElement) => {
+  // Get the input keys (handles)
+  const inputKeys = Object.keys(inputs);
+  
+  // If no inputs, return
+  if (inputKeys.length === 0) return;
+  
+  // Draw the first input as the base
+  const firstInputNode = inputs[inputKeys[0]];
+  if (firstInputNode && nodeResultCache.has(firstInputNode.id)) {
+    const firstInputCanvas = nodeResultCache.get(firstInputNode.id)!;
+    resultCtx.globalCompositeOperation = 'source-over';
+    resultCtx.globalAlpha = 1.0;
+    resultCtx.drawImage(firstInputCanvas, 0, 0);
+  }
+  
+  // Blend additional inputs with their respective blend modes
+  for (let i = 1; i < inputKeys.length; i++) {
+    const inputNode = inputs[inputKeys[i]];
+    if (inputNode && nodeResultCache.has(inputNode.id)) {
+      const inputCanvas = nodeResultCache.get(inputNode.id)!;
+      
+      // Default blend mode is normal with full opacity
+      resultCtx.globalCompositeOperation = 'source-over';
+      resultCtx.globalAlpha = 1.0;
+      
+      // If this is a filter node, we can use its blend mode and opacity
+      if (inputNode.type === 'filterNode' && inputNode.data) {
+        const filterData = inputNode.data as FilterNodeData;
+        resultCtx.globalCompositeOperation = filterData.blendMode as GlobalCompositeOperation;
+        resultCtx.globalAlpha = filterData.opacity;
+      }
+      
+      resultCtx.drawImage(inputCanvas, 0, 0);
+    }
+  }
+};
+
 // Helper function to find target nodes from a source node
 const getTargetNodes = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
   const connectedEdges = edges.filter(edge => edge.source === sourceNodeId);
@@ -392,19 +431,19 @@ const processMultiInputNode = (
   
   // Skip disabled nodes
   if (!nodeData.enabled) {
-    // For disabled nodes, just pass through the primary input (inputA) unchanged
-    const sourceNode = getSourceNode(node.id, nodes, edges, inputHandles[0] || undefined);
-    if (sourceNode && nodeResultCache.has(sourceNode.id)) {
-      const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
-      
+    // For disabled nodes, just blend all inputs
+    const allInputNodes = getSourceNodesForNode(node.id, nodes, edges);
+    const hasAnyInput = Object.values(allInputNodes).some(node => node !== null && nodeResultCache.has(node!.id));
+    
+    if (hasAnyInput) {
       // Create a new canvas for this node's result
       const resultCanvas = document.createElement('canvas');
       resultCanvas.width = tempCanvas.width;
       resultCanvas.height = tempCanvas.height;
       const resultCtx = resultCanvas.getContext('2d')!;
       
-      // Just copy the source to the result
-      resultCtx.drawImage(sourceCanvas, 0, 0);
+      // Blend all inputs
+      blendMultipleInputs(allInputNodes, resultCtx, resultCanvas);
       
       // Store the result
       nodeResultCache.set(node.id, resultCanvas);
@@ -412,18 +451,17 @@ const processMultiInputNode = (
     return;
   }
   
-  // Get all input nodes
-  const sourceNodes: Record<string, Node | null> = {};
+  // Get all input nodes - both from explicit handles and dynamic connections
+  const dynamicSourceNodes = getSourceNodesForNode(node.id, nodes, edges);
+  const sourceNodes: Record<string, Node | null> = { ...dynamicSourceNodes };
   
-  // Check for special handles first
-  inputHandles.forEach(handle => {
-    sourceNodes[handle] = getSourceNode(node.id, nodes, edges, handle);
-  });
-  
-  // Check for the default input (for backwards compatibility)
-  const defaultSourceNode = getSourceNode(node.id, nodes, edges);
-  if (defaultSourceNode && !sourceNodes.inputA) {
-    sourceNodes.inputA = defaultSourceNode;
+  // For backward compatibility, map first few connections to inputHandles if needed
+  const dynamicKeys = Object.keys(dynamicSourceNodes);
+  if (inputHandles && inputHandles.length > 0 && dynamicKeys.length > 0) {
+    // Map up to 3 dynamic connections to the expected inputA, inputB, inputC handles
+    for (let i = 0; i < Math.min(dynamicKeys.length, inputHandles.length); i++) {
+      sourceNodes[inputHandles[i]] = dynamicSourceNodes[dynamicKeys[i]];
+    }
   }
   
   // Check if we have at least one input
@@ -467,7 +505,11 @@ const processFilterNode = (
   // Get the filter data
   const filterData = node.data as FilterNodeData;
   
-  // Check if this is a compositing filter that should use multiple inputs
+  // Get all incoming connections to this node
+  const inputNodes = getSourceNodesForNode(node.id, nodes, edges);
+  const inputKeys = Object.keys(inputNodes);
+  
+  // Check if this is a compositing filter that should use specialized multiple input processing
   const compositingTypes = ['mask', 'multiply', 'screen', 'mix', 'transform', 'setAlpha'];
   
   if (compositingTypes.includes(filterData.filterType)) {
@@ -478,7 +520,7 @@ const processFilterNode = (
       edges,
       tempCanvas,
       tempCtx,
-      ['inputA', 'inputB', 'inputC'], // Support up to 3 inputs
+      ['inputA', 'inputB', 'inputC'], // For backward compatibility, but we support unlimited inputs
       (inputs, resultCtx, resultCanvas, nodeData, tempCanvas, tempCtx) => {
         // Main input (required)
         const mainInput = inputs.inputA;
