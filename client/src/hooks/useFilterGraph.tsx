@@ -269,6 +269,8 @@ export function useFilterGraph() {
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback(
     (nodeId: string, blendMode: BlendMode) => {
+      console.log(`Changing blend mode for node ${nodeId} to ${blendMode}`);
+      
       // Bust the cache when blend mode changes
       nodeResultCache.delete(nodeId);
       
@@ -288,53 +290,24 @@ export function useFilterGraph() {
         });
       });
       
-      // Process the image after the update
-      if (processImageRef.current) {
-        // First update the node preview
-        setTimeout(() => {
-          // Find the node in the updated nodes state
-          const node = nodes.find(n => n.id === nodeId);
-          if (node && (node.type === "filterNode" || node.type === "blendNode")) {
-            console.log(`Regenerating preview for node ${nodeId} after blend mode change`);
-            
-            // Create a path from source to this node
-            const nodeChain = getNodeChain(nodeId, nodes, edges);
-            console.log(`Processing chain contains ${nodeChain.nodes.length} nodes:`, 
-              nodeChain.nodes.map(n => `- ${n.id} (${n.type})`).join('\n')
-            );
-            
-            // Process the node and generate a preview
-            if (sourceImageRef.current && nodeChain.nodes.length > 0) {
-              // Create a temporary small canvas for the preview
-              const tempCanvas = document.createElement("canvas");
-              tempCanvas.width = 150;
-              tempCanvas.height = 150;
-              
-              // Apply the filter chain to generate the preview
-              const previewUrl = applyFilters(
-                sourceImageRef.current,
-                nodeChain.nodes,
-                nodeChain.edges,
-                tempCanvas
-              );
-              
-              // Update this specific node with the new preview
-              setNodes(current => 
-                current.map(n => 
-                  n.id === nodeId 
-                    ? { ...n, data: { ...n.data, preview: previewUrl } } 
-                    : n
-                )
-              );
-            }
-          }
-          
-          // Then update the main preview
-          processImageRef.current?.();
-        }, 10);
-      }
+      // Wait for the state update to complete before generating a new preview
+      setTimeout(() => {
+        const updatedNode = nodes.find(n => n.id === nodeId);
+        if (!updatedNode) return;
+
+        // Always use generateNodePreview for consistent behavior
+        if (generateNodePreviewRef.current) {
+          console.log(`Regenerating preview for ${nodeId} (${updatedNode.type}) after blend mode change`);
+          generateNodePreviewRef.current(updatedNode);
+        }
+        
+        // Update the main preview as well
+        if (processImageRef.current) {
+          processImageRef.current();
+        }
+      }, 10);
     },
-    [nodes, edges, getNodeChain, applyFilters],
+    [nodes],
   );
 
   // Handle changing opacity on filter nodes
