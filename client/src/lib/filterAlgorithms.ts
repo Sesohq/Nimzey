@@ -76,6 +76,9 @@ export const applyFilters = (
     if (node.type !== 'filterNode') continue;
     
     const filterData = node.data as FilterNodeData;
+    // Skip disabled filters
+    if (!filterData.enabled) continue;
+    
     applyFilter(filterData.filterType, ctx, canvas, filterData.params);
   }
   

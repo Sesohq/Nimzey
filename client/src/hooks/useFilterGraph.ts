@@ -27,7 +27,23 @@ export function useFilterGraph() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
 
-  // Forward declaration for functions that are used before definition
+  // Initialize canvas when needed
+  const getCanvas = useCallback(() => {
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement('canvas');
+    }
+    return canvasRef.current;
+  }, []);
+
+  // Generate a preview for a specific node
+  const generateNodePreview = useCallback((targetNode: Node) => {
+    if (!sourceImageRef.current) return null;
+    
+    const canvas = getCanvas();
+    return applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
+  }, [nodes, edges, getCanvas]);
+
+  // Process the image through the filter chain
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
     
@@ -46,56 +62,8 @@ export function useFilterGraph() {
         }
       }
     }
-  }, [nodes, edges, selectedNodeId]);
+  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview]);
 
-  // Initialize canvas when needed
-  const getCanvas = useCallback(() => {
-    if (!canvasRef.current) {
-      canvasRef.current = document.createElement('canvas');
-    }
-    return canvasRef.current;
-  }, []);
-
-  // Generate a preview for a specific node
-  const generateNodePreview = useCallback((targetNode: Node) => {
-    if (!sourceImageRef.current) return null;
-    
-    const canvas = getCanvas();
-    return applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
-  }, [nodes, edges, getCanvas]);
-
-  // Initialize the source node
-  useEffect(() => {
-    resetCanvas();
-  }, []);
-
-  // Function to reset the canvas
-  const resetCanvas = useCallback(() => {
-    const sourceNodeId = 'source-1';
-    setNodes([
-      {
-        id: sourceNodeId,
-        type: 'imageNode',
-        position: { x: 100, y: 100 },
-        data: { src: null },
-      },
-    ]);
-    setEdges([]);
-    setSourceImage(null);
-    setProcessedImage(null);
-    setSelectedNodeId(null);
-    setNodePreview(null);
-  }, []);
-
-  // Function to find a filter definition by type
-  const findFilterByType = useCallback((filterType: FilterType) => {
-    for (const category of Object.values(filterCategories)) {
-      const filter = category.filters.find(f => f.type === filterType);
-      if (filter) return filter;
-    }
-    return null;
-  }, []);
-  
   // Handle node parameter changes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
     setNodes(nds => 
@@ -141,6 +109,38 @@ export function useFilterGraph() {
     // Re-process the image when a filter is enabled/disabled
     processImage();
   }, [processImage]);
+
+  // Function to reset the canvas
+  const resetCanvas = useCallback(() => {
+    const sourceNodeId = 'source-1';
+    setNodes([
+      {
+        id: sourceNodeId,
+        type: 'imageNode',
+        position: { x: 100, y: 100 },
+        data: { src: null },
+      },
+    ]);
+    setEdges([]);
+    setSourceImage(null);
+    setProcessedImage(null);
+    setSelectedNodeId(null);
+    setNodePreview(null);
+  }, []);
+
+  // Initialize the source node
+  useEffect(() => {
+    resetCanvas();
+  }, [resetCanvas]);
+
+  // Function to find a filter definition by type
+  const findFilterByType = useCallback((filterType: FilterType) => {
+    for (const category of Object.values(filterCategories)) {
+      const filter = category.filters.find(f => f.type === filterType);
+      if (filter) return filter;
+    }
+    return null;
+  }, []);
 
   // Function to add a new filter node
   const addNode = useCallback((filterType: FilterType) => {
