@@ -233,12 +233,16 @@ const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targe
 };
 
 // Helper function to find all source nodes for a node with multiple inputs
-const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[], inputHandles: string[] = ['inputA', 'inputB']): Record<string, Node | null> => {
+const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Record<string, Node | null> => {
   const result: Record<string, Node | null> = {};
   
-  // Get all inputs by their handles
-  inputHandles.forEach(handle => {
-    result[handle] = getSourceNode(nodeId, nodes, edges, handle);
+  // Find all edges targeting this node
+  const incomingEdges = edges.filter(edge => edge.target === nodeId);
+  
+  // Create an entry for each incoming edge based on target handle
+  incomingEdges.forEach(edge => {
+    const handleId = edge.targetHandle || 'input-default';
+    result[handleId] = nodes.find(node => node.id === edge.source) || null;
   });
   
   return result;
@@ -247,9 +251,13 @@ const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[], inp
 // For backward compatibility, kept but calls the more general function
 const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: Edge[]): { inputA: Node | null, inputB: Node | null } => {
   const inputs = getSourceNodesForNode(blendNodeId, nodes, edges);
+  
+  // Find the first input for inputA and second for inputB
+  const inputKeys = Object.keys(inputs);
+  
   return {
-    inputA: inputs.inputA,
-    inputB: inputs.inputB
+    inputA: inputKeys.length > 0 ? inputs[inputKeys[0]] : null,
+    inputB: inputKeys.length > 1 ? inputs[inputKeys[1]] : null
   };
 };
 
