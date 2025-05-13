@@ -798,7 +798,67 @@ function applyGlowFilter(
 
 // Apply a specific filter based on type
 // Check if GPU acceleration is available (cached for performance)
+// Global vars for acceleration and environment tracking
 let gpuAccelerationAvailable: boolean | null = null;
+let isReplitPreviewMode = false;
+let replitPreviewNoticeShown = false;
+
+// Check if we're in Replit preview mode
+const checkReplitPreviewMode = (): boolean => {
+  if (typeof window !== 'undefined') {
+    const isInIframe = window !== window.top;
+    const isReplitDomain = window.location.hostname.includes('replit');
+    return isInIframe && isReplitDomain;
+  }
+  return false;
+};
+
+// Show a user-friendly notice about Replit preview mode
+const showReplitPreviewModeNotice = () => {
+  if (replitPreviewNoticeShown || typeof document === 'undefined') return;
+  
+  replitPreviewNoticeShown = true;
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.style.position = 'fixed';
+  notification.style.top = '20px';
+  notification.style.left = '50%';
+  notification.style.transform = 'translateX(-50%)';
+  notification.style.padding = '15px';
+  notification.style.background = 'rgba(50, 50, 180, 0.9)';
+  notification.style.color = 'white';
+  notification.style.borderRadius = '5px';
+  notification.style.zIndex = '9999';
+  notification.style.fontFamily = 'sans-serif';
+  notification.style.maxWidth = '80%';
+  notification.style.textAlign = 'center';
+  notification.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+  
+  // Create more detailed notification with HTML
+  const content = 
+    '<div style="display: flex; align-items: center; gap: 10px; justify-content: center;">' +
+    '<div style="font-size: 24px;">ℹ️</div>' +
+    '<div>' +
+    '<div style="font-weight: bold;">Replit Preview Mode</div>' +
+    '<div style="font-size: 12px; opacity: 0.9; font-weight: normal; margin-top: 4px;">Using CPU processing for better compatibility</div>' +
+    '</div></div>' +
+    '<div style="margin-top: 10px; font-size: 12px;">' +
+    'WebGL is limited in preview mode. All filters will work correctly using CPU processing.' +
+    '</div>';
+  
+  notification.innerHTML = content;
+  
+  // Add to the document
+  document.body.appendChild(notification);
+  
+  // Remove after 8 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 8000);
+};
 
 // Track active filters for display purposes
 const activeGPUFilters: Record<string, boolean> = {};
@@ -882,11 +942,24 @@ const showGPUStatusIndicator = (filterType: string, isGPU: boolean) => {
 // Helper to check GPU availability with caching
 const isGPUAvailable = (): boolean => {
   if (gpuAccelerationAvailable === null) {
-    gpuAccelerationAvailable = isGPUAccelerationAvailable();
-    console.log('GPU acceleration ' + (gpuAccelerationAvailable ? 'enabled ✅' : 'not available ❌'));
+    // First check if we're in Replit preview mode
+    isReplitPreviewMode = checkReplitPreviewMode();
     
-    // Display a notification to the user about GPU acceleration status
-    if (typeof document !== 'undefined') {
+    if (isReplitPreviewMode) {
+      // Force CPU mode in Replit preview environment for reliability
+      gpuAccelerationAvailable = false;
+      console.log('Replit preview mode detected - using CPU processing for compatibility ✓');
+      
+      // Show a special notice for Replit preview mode
+      showReplitPreviewModeNotice();
+    } else {
+      // For regular environments, check GPU availability normally
+      gpuAccelerationAvailable = isGPUAccelerationAvailable();
+      console.log('GPU acceleration ' + (gpuAccelerationAvailable ? 'enabled ✅' : 'not available ❌'));
+    }
+    
+    // Display a notification to the user about GPU acceleration status (skip if in Replit preview)
+    if (typeof document !== 'undefined' && !isReplitPreviewMode) {
       // Create notification element
       const notification = document.createElement('div');
       notification.style.position = 'fixed';

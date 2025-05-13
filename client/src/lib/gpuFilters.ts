@@ -823,6 +823,16 @@ export function isGPUAccelerationAvailable(): boolean {
       return false;
     }
     
+    // Check if we're in Replit preview mode (iframe)
+    const isInIframe = window !== window.top;
+    const isReplitDomain = window.location.hostname.includes('replit');
+    
+    // Detect if we're in Replit preview mode
+    if (isInIframe && isReplitDomain) {
+      console.warn('Running in Replit preview iframe - WebGL may be limited');
+      // We'll still continue with the check, but we'll be more lenient
+    }
+    
     // Create a canvas element for testing
     const canvas = document.createElement('canvas');
     
@@ -831,19 +841,43 @@ export function isGPUAccelerationAvailable(): boolean {
     
     // Try different context options with error handling for each
     try {
-      gl = canvas.getContext('webgl', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+      gl = canvas.getContext('webgl', {
+        failIfMajorPerformanceCaveat: false,
+        // Don't preserve the drawing buffer to improve performance
+        preserveDrawingBuffer: false,
+        // Enable antialiasing for better quality
+        antialias: true,
+        // Allow premultiplied alpha for better blending
+        premultipliedAlpha: true,
+        // Use low power mode for better mobile support 
+        powerPreference: 'low-power'
+      }) as WebGLRenderingContext;
+      
       if (!gl) throw new Error('webgl context failed');
     } catch (e1) {
       console.warn('Failed to get webgl context:', e1);
       
       try {
-        gl = canvas.getContext('webgl2', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+        gl = canvas.getContext('webgl2', {
+          failIfMajorPerformanceCaveat: false,
+          preserveDrawingBuffer: false,
+          antialias: true,
+          premultipliedAlpha: true,
+          powerPreference: 'low-power'
+        }) as WebGLRenderingContext;
+        
         if (!gl) throw new Error('webgl2 context failed');
       } catch (e2) {
         console.warn('Failed to get webgl2 context:', e2);
         
         try {
-          gl = canvas.getContext('experimental-webgl', {failIfMajorPerformanceCaveat: false}) as WebGLRenderingContext;
+          gl = canvas.getContext('experimental-webgl', {
+            failIfMajorPerformanceCaveat: false,
+            preserveDrawingBuffer: false,
+            antialias: true,
+            premultipliedAlpha: true
+          }) as WebGLRenderingContext;
+          
           if (!gl) throw new Error('experimental-webgl context failed');
         } catch (e3) {
           console.warn('Failed to get experimental-webgl context:', e3);
@@ -853,6 +887,30 @@ export function isGPUAccelerationAvailable(): boolean {
     }
     
     // If we got this far, we have a WebGL context, but let's verify it works
+    
+    // Special handling for Replit preview mode - in this case we'll do a simplified check
+    if (isInIframe && isReplitDomain) {
+      if (gl) {
+        // Just verify we can get basic information from the context
+        try {
+          const vendor = gl.getParameter(gl.VENDOR);
+          const renderer = gl.getParameter(gl.RENDERER);
+          
+          console.log('WebGL in Replit iframe - vendor:', vendor);
+          console.log('WebGL in Replit iframe - renderer:', renderer);
+          
+          // Skip further tests to avoid iframe restrictions
+          console.warn('Running in Replit preview - using CPU mode for reliability');
+          return false; // Force CPU mode in Replit preview for better reliability
+        } catch (e) {
+          console.warn('Error getting WebGL parameters in Replit iframe:', e);
+          return false;
+        }
+      }
+      return false;
+    }
+    
+    // For all other environments, do a full check
     
     // Test if WebGL actually works by creating a simple shader
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
@@ -884,6 +942,36 @@ export function isGPUAccelerationAvailable(): boolean {
     console.log('WebGL Renderer:', gl.getParameter(gl.RENDERER));
     console.log('WebGL Version:', gl.getParameter(gl.VERSION));
     console.log('WebGL Shading Language Version:', gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+    
+    // Additional test - check if we can actually render something
+    try {
+      // Create a framebuffer to test rendering capability
+      const framebuffer = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      
+      // Create a small texture for the framebuffer
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      
+      // Attach the texture to the framebuffer
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      
+      // Check if the framebuffer is complete
+      const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+      if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+        console.warn('Framebuffer test failed:', fbStatus);
+        return false;
+      }
+      
+      // Clean up
+      gl.deleteFramebuffer(framebuffer);
+      gl.deleteTexture(texture);
+    } catch (e) {
+      console.warn('Error during framebuffer test:', e);
+      // Framebuffer test failed, but we'll still allow WebGL for basic operations
+      console.log('Falling back to basic WebGL support without framebuffers');
+    }
     
     return true;
   } catch (e) {
