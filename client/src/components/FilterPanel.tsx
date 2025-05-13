@@ -33,29 +33,40 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
 
   return (
     <div className="w-64 bg-darkBg text-white flex flex-col" style={{ width: `${width}px` }}>
-      <div className="p-3 bg-secondary font-medium">Filters</div>
+      <div className="p-3 bg-gray-900 font-semibold text-white">Filter Library</div>
       
       <ScrollArea className="flex-1">
         <div className="p-2">
-          <Accordion type="multiple" defaultValue={Object.keys(filterCategories)}>
+          <Accordion 
+            type="multiple" 
+            defaultValue={Object.keys(filterCategories)}
+            className="space-y-3 bg-gray-900 rounded-lg p-1"
+          >
             {Object.entries(filterCategories).map(([categoryId, category]) => (
-              <AccordionItem value={categoryId} key={categoryId}>
-                <AccordionTrigger className="px-2 py-2 bg-gray-700 bg-opacity-30 rounded">
+              <AccordionItem value={categoryId} key={categoryId} className="border-0 mb-2">
+                <AccordionTrigger 
+                  className={`px-2 py-2 rounded ${categoryColors[categoryId as keyof typeof categoryColors].color} ${categoryColors[categoryId as keyof typeof categoryColors].textColor} bg-opacity-90`}
+                >
                   {category.name}
                 </AccordionTrigger>
                 <AccordionContent className="mt-1 pl-2">
-                  {category.filters.map(filter => (
-                    <div
-                      key={filter.type}
-                      className="p-2 hover:bg-gray-700 rounded cursor-pointer"
-                      draggable
-                      onDragStart={(e) => handleFilterDragStart(e, filter.type)}
-                      onDragEnd={handleFilterDragEnd}
-                      onClick={() => onAddFilter(filter.type)}
-                    >
-                      {filter.name}
-                    </div>
-                  ))}
+                  {category.filters.map(filter => {
+                    const filterCategory = getFilterCategory(filter.type);
+                    const style = categoryColors[filterCategory as keyof typeof categoryColors];
+                    
+                    return (
+                      <div
+                        key={filter.type}
+                        className={`p-2 rounded cursor-pointer my-1 transition-colors ${style.color} ${style.textColor} bg-opacity-70 hover:bg-opacity-90`}
+                        draggable
+                        onDragStart={(e) => handleFilterDragStart(e, filter.type)}
+                        onDragEnd={handleFilterDragEnd}
+                        onClick={() => onAddFilter(filter.type)}
+                      >
+                        {filter.name}
+                      </div>
+                    );
+                  })}
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -63,13 +74,13 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         </div>
       </ScrollArea>
       
-      <div className="p-3 bg-gray-800">
+      <div className="p-3 bg-gray-900 border-t border-gray-800">
         <Button 
           variant="default" 
-          className="w-full py-2 bg-primary hover:bg-primary/90"
+          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
-          <Upload className="h-5 w-5 mr-1" />
+          <Upload className="h-5 w-5 mr-2" />
           Upload Image
         </Button>
         <input 
