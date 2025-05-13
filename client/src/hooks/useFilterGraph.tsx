@@ -97,9 +97,15 @@ export function useFilterGraph() {
     );
   }, []);
 
+  // Forward declaration for generateNodePreview
+  const generateNodePreviewRef = useRef<(node: Node) => void>(() => {});
+  
   // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback(
     (nodeId: string, paramName: string, value: number | string) => {
+      // 1. Bust the cache when a param changes to prevent stale previews
+      nodeResultCache.delete(nodeId);
+      
       setNodes((prevNodes) => {
         return prevNodes.map((node) => {
           if (node.id === nodeId) {
@@ -128,19 +134,32 @@ export function useFilterGraph() {
         });
       });
 
-      // After parameter changes, trigger processing if this isn't a preview update
-      if (paramName !== "preview" && processImageRef.current) {
-        setTimeout(() => {
-          processImageRef.current?.();
-        }, 100);
+      // 2. After parameter changes, update the node preview immediately
+      if (paramName !== "preview") {
+        // Find the node we just modified and regenerate its preview
+        const node = nodes.find(n => n.id === nodeId);
+        if (node && generateNodePreviewRef.current) {
+          console.log(`Regenerating preview for node ${nodeId} after param change`);
+          generateNodePreviewRef.current(node);
+        }
+        
+        // Also update the main preview if needed
+        if (processImageRef.current) {
+          setTimeout(() => {
+            processImageRef.current?.();
+          }, 100);
+        }
       }
     },
-    [],
+    [nodes],
   );
 
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback(
     (nodeId: string, enabled: boolean) => {
+      // Bust the cache when a node is enabled/disabled
+      nodeResultCache.delete(nodeId);
+      
       setNodes((prevNodes) => {
         return prevNodes.map((node) => {
           if (node.id === nodeId) {
@@ -155,8 +174,22 @@ export function useFilterGraph() {
           return node;
         });
       });
+      
+      // Immediately update the node preview after toggling
+      const node = nodes.find(n => n.id === nodeId);
+      if (node && generateNodePreviewRef.current) {
+        console.log(`Regenerating preview for node ${nodeId} after toggle enabled`);
+        generateNodePreviewRef.current(node);
+      }
+      
+      // Also update the main preview
+      if (processImageRef.current) {
+        setTimeout(() => {
+          processImageRef.current?.();
+        }, 100);
+      }
     },
-    [],
+    [nodes],
   );
 
   // Handle changing blend mode on filter nodes

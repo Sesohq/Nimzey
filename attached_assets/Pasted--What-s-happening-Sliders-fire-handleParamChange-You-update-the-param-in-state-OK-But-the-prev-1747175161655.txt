@@ -1,0 +1,88 @@
+🔎 What’s happening
+Sliders fire handleParamChange
+You update the param in state → OK.
+
+But the preview cache is still warm
+nodeResultCache still contains the old canvas for that node, so
+generateNodePreview (and the big “update-all” routine) happily re-uses it ⇒ you keep seeing the first frame.
+
+generateNodePreview isn’t being called immediately
+You rely on the debounce inside updateAllNodePreviews, so you never get instant feedback while dragging the slider.
+
+🩹 Minimal fix
+1 – Bust the cache when a param changes
+Add one line in handleParamChange before you fire any preview logic:
+
+ts
+Copy
+Edit
+nodeResultCache.delete(nodeId);         // ⬅️  wipe stale canvas
+2 – Re-render the edited node right away
+Immediately re-generate the preview for the node you just tweaked:
+
+ts
+Copy
+Edit
+if (paramName !== 'preview') {
+  nodeResultCache.delete(nodeId);               // 👈  line from step 1
+  const changed = { ...prevNodes.find(n => n.id === nodeId)! };
+  generateNodePreview(changed);                 // 👈  this line
+}
+(generateNodePreview is already in scope further down; no ref needed.)
+
+That’s it: while you drag a slider:
+
+the stale canvas is flushed,
+
+a fresh mini-preview is painted into the node,
+
+if that node is selected, the sidebar preview updates too,
+
+the heavy, debounced updateAllNodePreviews is still there for full-graph re-syncs.
+
+✂️ Patch-style snippet
+diff
+Copy
+Edit
+const handleParamChange = useCallback(
+  (nodeId: string, paramName: string, value: number | string) => {
++   // 1. kill any cached result for this node
++   nodeResultCache.delete(nodeId);
+
+    setNodes(prev =>
+      prev.map(node =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: paramName === 'preview'
+                ? { ...node.data, preview: value as string }
+                : {
+                    ...node.data,
+                    params: node.data.params.map(p =>
+                      p.name === paramName ? { ...p, value } : p
+                    ),
+                  },
+            }
+          : node
+      )
+    );
+
+-   if (paramName !== 'preview' && processImageRef.current) {
+-     setTimeout(() => processImageRef.current?.(), 100);
+-   }
++   // 2. live-update the node’s own preview
++   if (paramName !== 'preview') {
++     const n = nodes.find(n => n.id === nodeId);
++     if (n) generateNodePreview(n);
++   }
+  },
+  [nodes]
+);
+(Leave the processImageRef call if you still want the full-size canvas to refresh – it doesn’t affect the thumbnails.)
+
+✅ Results
+Moving any parameter slider now gives responsive thumbnails inside every filter node.
+
+The big preview panel (top-right) tracks the same updates.
+
+No extra debounce lag; heavy full-graph passes still run through your existing logic.
