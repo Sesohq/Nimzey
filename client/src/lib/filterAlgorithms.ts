@@ -1182,6 +1182,25 @@ const applyCPUFilter = (
     case 'refraction':
       applyRefractionFilter(data, canvas.width, canvas.height, ctx, params);
       break;
+    // Compositing filter nodes
+    case 'mask':
+      applyMaskFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'multiply':
+      applyMultiplyFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'screen':
+      applyScreenFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'mix':
+      applyMixFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'transform':
+      applyTransformFilter(data, canvas.width, canvas.height, params);
+      break;
+    case 'setAlpha':
+      applySetAlphaFilter(data, canvas.width, canvas.height, params);
+      break;
   }
   
   ctx.putImageData(imageData, 0, 0);
