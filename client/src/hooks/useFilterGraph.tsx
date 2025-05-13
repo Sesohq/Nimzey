@@ -624,6 +624,7 @@ export function useFilterGraph() {
     // Process all filter nodes
     const processedNodesMap: Record<string, boolean> = {};
     const nodeUpdates: Record<string, string> = {};
+    console.log("Processing all nodes for preview updates...");
 
     // We need to process in a topological order - first get all paths
     // Build a graph of nodes and their dependencies
@@ -873,6 +874,62 @@ export function useFilterGraph() {
         processedNodesMap[nodeId] = true;
       } catch (error) {
         console.error(`Error generating preview for node ${nodeId}:`, error);
+      }
+    }
+
+    // Process any standalone nodes that didn't get processed in the topological sort
+    for (const node of nodes) {
+      // Skip already processed nodes and non-filter nodes
+      if (processedNodesMap[node.id] || node.type !== 'filterNode') {
+        continue;
+      }
+
+      try {
+        console.log(`Processing standalone node ${node.id} (${node.type})`);
+        
+        // Create temporary canvases for processing
+        const processCanvas = document.createElement("canvas");
+        const tempCanvas = document.createElement("canvas");
+        
+        processCanvas.width = sourceImageRef.current.width;
+        processCanvas.height = sourceImageRef.current.height;
+        tempCanvas.width = 150; // Preview size
+        tempCanvas.height = 150;
+        
+        const processCtx = processCanvas.getContext("2d");
+        const tempCtx = tempCanvas.getContext("2d");
+        
+        if (!processCtx || !tempCtx) continue;
+        
+        // Draw source image to process canvas
+        processCtx.drawImage(sourceImageRef.current, 0, 0);
+        
+        // Apply the filter
+        if (node.type === 'filterNode') {
+          const filterData = node.data as FilterNodeData;
+          
+          if (filterData.filterType) {
+            // Apply the filter to the canvas
+            processFilterNode(
+              processCanvas,
+              processCtx,
+              node,
+              processCanvas,
+              tempCanvas,
+              tempCtx
+            );
+            
+            // Create a preview
+            tempCtx.drawImage(processCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            const result = tempCanvas.toDataURL("image/png");
+            
+            // Store the result
+            nodeUpdates[node.id] = result;
+            processedNodesMap[node.id] = true;
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing standalone node ${node.id}:`, error);
       }
     }
 
