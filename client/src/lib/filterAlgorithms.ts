@@ -2318,7 +2318,7 @@ function getCompositeOperation(blendMode: string): GlobalCompositeOperation {
 
 // Noise filter with Perlin and Simplex noise support
 
-function applyNoiseFilter(
+export function applyNoiseFilter(
   data: Uint8ClampedArray, 
   width: number, 
   height: number, 

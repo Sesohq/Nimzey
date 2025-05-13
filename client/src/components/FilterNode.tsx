@@ -32,29 +32,27 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   };
   
-  // Log when the component renders to check if preview data is available
-  // Display more detailed debugging to track preview data
+  // Log when the component renders and if preview data is available
   console.log(`FilterNode [${id}] (${data.filterType}) rendering, preview:`,  
     data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
 
-  // Use a different useEffect to create a direct preview if needed
-  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
+  // Use state to manage preview URL with proper initialization
+  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(
+    data.preview && data.preview.startsWith('data:image/') ? data.preview : null
+  );
 
-  // Immediate access to preview from passed props
+  // Update internal preview when data.preview changes
   useEffect(() => {
+    // Only update internal state if preview data is valid
     if (data.preview && data.preview.startsWith('data:image/')) {
-      console.log(`Using provided preview for ${id} (${data.filterType})`);
+      console.log(`Setting preview for ${id} (${data.filterType})`);
       setInternalPreviewUrl(data.preview);
-    } else {
-      // Missing or invalid preview
-      console.log(`No valid preview found for ${id} (${data.filterType})`);
-      
-      // Reset our internal preview if the external one is no longer valid
-      if (internalPreviewUrl) {
-        setInternalPreviewUrl(null);
-      }
+    } else if (internalPreviewUrl && (!data.preview || !data.preview.startsWith('data:image/'))) {
+      // Clear internal preview if external data is no longer valid
+      console.log(`Clearing preview for ${id} (${data.filterType})`);
+      setInternalPreviewUrl(null);
     }
-  }, [data.preview, id, data.filterType, internalPreviewUrl]);
+  }, [data.preview, id, data.filterType]);
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
