@@ -674,7 +674,7 @@ const processFilterNode = (
   const inputKeys = Object.keys(inputNodes);
   
   // Check if this is a texture generator that doesn't require input
-  if (filterData.filterType === 'textureGenerator') {
+  if (filterData.filterType === 'noiseGenerator') {
     // Create a new canvas for this node's result
     const resultCanvas = document.createElement('canvas');
     resultCanvas.width = tempCanvas.width;
@@ -2315,7 +2315,7 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 }
 
 // Processor function for the texture generator node
-// This function is called when a textureGenerator node is being processed
+// This function is called when a noiseGenerator node is being processed
 function processTextureGeneratorFilter(
   inputs: Record<string, HTMLCanvasElement | null>,
   resultCtx: CanvasRenderingContext2D,
