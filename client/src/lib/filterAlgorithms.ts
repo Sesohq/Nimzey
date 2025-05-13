@@ -1,5 +1,6 @@
 import { Node, Edge } from 'reactflow';
-import { FilterNodeData, FilterType, ImageNodeData } from '@/types';
+import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
+import { createNoise2D, createNoise3D } from 'simplex-noise';
 
 // Helper function to find target nodes from a source node
 const getTargetNodes = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
@@ -70,6 +71,13 @@ export const applyFilters = (
   // Draw the source image
   ctx.drawImage(sourceImage, 0, 0);
   
+  // Create a temporary canvas for blending operations
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+  if (!tempCtx) return null;
+  
   // Apply each filter in the chain
   for (let i = 1; i < nodesToProcess.length; i++) {
     const node = nodesToProcess[i];
@@ -79,7 +87,22 @@ export const applyFilters = (
     // Skip disabled filters
     if (!filterData.enabled) continue;
     
-    applyFilter(filterData.filterType, ctx, canvas, filterData.params);
+    // Clear temp canvas and copy current canvas state to it
+    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempCtx.drawImage(canvas, 0, 0);
+    
+    // Apply the filter to the temp canvas
+    applyFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+    
+    // Now blend the temp canvas back to the main canvas using the node's blend mode
+    if (i > 1 && filterData.blendMode !== 'normal') {
+      // Only apply blending for non-source nodes with non-normal blend mode
+      applyBlendMode(ctx, tempCtx, filterData.blendMode, filterData.opacity);
+    } else {
+      // For normal blend mode or first filter, just copy the result
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(tempCanvas, 0, 0);
+    }
   }
   
   return canvas.toDataURL();
@@ -472,9 +495,7 @@ function applyInvertFilter(data: Uint8ClampedArray): void {
   }
 }
 
-// Noise filter
-// Import simplex-noise library
-import { createNoise2D, createNoise3D } from 'simplex-noise';
+// Noise filter with Perlin and Simplex noise support
 
 function applyNoiseFilter(data: Uint8ClampedArray, width: number, height: number, params: any[] = []): void {
   // Extract parameters
