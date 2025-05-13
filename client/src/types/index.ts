@@ -26,7 +26,7 @@ export type FilterType =
   | 'transform'
   | 'setAlpha';
 
-export type NodeType = 'filterNode' | 'imageNode';
+export type NodeType = 'filterNode' | 'imageNode' | 'customNode';
 
 export type FilterParam = {
   name: string;
@@ -97,4 +97,23 @@ export type ImageNodeData = {
   onUploadImage?: (file: File) => void;
 };
 
-export type NodeData = FilterNodeData | ImageNodeData;
+export type CustomNodeData = {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  thumbnail?: string;
+  params: FilterParam[];
+  enabled: boolean;
+  blendMode: BlendMode;
+  opacity: number;
+  internalNodes: Node[];
+  internalEdges: any[];
+  onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
+  onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
+  onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
+  onOpacityChange?: (nodeId: string, opacity: number) => void;
+  onRemoveNode?: () => void;
+};
+
+export type NodeData = FilterNodeData | ImageNodeData | CustomNodeData;

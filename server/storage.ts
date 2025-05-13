@@ -257,4 +257,132 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage implementation 
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+  
+  async getProjects(userId?: number): Promise<Project[]> {
+    let query = db.select().from(projects);
+    if (userId !== undefined) {
+      query = query.where(eq(projects.userId, userId));
+    }
+    return query;
+  }
+
+  async getProject(id: number): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project || undefined;
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const [newProject] = await db
+      .insert(projects)
+      .values(project)
+      .returning();
+    return newProject;
+  }
+
+  async updateProject(id: number, project: InsertProject): Promise<Project | undefined> {
+    const [updatedProject] = await db
+      .update(projects)
+      .set(project)
+      .where(eq(projects.id, id))
+      .returning();
+    return updatedProject || undefined;
+  }
+
+  async deleteProject(id: number): Promise<boolean> {
+    const result = await db
+      .delete(projects)
+      .where(eq(projects.id, id));
+    return result.rowCount > 0;
+  }
+  
+  async getAllFilterPresets(): Promise<FilterPreset[]> {
+    return db.select().from(filterPresets);
+  }
+
+  async getFilterPreset(id: number): Promise<FilterPreset | undefined> {
+    const [preset] = await db.select().from(filterPresets).where(eq(filterPresets.id, id));
+    return preset || undefined;
+  }
+
+  async createFilterPreset(preset: InsertFilterPreset): Promise<FilterPreset> {
+    const [newPreset] = await db
+      .insert(filterPresets)
+      .values(preset)
+      .returning();
+    return newPreset;
+  }
+
+  async updateFilterPreset(id: number, preset: InsertFilterPreset): Promise<FilterPreset | undefined> {
+    const [updatedPreset] = await db
+      .update(filterPresets)
+      .set(preset)
+      .where(eq(filterPresets.id, id))
+      .returning();
+    return updatedPreset || undefined;
+  }
+
+  async deleteFilterPreset(id: number): Promise<boolean> {
+    const result = await db
+      .delete(filterPresets)
+      .where(eq(filterPresets.id, id));
+    return result.rowCount > 0;
+  }
+  
+  async getAllCustomNodes(): Promise<CustomNode[]> {
+    return db.select().from(customNodes);
+  }
+
+  async getCustomNodesByCategory(category: string): Promise<CustomNode[]> {
+    return db.select().from(customNodes).where(eq(customNodes.category, category));
+  }
+
+  async getCustomNode(id: number): Promise<CustomNode | undefined> {
+    const [node] = await db.select().from(customNodes).where(eq(customNodes.id, id));
+    return node || undefined;
+  }
+
+  async createCustomNode(customNode: InsertCustomNode): Promise<CustomNode> {
+    const [newNode] = await db
+      .insert(customNodes)
+      .values(customNode)
+      .returning();
+    return newNode;
+  }
+
+  async updateCustomNode(id: number, customNode: InsertCustomNode): Promise<CustomNode | undefined> {
+    const [updatedNode] = await db
+      .update(customNodes)
+      .set(customNode)
+      .where(eq(customNodes.id, id))
+      .returning();
+    return updatedNode || undefined;
+  }
+
+  async deleteCustomNode(id: number): Promise<boolean> {
+    const result = await db
+      .delete(customNodes)
+      .where(eq(customNodes.id, id));
+    return result.rowCount > 0;
+  }
+}
+
+export const storage = new DatabaseStorage();
