@@ -59,6 +59,87 @@ export function useFilterGraph() {
 
   // State for tracking zoom level
   const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // Keep previews in a ref to avoid React re-renders - this is a major performance improvement
+  const previewMapRef = useRef<Record<string, string>>({});
+  
+  // ReactFlow instance reference for updating nodes without re-renders
+  const reactFlowInstanceRef = useRef<any | null>(null);
+  
+  // Helper function to update a node and generate its preview without causing React re-renders
+  const updateNode = useCallback((
+    nodeId: string,
+    updater: (node: Node) => Node,
+    reason: string
+  ) => {
+    setNodes(prev => {
+      // Create the next state by applying the update function
+      const next = prev.map(n => n.id === nodeId ? updater(n) : n);
+      
+      // Find the freshly updated node from the next state (not stale data)
+      const updatedNode = next.find(n => n.id === nodeId);
+      
+      if (updatedNode && sourceImageRef.current) {
+        // Schedule preview generation during idle time to avoid blocking the UI
+        const doUpdate = () => {
+          try {
+            // Generate preview for the updated node
+            const previewUrl = generateNodePreviewSync(updatedNode, next, edges);
+            
+            // Store preview in the ref (no React re-render)
+            previewMapRef.current[nodeId] = previewUrl;
+            
+            // If this is the selected node, update the preview panel
+            if (selectedNodeId === nodeId) {
+              setNodePreview(previewUrl);
+            }
+            
+            // Tell ReactFlow to update this node's internals without a full re-render
+            if (reactFlowInstanceRef.current) {
+              reactFlowInstanceRef.current.updateNodeInternals(nodeId);
+            }
+            
+            console.log(`Preview updated for node ${nodeId} (${reason})`);
+          } catch (err) {
+            console.error(`Failed to update preview for ${nodeId}:`, err);
+          }
+        };
+        
+        // Use requestIdleCallback if available, or setTimeout as fallback
+        if (typeof window.requestIdleCallback === 'function') {
+          requestIdleCallback(doUpdate);
+        } else {
+          setTimeout(doUpdate, 0);
+        }
+      }
+      
+      return next;
+    });
+  }, [edges, selectedNodeId, sourceImageRef]);
+  
+  function generateNodePreviewSync(
+    target: Node,
+    allNodes: Node[],
+    allEdges: Edge[]
+  ): string {
+    if (!sourceImageRef.current) return '';
+
+    // Find all nodes and edges in the chain leading to the selected node
+    const nodeChain = getNodeChain(target.id, allNodes, allEdges);
+    
+    // Create a small canvas for the preview
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = 150;
+    tempCanvas.height = 150;
+    
+    // Process the image through the chain
+    return applyFilters(
+      sourceImageRef.current,
+      nodeChain.nodes,
+      nodeChain.edges,
+      tempCanvas
+    );
+  }
 
   // Define extended types for clipboard operations
   type ClipboardNode = Node & {
@@ -104,14 +185,11 @@ export function useFilterGraph() {
   // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback(
     (nodeId: string, paramName: string, value: number | string) => {
-      // 1. Bust the cache when a param changes to prevent stale previews
-      nodeResultCache.delete(nodeId);
-      
-      setNodes((prevNodes) => {
-        return prevNodes.map((node) => {
-          if (node.id === nodeId) {
-            // Handle special case for preview updates
-            if (paramName === "preview") {
+      // Don't process preview updates through this path
+      if (paramName === "preview") {
+        setNodes((prevNodes) => {
+          return prevNodes.map((node) => {
+            if (node.id === nodeId) {
               return {
                 ...node,
                 data: {
@@ -120,39 +198,38 @@ export function useFilterGraph() {
                 },
               };
             }
-            // Regular parameter update
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                params: node.data.params.map((param: any) =>
-                  param.name === paramName ? { ...param, value } : param,
-                ),
-              },
-            };
-          }
-          return node;
+            return node;
+          });
         });
-      });
-
-      // 2. After parameter changes, update the node preview immediately
-      if (paramName !== "preview") {
-        // Find the node we just modified and regenerate its preview
-        const node = nodes.find(n => n.id === nodeId);
-        if (node && generateNodePreviewRef.current) {
-          console.log(`Regenerating preview for node ${nodeId} after param change`);
-          generateNodePreviewRef.current(node);
-        }
-        
-        // Also update the main preview if needed
-        if (processImageRef.current) {
-          setTimeout(() => {
-            processImageRef.current?.();
-          }, 100);
-        }
+        return;
+      }
+      
+      // Bust the cache when a param changes to prevent stale previews
+      nodeResultCache.delete(nodeId);
+      
+      // Use our new updateNode function to handle parameter changes efficiently
+      updateNode(
+        nodeId,
+        (node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            params: node.data.params.map((param: any) =>
+              param.name === paramName ? { ...param, value } : param
+            ),
+          },
+        }),
+        `param change: ${paramName}`
+      );
+      
+      // Also update the main preview if needed
+      if (processImageRef.current) {
+        setTimeout(() => {
+          processImageRef.current?.();
+        }, 100);
       }
     },
-    [nodes],
+    [updateNode],
   );
 
   // Handle toggling filter nodes on/off
