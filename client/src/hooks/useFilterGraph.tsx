@@ -464,23 +464,27 @@ export function useFilterGraph() {
             allNodesToProcess.find(node => node.id === edge.target)
           );
           
-          // Process the image
+          // Process the image - clear cache for main full-sized image processing
           const result = applyFilters(
             sourceImageRef.current,
             allNodesToProcess,
             relevantEdges,
-            exportCanvasRef.current
+            exportCanvasRef.current,
+            undefined, // no target node
+            true // clear cache for main processing
           );
           
           setProcessedImage(result);
         }
       } else {
-        // Process the full graph
+        // Process the full graph - clear cache for main full-sized image processing
         const result = applyFilters(
           sourceImageRef.current,
           nodes,
           edges,
-          exportCanvasRef.current
+          exportCanvasRef.current,
+          undefined, // no target node
+          true // clear cache for main processing
         );
         
         setProcessedImage(result);

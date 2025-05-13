@@ -93,6 +93,7 @@ export type FilterNodeData = {
   onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
   onOpacityChange?: (nodeId: string, opacity: number) => void;
   onRemoveNode?: () => void; // Function to remove a node
+  onTriggerPreviewUpdate?: (nodeId: string) => void; // Function to manually trigger preview update
 };
 
 export type ImageNodeData = {

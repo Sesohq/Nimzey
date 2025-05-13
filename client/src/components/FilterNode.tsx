@@ -118,12 +118,29 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 />
               </>
             ) : (
-              <div className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full">
+              <div 
+                className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
+                onClick={(e) => {
+                  // Prevent opening large preview
+                  e.stopPropagation();
+                  
+                  // Try to manually refresh the preview
+                  console.log(`Manually refreshing preview for ${id} (${data.filterType})`);
+                  
+                  // If we have an onTriggerPreviewUpdate function, call it
+                  if (data.onTriggerPreviewUpdate) {
+                    data.onTriggerPreviewUpdate(id);
+                  }
+                }}
+              >
                 {/* Show loading animation */}
                 <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mb-2"></div>
                 <div>Preview generating...</div>
                 <div className="text-[10px] mt-1 text-gray-400">
                   {data.filterType} filter
+                </div>
+                <div className="text-[9px] text-blue-500 mt-2">
+                  Click to retry preview
                 </div>
               </div>
             )}
