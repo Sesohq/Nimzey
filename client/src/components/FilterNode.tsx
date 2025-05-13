@@ -34,7 +34,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   // Log when the component renders and if preview data is available
   console.log(`FilterNode [${id}] (${data.filterType}) rendering, preview:`,  
-    data.preview ? `available` : 'missing');
+    data.preview ? `available (${data.preview.slice(0, 20)}...)` : 'missing');
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -81,23 +81,28 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
-          {/* Node Preview Area */}
+          {/* Node Preview Area with enhanced visual styling */}
           <div 
-            className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-            style={{ height: '80px' }}
+            className="mb-3 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden shadow-sm"
+            style={{ height: '100px' }}
             onClick={() => setShowLargePreview(!showLargePreview)}
           >
             {data.preview ? (
-              <img 
-                src={data.preview} 
-                alt={`${data.filterType} preview`}
-                className="max-w-full max-h-full object-contain"
-                onLoad={() => console.log(`Preview image loaded for ${id} (${data.filterType})`)}
-                onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
-              />
+              <div className="relative w-full h-full">
+                <img 
+                  src={data.preview} 
+                  alt={`${data.filterType} preview`}
+                  className="w-full h-full object-cover"
+                  onLoad={() => console.log(`Preview image loaded for ${id} (${data.filterType})`)}
+                  onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 py-1 px-2">
+                  <div className="text-[9px] text-white font-medium">{data.filterType} preview</div>
+                </div>
+              </div>
             ) : (
               <div 
-                className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
+                className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full w-full cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
                 onClick={(e) => {
                   // Prevent opening large preview
                   e.stopPropagation();
@@ -111,37 +116,51 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   }
                 }}
               >
-                {/* Simple message, no loading animation */}
-                <div>No preview available</div>
-                <div className="text-[10px] mt-1 text-gray-400">
+                {/* Simple message with visual enhancements */}
+                <div className="w-12 h-12 mb-1 flex items-center justify-center rounded-full bg-gray-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="text-[10px] font-medium text-gray-500">
                   {data.filterType} filter
                 </div>
-                <div className="text-[9px] text-blue-500 mt-2">
+                <div className="text-[9px] text-blue-500 mt-1 font-medium">
                   Click to generate preview
                 </div>
               </div>
             )}
           </div>
           
-          {/* Large preview modal */}
+          {/* Enhanced Large preview modal with better styling */}
           {showLargePreview && data.preview && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium">{data.label} Preview</h3>
-                  <button className="text-gray-500 hover:text-gray-700" onClick={(e) => { e.stopPropagation(); setShowLargePreview(false); }}>
+            <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowLargePreview(false)}>
+              <div className="bg-white rounded-lg shadow-2xl max-w-2xl max-h-[80vh] overflow-hidden">
+                <div className="flex justify-between items-center p-3 border-b">
+                  <div className="flex items-center">
+                    <div className={`w-3 h-3 rounded-full mr-2 ${categoryStyle.color}`}></div>
+                    <h3 className="font-medium text-gray-800">{data.label}</h3>
+                    <span className="ml-2 text-xs text-gray-500">({data.filterType})</span>
+                  </div>
+                  <button className="text-gray-500 hover:text-gray-700 rounded-full p-1 hover:bg-gray-100 transition-colors" 
+                    onClick={(e) => { e.stopPropagation(); setShowLargePreview(false); }}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
-                <img 
-                  src={data.preview} 
-                  alt={`${data.filterType} preview (large)`}
-                  className="max-w-full" 
-                  onLoad={() => console.log(`Large preview image loaded for ${id}`)}
-                  onError={(e) => console.error(`Large preview image failed to load for ${id}`, e)}
-                />
+                <div className="p-4">
+                  <img 
+                    src={data.preview} 
+                    alt={`${data.filterType} preview (large)`}
+                    className="max-w-full rounded-md border border-gray-200 shadow-sm" 
+                    onLoad={() => console.log(`Large preview image loaded for ${id}`)}
+                    onError={(e) => console.error(`Large preview image failed to load for ${id}`, e)}
+                  />
+                  <div className="mt-3 text-xs text-gray-500">
+                    Filter settings: {data.params.map(p => `${p.label}: ${p.value}${p.unit || ''}`).join(' • ')}
+                  </div>
+                </div>
               </div>
             </div>
           )}
