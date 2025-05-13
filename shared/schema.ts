@@ -25,12 +25,12 @@ export const projects = pgTable("projects", {
 export const filterPresets = pgTable("filter_presets", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  description: text("description"),
+  description: text("description").default(null), // null for no description
   nodes: jsonb("nodes").notNull(), // Store node configurations as JSON
   edges: jsonb("edges").notNull(), // Store edge connections as JSON
-  thumbnail: text("thumbnail"), // Optional base64 thumbnail of the result
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  thumbnail: text("thumbnail").default(null), // Optional base64 thumbnail of the result
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
