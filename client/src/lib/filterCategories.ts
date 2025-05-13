@@ -97,11 +97,87 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'dither',
         params: [
           {
-            name: 'pattern',
-            label: 'Pattern',
+            name: 'ditherType',
+            label: 'Dither Type',
             type: 'select',
-            options: ['Bayer 4x4', 'Bayer 8x8', 'Floyd-Steinberg'],
-            value: 'Bayer 4x4'
+            options: [
+              'Floyd-Steinberg', 
+              'Sierra Lite', 
+              'Stucki Sharp', 
+              'Burkes Flow', 
+              'Stevenson-Arce', 
+              'Fan Spread Pro', 
+              'Atkinson', 
+              'Jarvis',
+              'Bayer 4x4', 
+              'Bayer 8x8', 
+              'Blue Noise'
+            ],
+            value: 'Floyd-Steinberg'
+          },
+          {
+            name: 'size',
+            label: 'Dither Size',
+            type: 'range',
+            min: 1,
+            max: 10,
+            step: 0.5,
+            value: 5,
+            unit: ''
+          },
+          {
+            name: 'brightness',
+            label: 'Brightness',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'contrast',
+            label: 'Contrast',
+            type: 'range',
+            min: -100,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'threshold',
+            label: 'Threshold',
+            type: 'range',
+            min: 0,
+            max: 255,
+            step: 1,
+            value: 128,
+            unit: ''
+          },
+          {
+            name: 'noise',
+            label: 'Noise',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 0,
+            unit: '%'
+          },
+          {
+            name: 'useGrayscale',
+            label: 'Grayscale',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'On'
+          },
+          {
+            name: 'applyGradient',
+            label: 'Apply Gradient',
+            type: 'select',
+            options: ['On', 'Off'],
+            value: 'Off'
           }
         ]
       },

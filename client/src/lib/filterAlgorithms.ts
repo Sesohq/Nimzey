@@ -136,7 +136,7 @@ const applyFilter = (
       applyNoiseFilter(data, getParamValue(params, 'amount', 25));
       break;
     case 'dither':
-      applyDitherFilter(data, canvas.width, canvas.height);
+      applyDitherFilter(data, canvas.width, canvas.height, params);
       break;
     case 'texture':
       applyTextureFilter(data, getParamValue(params, 'intensity', 30));
@@ -292,30 +292,336 @@ function applyNoiseFilter(data: Uint8ClampedArray, amount: number): void {
   }
 }
 
-// Dither filter using ordered dithering
-function applyDitherFilter(data: Uint8ClampedArray, width: number, height: number): void {
-  // Bayer matrix for ordered dithering
-  const bayerMatrix = [
-    [0, 8, 2, 10],
-    [12, 4, 14, 6],
-    [3, 11, 1, 9],
-    [15, 7, 13, 5]
-  ];
+// Enhanced dither filter with multiple algorithms and parameters
+function applyDitherFilter(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  params: any[] = []
+): void {
+  // Extract parameters
+  const paramsObj: Record<string, any> = {};
+  params.forEach(param => {
+    paramsObj[param.name] = param.value;
+  });
+
+  const ditherType = paramsObj.ditherType || 'Floyd-Steinberg';
+  const size = paramsObj.size !== undefined ? paramsObj.size : 5;
+  const brightness = paramsObj.brightness !== undefined ? paramsObj.brightness / 100 : 0;
+  const contrast = paramsObj.contrast !== undefined ? paramsObj.contrast / 100 : 0;
+  const threshold = paramsObj.threshold !== undefined ? paramsObj.threshold : 128;
+  const noise = paramsObj.noise !== undefined ? paramsObj.noise / 100 : 0;
+  const useGrayscale = paramsObj.useGrayscale === 'On';
+  const applyGradient = paramsObj.applyGradient === 'On';
+  
+  // Create temporary buffer to avoid affecting results during processing
+  const tempData = new Uint8ClampedArray(data.length);
+  
+  // Step 1: Apply brightness and contrast adjustments
+  for (let i = 0; i < data.length; i += 4) {
+    // Apply brightness and contrast
+    for (let j = 0; j < 3; j++) {
+      let pixel = data[i + j];
+      
+      // Brightness adjustment
+      pixel = pixel + 255 * brightness;
+      
+      // Contrast adjustment (using standard contrast formula)
+      pixel = ((pixel / 255 - 0.5) * (contrast + 1) + 0.5) * 255;
+      
+      // Clamp values
+      tempData[i + j] = Math.max(0, Math.min(255, Math.round(pixel)));
+    }
+    
+    // Copy alpha
+    tempData[i + 3] = data[i + 3];
+  }
+  
+  // Step 2: Convert to grayscale if needed
+  if (useGrayscale) {
+    for (let i = 0; i < tempData.length; i += 4) {
+      const gray = Math.round(0.299 * tempData[i] + 0.587 * tempData[i + 1] + 0.114 * tempData[i + 2]);
+      tempData[i] = tempData[i + 1] = tempData[i + 2] = gray;
+    }
+  }
+  
+  // Step 3: Apply noise if specified
+  if (noise > 0) {
+    for (let i = 0; i < tempData.length; i += 4) {
+      for (let j = 0; j < 3; j++) {
+        // Random noise between -noise/2 and +noise/2
+        const noiseValue = (Math.random() - 0.5) * noise * 255;
+        tempData[i + j] = Math.max(0, Math.min(255, Math.round(tempData[i + j] + noiseValue)));
+      }
+    }
+  }
+  
+  // Step 4: Apply dithering based on the selected algorithm
+  switch (ditherType) {
+    case 'Bayer 4x4':
+      applyBayerDithering(tempData, width, height, 4, threshold);
+      break;
+    case 'Bayer 8x8':
+      applyBayerDithering(tempData, width, height, 8, threshold);
+      break;
+    case 'Blue Noise':
+      applyBlueNoiseDithering(tempData, width, height, threshold);
+      break;
+    case 'Floyd-Steinberg':
+      applyErrorDiffusionDithering(tempData, width, height, 'floyd-steinberg', threshold, size);
+      break;
+    case 'Sierra Lite':
+      applyErrorDiffusionDithering(tempData, width, height, 'sierra-lite', threshold, size);
+      break;
+    case 'Stucki Sharp':
+      applyErrorDiffusionDithering(tempData, width, height, 'stucki', threshold, size);
+      break;
+    case 'Burkes Flow':
+      applyErrorDiffusionDithering(tempData, width, height, 'burkes', threshold, size);
+      break;
+    case 'Stevenson-Arce':
+      applyErrorDiffusionDithering(tempData, width, height, 'stevenson-arce', threshold, size);
+      break;
+    case 'Fan Spread Pro':
+      applyErrorDiffusionDithering(tempData, width, height, 'fan', threshold, size);
+      break;
+    case 'Atkinson':
+      applyErrorDiffusionDithering(tempData, width, height, 'atkinson', threshold, size);
+      break;
+    case 'Jarvis':
+      applyErrorDiffusionDithering(tempData, width, height, 'jarvis', threshold, size);
+      break;
+    default:
+      applyErrorDiffusionDithering(tempData, width, height, 'floyd-steinberg', threshold, size);
+  }
+  
+  // Step 5: Apply gradient if specified
+  if (applyGradient) {
+    for (let y = 0; y < height; y++) {
+      const gradientFactor = y / height; // Simple vertical gradient
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        if (tempData[idx] === 255) { // Only adjust white pixels
+          const gradientValue = Math.round(255 * (1 - gradientFactor));
+          tempData[idx] = tempData[idx + 1] = tempData[idx + 2] = gradientValue;
+        }
+      }
+    }
+  }
+  
+  // Copy the result back to the original data
+  for (let i = 0; i < data.length; i++) {
+    data[i] = tempData[i];
+  }
+}
+
+// Helper function for Bayer dithering
+function applyBayerDithering(data: Uint8ClampedArray, width: number, height: number, matrixSize: number, threshold: number): void {
+  // Generate Bayer matrix of the specified size
+  const bayerMatrix = generateBayerMatrix(matrixSize);
+  const matrixDivisor = matrixSize * matrixSize;
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
       
-      // Convert to grayscale first
-      const gray = Math.floor((data[idx] + data[idx + 1] + data[idx + 2]) / 3);
+      // Get pixel value (assuming already processed for grayscale if needed)
+      const pixelValue = data[idx];
       
       // Apply threshold based on Bayer matrix
-      const threshold = (bayerMatrix[y % 4][x % 4] / 16) * 255;
-      const newColor = gray > threshold ? 255 : 0;
+      const bayerValue = bayerMatrix[y % matrixSize][x % matrixSize];
+      const bayerThreshold = (bayerValue / matrixDivisor) * 255;
+      const adjustedThreshold = threshold + bayerThreshold - 128; // Center around the user threshold
       
-      data[idx] = newColor;
-      data[idx + 1] = newColor;
-      data[idx + 2] = newColor;
+      const newColor = pixelValue > adjustedThreshold ? 255 : 0;
+      
+      data[idx] = data[idx + 1] = data[idx + 2] = newColor;
+    }
+  }
+}
+
+// Helper function to generate Bayer matrix of given size
+function generateBayerMatrix(size: number): number[][] {
+  if (size === 4) {
+    return [
+      [0, 8, 2, 10],
+      [12, 4, 14, 6],
+      [3, 11, 1, 9],
+      [15, 7, 13, 5]
+    ];
+  } else if (size === 8) {
+    // 8x8 Bayer matrix
+    return [
+      [0, 32, 8, 40, 2, 34, 10, 42],
+      [48, 16, 56, 24, 50, 18, 58, 26],
+      [12, 44, 4, 36, 14, 46, 6, 38],
+      [60, 28, 52, 20, 62, 30, 54, 22],
+      [3, 35, 11, 43, 1, 33, 9, 41],
+      [51, 19, 59, 27, 49, 17, 57, 25],
+      [15, 47, 7, 39, 13, 45, 5, 37],
+      [63, 31, 55, 23, 61, 29, 53, 21]
+    ];
+  }
+  
+  // Fallback to 2x2 matrix
+  return [
+    [0, 2],
+    [3, 1]
+  ];
+}
+
+// Helper function for Blue Noise dithering
+function applyBlueNoiseDithering(data: Uint8ClampedArray, width: number, height: number, threshold: number): void {
+  // Blue noise texture (64x64 pseudo-blue noise pattern - this is a simplified version)
+  // In a real implementation, this would be a proper blue noise texture
+  const blueNoiseSize = 64;
+  const blueNoise = new Array(blueNoiseSize * blueNoiseSize);
+  
+  // Generate pseudo-blue noise
+  for (let i = 0; i < blueNoiseSize * blueNoiseSize; i++) {
+    // This is a very rough approximation - real blue noise has special properties
+    blueNoise[i] = (Math.sin(i * 0.1) * Math.cos(i * 0.1) + 1) * 127.5;
+  }
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Get pixel value
+      const pixelValue = data[idx];
+      
+      // Sample blue noise texture (tiling it across the image)
+      const noiseX = x % blueNoiseSize;
+      const noiseY = y % blueNoiseSize;
+      const noiseIdx = noiseY * blueNoiseSize + noiseX;
+      const noiseValue = blueNoise[noiseIdx];
+      
+      // Apply thresholding with blue noise
+      const adjustedThreshold = threshold + noiseValue - 128;
+      const newColor = pixelValue > adjustedThreshold ? 255 : 0;
+      
+      data[idx] = data[idx + 1] = data[idx + 2] = newColor;
+    }
+  }
+}
+
+// Helper function for various error diffusion dithering algorithms
+function applyErrorDiffusionDithering(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  algorithm: string,
+  threshold: number,
+  size: number // Scaling factor for error diffusion
+): void {
+  // Create a copy of the data to work with
+  const tempData = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    tempData[i] = data[i];
+  }
+  
+  // Define diffusion matrices for different algorithms
+  let diffusionMatrix: [number, number, number][] = [];
+  let divisor = 1;
+  
+  switch (algorithm) {
+    case 'floyd-steinberg':
+      // Floyd-Steinberg: right, bottom-left, bottom, bottom-right
+      diffusionMatrix = [[1, 0, 7/16], [1, -1, 3/16], [0, 1, 5/16], [-1, 1, 1/16]];
+      divisor = 1;
+      break;
+    case 'sierra-lite':
+      // Sierra Lite: right, bottom-left, bottom
+      diffusionMatrix = [[1, 0, 2/4], [-1, 1, 1/4], [0, 1, 1/4]];
+      divisor = 1;
+      break;
+    case 'stucki':
+      // Stucki: more precise but spreads error further
+      diffusionMatrix = [
+        [1, 0, 8/42], [2, 0, 4/42],
+        [-2, 1, 2/42], [-1, 1, 4/42], [0, 1, 8/42], [1, 1, 4/42], [2, 1, 2/42],
+        [-2, 2, 1/42], [-1, 2, 2/42], [0, 2, 4/42], [1, 2, 2/42], [2, 2, 1/42]
+      ];
+      divisor = 1;
+      break;
+    case 'burkes':
+      // Burkes: smoother transitions
+      diffusionMatrix = [
+        [1, 0, 8/32], [2, 0, 4/32],
+        [-2, 1, 2/32], [-1, 1, 4/32], [0, 1, 8/32], [1, 1, 4/32], [2, 1, 2/32]
+      ];
+      divisor = 1;
+      break;
+    case 'stevenson-arce':
+      // Stevenson-Arce: high quality results
+      diffusionMatrix = [
+        [2, 0, 32/200], [3, 0, 12/200],
+        [-3, 1, 5/200], [-1, 1, 12/200], [1, 1, 26/200], [3, 1, 12/200],
+        [-2, 2, 12/200], [0, 2, 26/200], [2, 2, 12/200],
+        [-3, 3, 5/200], [-1, 3, 12/200], [1, 3, 12/200], [3, 3, 5/200]
+      ];
+      divisor = 1;
+      break;
+    case 'fan':
+      // Fan: block-like pattern
+      diffusionMatrix = [
+        [1, 0, 7/16], [2, 0, 1/16],
+        [-2, 1, 1/16], [-1, 1, 3/16], [0, 1, 5/16], [1, 1, 3/16], [2, 1, 1/16]
+      ];
+      divisor = 1.32;
+      break;
+    case 'atkinson':
+      // Atkinson: classic Apple algorithm, 3/4 error distributed
+      diffusionMatrix = [
+        [1, 0, 1/8], [2, 0, 1/8],
+        [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8],
+        [0, 2, 1/8]
+      ];
+      divisor = 1;
+      break;
+    case 'jarvis':
+      // Jarvis: similar to Stucki
+      diffusionMatrix = [
+        [1, 0, 7/48], [2, 0, 5/48],
+        [-2, 1, 3/48], [-1, 1, 5/48], [0, 1, 7/48], [1, 1, 5/48], [2, 1, 3/48],
+        [-2, 2, 1/48], [-1, 2, 3/48], [0, 2, 5/48], [1, 2, 3/48], [2, 2, 1/48]
+      ];
+      divisor = 1;
+      break;
+    default:
+      // Default to Floyd-Steinberg
+      diffusionMatrix = [[1, 0, 7/16], [-1, 1, 3/16], [0, 1, 5/16], [1, 1, 1/16]];
+      divisor = 1;
+  }
+  
+  // Apply error diffusion
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Process each color channel
+      for (let c = 0; c < 3; c++) {
+        const oldPixel = tempData[idx + c];
+        const newPixel = oldPixel > threshold ? 255 : 0;
+        
+        // Set the new pixel value
+        data[idx + c] = newPixel;
+        
+        // Calculate error
+        const error = (oldPixel - newPixel) / divisor;
+        
+        // Distribute error to neighboring pixels based on the diffusion matrix
+        for (const [dx, dy, factor] of diffusionMatrix) {
+          const nx = x + dx;
+          const ny = y + dy;
+          
+          // Check bounds
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            const neighborIdx = (ny * width + nx) * 4 + c;
+            tempData[neighborIdx] += error * factor * size;
+          }
+        }
+      }
     }
   }
 }
