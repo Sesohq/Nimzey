@@ -144,7 +144,15 @@ export default function PreviewPanel({
           {selectedNode ? (
             getFilterChain(selectedNode)
           ) : (
-            <div className="text-sm text-gray-500">No node selected</div>
+            // If no node selected, find the source node and show the full chain from it
+            (() => {
+              const sourceNode = nodes.find(node => node.type === 'imageNode');
+              return sourceNode ? (
+                getFilterChain(sourceNode)
+              ) : (
+                <div className="text-sm text-gray-500">No node selected</div>
+              );
+            })()
           )}
         </ScrollArea>
       </div>

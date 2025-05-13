@@ -95,10 +95,17 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
   
   if (targetNodes.length === 0) return chain;
   
-  // For simplicity, we'll just take the first target node in the chain
-  // In a real app, this would handle multiple branches
-  const nextChain = buildProcessingChain(targetNodes[0].id, nodes, edges);
-  return [...chain, ...nextChain];
+  // Get the chain of nodes with the most filters (typically the longest path)
+  let longestChain: Node[] = [];
+  
+  for (const targetNode of targetNodes) {
+    const nextChain = buildProcessingChain(targetNode.id, nodes, edges);
+    if (nextChain.length > longestChain.length) {
+      longestChain = nextChain;
+    }
+  }
+  
+  return [...chain, ...longestChain];
 };
 
 // Apply a specific filter based on type

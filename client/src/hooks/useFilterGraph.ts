@@ -218,6 +218,8 @@ export function useFilterGraph() {
         setNodePreview(preview);
       }
     } else {
+      // When no node is selected, clear the node preview so that
+      // the preview panel will show the final processed image instead
       setNodePreview(null);
     }
   }, [nodes, sourceImage, generateNodePreview]);
