@@ -610,6 +610,111 @@ const processFilterNode = (
     return;
   }
   
+  // Handle multiple inputs similar to blend node
+  // If there are multiple inputs, we'll treat the first one as the main input
+  // and blend the others on top
+  if (inputKeys.length > 0) {
+    // Create a new canvas for this node's result
+    const resultCanvas = document.createElement('canvas');
+    resultCanvas.width = tempCanvas.width;
+    resultCanvas.height = tempCanvas.height;
+    const resultCtx = resultCanvas.getContext('2d')!;
+    
+    // Get the main input
+    const primaryInputHandle = inputKeys[0];
+    const primaryInputNode = inputNodes[primaryInputHandle];
+    
+    if (!primaryInputNode || !nodeResultCache.has(primaryInputNode.id)) {
+      console.warn(`Filter node ${node.id} has no valid primary input`);
+      return;
+    }
+    
+    const primaryInputCanvas = nodeResultCache.get(primaryInputNode.id)!;
+    
+    // Clear the temp canvas and copy the primary input to it for processing
+    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempCtx.drawImage(primaryInputCanvas, 0, 0);
+    
+    // Apply the filter to the primary input on the temp canvas
+    const shouldUseGPU = isGPUAvailable() && gpuAcceleratedFilters.includes(filterData.filterType);
+    
+    if (shouldUseGPU) {
+      console.log(`Using GPU acceleration for ${filterData.filterType} filter`);
+      const image = new Image();
+      image.src = tempCanvas.toDataURL();
+      
+      // Start loading the image and process when ready
+      image.onload = () => {
+        const success = applyFilterGPU(filterData.filterType, image, tempCanvas, filterData.params);
+        if (!success) {
+          applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+        }
+      };
+      
+      // For synchronous behavior, use CPU processing for now
+      applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+    } else {
+      applyCPUFilter(filterData.filterType, tempCtx, tempCanvas, filterData.params);
+    }
+    
+    // Draw the filtered primary input to the result canvas
+    resultCtx.drawImage(tempCanvas, 0, 0);
+    
+    // Process additional inputs if any (secondary, tertiary, etc.)
+    for (let i = 1; i < inputKeys.length; i++) {
+      const inputHandle = inputKeys[i];
+      const inputNode = inputNodes[inputHandle];
+      
+      if (inputNode && nodeResultCache.has(inputNode.id)) {
+        const inputCanvas = nodeResultCache.get(inputNode.id)!;
+        
+        // Create a temp canvas for this input
+        const inputTempCanvas = document.createElement('canvas');
+        inputTempCanvas.width = tempCanvas.width;
+        inputTempCanvas.height = tempCanvas.height;
+        const inputTempCtx = inputTempCanvas.getContext('2d')!;
+        
+        // Draw the input to the temp canvas
+        inputTempCtx.clearRect(0, 0, inputTempCanvas.width, inputTempCanvas.height);
+        inputTempCtx.drawImage(inputCanvas, 0, 0);
+        
+        // Apply the filter to this input as well
+        if (shouldUseGPU) {
+          const image = new Image();
+          image.src = inputTempCanvas.toDataURL();
+          
+          image.onload = () => {
+            const success = applyFilterGPU(filterData.filterType, image, inputTempCanvas, filterData.params);
+            if (!success) {
+              applyCPUFilter(filterData.filterType, inputTempCtx, inputTempCanvas, filterData.params);
+            }
+          };
+          
+          applyCPUFilter(filterData.filterType, inputTempCtx, inputTempCanvas, filterData.params);
+        } else {
+          applyCPUFilter(filterData.filterType, inputTempCtx, inputTempCanvas, filterData.params);
+        }
+        
+        // Blend this input with the result
+        // Use the filter's blend mode or default to 'normal'
+        const blendMode = filterData.blendMode || 'normal';
+        const opacity = filterData.opacity !== undefined ? filterData.opacity / 100 : 1;
+        
+        // Additional inputs get slightly reduced opacity for a subtle effect
+        const adjustedOpacity = opacity * (0.8 - (i - 1) * 0.1);
+        
+        applyBlendMode(resultCtx, inputTempCtx, blendMode, adjustedOpacity);
+        
+        console.log(`Filter node ${node.id} processing additional input ${i}`);
+      }
+    }
+    
+    // Store the result
+    nodeResultCache.set(node.id, resultCanvas);
+    return;
+  }
+  
+  // Fall back to single input processing if no inputs were found
   // Get the input node
   const sourceNode = getSourceNode(node.id, nodes, edges);
   if (!sourceNode || !nodeResultCache.has(sourceNode.id)) return;
