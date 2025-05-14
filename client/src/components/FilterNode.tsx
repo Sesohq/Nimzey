@@ -1,4 +1,4 @@
-import { memo, useState, useMemo } from 'react';
+import { memo, useState, useMemo, useEffect } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,17 @@ import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showLargePreview, setShowLargePreview] = useState(false);
   
   // Determine the filter category and get the appropriate color
   const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
   const categoryStyle = useMemo(() => categoryColors[category as keyof typeof categoryColors], [category]);
+  
+  // Update when preview data changes
+  useEffect(() => {
+    // The preview is already handled by the data.preview property
+    // which is updated by the handleParamChange function
+  }, [data.preview]);
   
   const handleToggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,15 +88,43 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             <div 
               className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
               style={{ height: '80px' }}
-              onClick={() => {
-                // Handle preview click if needed
-              }}
+              onClick={() => setShowLargePreview(true)}
             >
               <img 
                 src={data.preview} 
                 alt={`${data.label} preview`} 
                 className="max-w-full max-h-full object-contain"
               />
+            </div>
+          )}
+          
+          {/* Large preview modal */}
+          {showLargePreview && data.preview && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+              onClick={() => setShowLargePreview(false)}
+            >
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-medium">{data.label} Preview</h3>
+                  <button 
+                    className="text-gray-500 hover:text-gray-700" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowLargePreview(false);
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                <img 
+                  src={data.preview} 
+                  alt={`${data.label} preview (large)`} 
+                  className="max-w-full" 
+                />
+              </div>
             </div>
           )}
           
