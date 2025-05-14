@@ -98,9 +98,43 @@ export function useFilterGraph() {
       });
     });
     
-    // For texture generator nodes, we don't need to wait for other nodes
-    // The preview will be generated directly in the node component
-  }, []);
+    // Update previews after a brief delay to allow state to update
+    setTimeout(() => {
+      // First update this node's preview
+      updateNodePreview(nodeId);
+      
+      // Then process the full image
+      processImage();
+    }, 10);
+  }, [nodes, edges]);
+  
+  // Add a function to update a specific node's preview
+  const updateNodePreview = useCallback((nodeId: string) => {
+    if (!sourceImageRef.current) return;
+    
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    // Import the function from nodePreviewHelper
+    import('@/lib/nodePreviewHelper').then(({ generateNodePreview }) => {
+      // Generate the preview for this node
+      const previewUrl = generateNodePreview(
+        sourceImageRef.current,
+        nodes,
+        edges,
+        nodeId
+      );
+      
+      // Update the node with its preview
+      if (previewUrl) {
+        setNodes(prevNodes => 
+          prevNodes.map(n => 
+            n.id === nodeId ? { ...n, data: { ...n.data, preview: previewUrl } } : n
+          )
+        );
+      }
+    });
+  }, [nodes, edges, sourceImageRef]);
   
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
@@ -118,7 +152,13 @@ export function useFilterGraph() {
         return node;
       });
     });
-  }, []);
+    
+    // Update previews after toggling
+    setTimeout(() => {
+      updateNodePreview(nodeId);
+      processImage();
+    }, 10);
+  }, [updateNodePreview]);
   
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
@@ -136,7 +176,13 @@ export function useFilterGraph() {
         return node;
       });
     });
-  }, []);
+    
+    // Update previews after changing blend mode
+    setTimeout(() => {
+      updateNodePreview(nodeId);
+      processImage();
+    }, 10);
+  }, [updateNodePreview]);
   
   // Handle changing opacity on filter nodes
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
@@ -154,7 +200,13 @@ export function useFilterGraph() {
         return node;
       });
     });
-  }, []);
+    
+    // Update previews after changing opacity
+    setTimeout(() => {
+      updateNodePreview(nodeId);
+      processImage();
+    }, 10);
+  }, [updateNodePreview]);
   
   // Handle removing nodes
   const handleRemoveNode = useCallback((nodeId: string) => {
@@ -543,8 +595,13 @@ export function useFilterGraph() {
     
     setNodes(prevNodes => [...prevNodes, newNode]);
     
+    // Generate a preview for the new node
+    setTimeout(() => {
+      updateNodePreview(id);
+    }, 50);
+    
     return id;
-  }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
+  }, [findFilterByType, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode, updateNodePreview]);
   
   // Connect two nodes
   const onConnect = useCallback((connection: Connection) => {
