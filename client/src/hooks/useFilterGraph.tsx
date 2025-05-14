@@ -464,7 +464,7 @@ export function useFilterGraph() {
       console.error('Error processing image:', error);
       setProcessedImage(null);
     }
-  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
+  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef, updateResultNodePreviews]);
   
   // Effect to generate preview when a node is selected
   useEffect(() => {
@@ -690,6 +690,25 @@ export function useFilterGraph() {
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
   }, [uploadImage, uploadFunctionRef]);
+  
+  // Helper function to update all Result nodes with the processed image
+  const updateResultNodePreviews = useCallback((imageUrl: string | null) => {
+    if (!imageUrl) return;
+    
+    setNodes(prevNodes => prevNodes.map(node => {
+      // Check if this is a Result node
+      if (node.type === 'resultNode') {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            preview: imageUrl
+          }
+        };
+      }
+      return node;
+    }));
+  }, []);
   
   // Reset the graph
   const resetGraph = useCallback(() => {
