@@ -34,7 +34,7 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
   });
   
   // State for the node preview
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
   const [showLargePreview, setShowLargePreview] = useState(false);
   
   // Check for connected edges when the component mounts or edges change
@@ -57,13 +57,26 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     // We could add a subscription to edge changes here if needed
   }, [nodeId, getEdges]);
   
-  // Update preview image when data changes
+  // Update internal preview URL from data preview
   useEffect(() => {
-    // Use any available preview data from the node data
-    if (data.preview) {
-      setPreviewImage(data.preview);
+    // Display more detailed debugging to track preview data
+    console.log(`BlendNode [${nodeId}] rendering, preview:`,  
+      data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
+      
+    // Process the preview data
+    if (data.preview && data.preview.startsWith('data:image/')) {
+      console.log(`Using provided preview for ${nodeId}`);
+      setInternalPreviewUrl(data.preview);
+    } else {
+      // Missing or invalid preview
+      console.log(`No valid preview found for ${nodeId}`);
+      
+      // Reset our internal preview if the external one is no longer valid
+      if (internalPreviewUrl) {
+        setInternalPreviewUrl(null);
+      }
     }
-  }, [data.preview]);
+  }, [data.preview, nodeId, internalPreviewUrl]);
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
@@ -104,63 +117,44 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Background input (left side, bottom) */}
-      <div className="absolute left-0 top-[65%] flex items-center">
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="background"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '65%', transform: 'translateY(-50%)' }}
-        />
-        
-        {/* Small visual indicator for background input */}
-        <div className="absolute top-[65%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">B</div>
-        </div>
-        
-        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
-          Background
-        </Badge>
-      </div>
+      {/* All inputs on the left side */}
       
-      {/* Foreground input (left side, top) */}
-      <div className="absolute left-0 top-[35%] flex items-center">
+      {/* Foreground input (top) */}
+      <div className="absolute left-0 top-[25%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
           id="foreground"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '35%', transform: 'translateY(-50%)' }}
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
         />
-        
-        {/* Small visual indicator for foreground input */}
-        <div className="absolute top-[35%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">F</div>
-        </div>
-        
-        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
+        <Badge variant="outline" className="ml-1 text-[10px] bg-white shadow-sm">
           Foreground
         </Badge>
       </div>
       
-      {/* Opacity/Mask input (top) */}
-      <div className="absolute top-0 left-[50%] flex flex-col items-center">
+      {/* Background input (middle) */}
+      <div className="absolute left-0 top-[50%] flex items-center">
         <Handle
           type="target"
-          position={Position.Top}
-          id="opacity"
-          className="w-9 h-9 rounded-full -mt-4 bg-amber-400"
-          style={{ left: '50%', transform: 'translateX(-50%)' }}
+          position={Position.Left}
+          id="background"
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
         />
-        
-        {/* Small visual indicator for opacity input */}
-        <div className="absolute top-[-10px] left-[50%] transform -translate-x-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">O</div>
-        </div>
-        
-        <Badge variant="outline" className="mt-6 text-[10px] bg-white shadow-sm">
-          Opacity Mask
+        <Badge variant="outline" className="ml-1 text-[10px] bg-white shadow-sm">
+          Background
+        </Badge>
+      </div>
+      
+      {/* Opacity input (bottom) */}
+      <div className="absolute left-0 top-[75%] flex items-center">
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="opacity"
+          className="w-3 h-3 rounded-full -ml-1.5 bg-amber-400"
+        />
+        <Badge variant="outline" className="ml-1 text-[10px] bg-white shadow-sm">
+          Opacity
         </Badge>
       </div>
       
@@ -195,35 +189,55 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
           style={{ height: '80px' }}
           onClick={() => setShowLargePreview(!showLargePreview)}
         >
-          {previewImage ? (
+          {internalPreviewUrl ? (
             <img 
-              src={previewImage} 
-              alt="Node preview" 
+              src={internalPreviewUrl} 
+              alt={`${data.label} preview`} 
               className="max-w-full max-h-full object-contain"
+              onLoad={() => console.log(`Preview image loaded successfully for ${nodeId}`)}
+              onError={(e) => console.error(`Preview image failed to load for ${nodeId}`, e)}
             />
           ) : (
-            <div className="text-xs text-gray-500 p-2 text-center">
-              Preview will appear here
+            <div className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full">
+              {/* Show loading animation */}
+              <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mb-2"></div>
+              <div>Preview generating...</div>
+              <div className="text-[10px] mt-1 text-gray-400">
+                Blend node
+              </div>
+              <div 
+                className="text-[9px] text-blue-500 mt-2 cursor-pointer" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (data.onTriggerPreviewUpdate) {
+                    data.onTriggerPreviewUpdate(nodeId);
+                  }
+                }}
+              >
+                Click to retry preview
+              </div>
             </div>
           )}
         </div>
         
         {/* Large preview modal */}
-        {showLargePreview && previewImage && (
+        {showLargePreview && internalPreviewUrl && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
             <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">{data.label} Preview</h3>
-                <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
+                <button className="text-gray-500 hover:text-gray-700" onClick={(e) => { e.stopPropagation(); setShowLargePreview(false); }}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
               </div>
               <img 
-                src={previewImage} 
-                alt="Node preview (large)" 
+                src={internalPreviewUrl} 
+                alt={`${data.label} preview (large)`} 
                 className="max-w-full" 
+                onLoad={() => console.log(`Large preview image loaded for ${nodeId}`)}
+                onError={(e) => console.error(`Large preview image failed to load for ${nodeId}`, e)}
               />
             </div>
           </div>
@@ -367,7 +381,7 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   <div className="flex items-center">
                     <div className={cn(
                       "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.background ? "bg-green-500" : "bg-green-200"
+                      connectedInputs.background ? "bg-blue-500" : "bg-blue-200"
                     )}></div>
                     <span className="text-xs text-slate-500">Background</span>
                   </div>
