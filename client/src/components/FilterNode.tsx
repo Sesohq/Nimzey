@@ -76,6 +76,23 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
+          {/* Node Preview Area */}
+          {data.preview && (
+            <div 
+              className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
+              style={{ height: '80px' }}
+              onClick={() => {
+                // Handle preview click if needed
+              }}
+            >
+              <img 
+                src={data.preview} 
+                alt={`${data.label} preview`} 
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+          )}
+          
           {data.params.map((param) => (
             <div key={param.name} className="mb-2">
               <Label className="block text-xs text-gray-500 mb-1">{param.label}</Label>

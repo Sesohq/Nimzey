@@ -71,6 +71,16 @@ export function useFilterGraph() {
   
   // Handle parameter changes on filter nodes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
+    // Skip if it's just a preview update
+    if (paramName === 'preview') {
+      setNodes(prevNodes => 
+        prevNodes.map(node => 
+          node.id === nodeId ? { ...node, data: { ...node.data, preview: value } } : node
+        )
+      );
+      return;
+    }
+    
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -87,6 +97,9 @@ export function useFilterGraph() {
         return node;
       });
     });
+    
+    // For texture generator nodes, we don't need to wait for other nodes
+    // The preview will be generated directly in the node component
   }, []);
   
   // Handle toggling filter nodes on/off
