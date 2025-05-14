@@ -391,16 +391,16 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   <div className="flex items-center">
                     <div className={cn(
                       "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.opacity ? "bg-amber-500" : "bg-amber-200"
+                      connectedInputs.opacity ? "bg-blue-500" : "bg-blue-200"
                     )}></div>
                     <span className="text-xs text-slate-500">Opacity Mask</span>
                   </div>
-                  <ArrowDown className="w-3 h-3 text-slate-400" />
+                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
                 </div>
                 {(!connectedInputs.foreground || !connectedInputs.background) && (
-                  <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100">
+                  <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100 text-center">
                     {!connectedInputs.foreground && !connectedInputs.background ? (
-                      "Connect foreground and background inputs for blending"
+                      "Connect foreground and background inputs"
                     ) : !connectedInputs.foreground ? (
                       "Missing foreground input"
                     ) : (

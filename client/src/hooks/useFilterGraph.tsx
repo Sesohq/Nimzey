@@ -739,7 +739,15 @@ export function useFilterGraph() {
       onToggleEnabled: handleToggleEnabled,
       onBlendModeChange: handleBlendModeChange,
       onOpacityChange: handleOpacityChange,
-      onRemoveNode: () => handleRemoveNode(id)
+      onRemoveNode: () => handleRemoveNode(id),
+      // Add the onTriggerPreviewUpdate function for manual preview refreshing
+      onTriggerPreviewUpdate: (nodeId) => {
+        console.log(`Manual preview update triggered for node ${nodeId}`);
+        // We'll use our existing update mechanism but focus on this node
+        if (updateAllNodePreviewsRef.current) {
+          updateAllNodePreviewsRef.current();
+        }
+      }
     };
     
     // Determine the node type - texture generators use a different component
