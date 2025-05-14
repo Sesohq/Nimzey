@@ -456,6 +456,9 @@ export function useFilterGraph() {
         );
         
         setProcessedImage(result);
+        
+        // Update all Result nodes with the processed image
+        updateResultNodePreviews(result);
       }
     } catch (error) {
       console.error('Error processing image:', error);
@@ -658,12 +661,12 @@ export function useFilterGraph() {
     setNodes([sourceNode, resultNode]);
   }, [sourceImage, uploadImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
   
-  // Initialize the graph with a source image node
+  // Initialize the graph with a source image node and result node
   useEffect(() => {
     if (sourceImage && nodes.length === 0) {
-      addSourceNodeIfNeeded();
+      initializeBasicWorkflow();
     }
-  }, [sourceImage, nodes, addSourceNodeIfNeeded]);
+  }, [sourceImage, nodes, initializeBasicWorkflow]);
   
   // Update source image node when source image changes
   useEffect(() => {
@@ -692,8 +695,8 @@ export function useFilterGraph() {
   const resetGraph = useCallback(() => {
     setNodes([]);
     setEdges([]);
-    addSourceNodeIfNeeded();
-  }, [addSourceNodeIfNeeded]);
+    initializeBasicWorkflow();
+  }, [initializeBasicWorkflow]);
   
   // Load a preset
   const loadPreset = useCallback((presetNodes: Node[], presetEdges: Edge[]) => {
