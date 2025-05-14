@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
@@ -43,6 +43,17 @@ export default function Home() {
   
   // State for custom node creation dialog
   const [createCustomNodeOpen, setCreateCustomNodeOpen] = useState(false);
+  
+  // Effect to ensure a Result node is present
+  useEffect(() => {
+    // Check if we already have a Result node
+    const hasResultNode = nodes.some(node => node.type === 'resultNode');
+    
+    if (!hasResultNode) {
+      console.log("No Result node found, adding one");
+      addResultNode();
+    }
+  }, [nodes, addResultNode]);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">

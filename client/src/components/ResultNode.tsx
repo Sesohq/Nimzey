@@ -24,6 +24,28 @@ const ResultNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     console.log("ResultNode rendered. Has preview:", !!previewImage);
   }, [previewImage]);
   
+  // Generate a default placeholder image on initial load
+  useEffect(() => {
+    if (!previewImage) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 200;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Create a placeholder image
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 300, 200);
+        ctx.fillStyle = '#888';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Upload an image to see results', 150, 100);
+        
+        setPreviewImage(canvas.toDataURL());
+      }
+    }
+  }, []);
+  
   return (
     <div className={cn(
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
@@ -69,7 +91,7 @@ const ResultNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         <div 
           className="bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
           style={{ height: '130px' }}
-          onClick={() => setShowLargePreview(!showLargePreview)}
+          onClick={() => previewImage && setShowLargePreview(!showLargePreview)}
         >
           {previewImage ? (
             <img 
@@ -79,7 +101,7 @@ const ResultNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             />
           ) : (
             <div className="text-xs text-gray-500 p-2 text-center">
-              Connect a node to view the result
+              Loading preview...
             </div>
           )}
         </div>
