@@ -118,20 +118,15 @@ export function useFilterGraph() {
       });
     });
     
-    // Use timeout for preview updates
-    console.log(`Parameter ${paramName} changed for node ${nodeId}, scheduling preview update`);
+    // Use debounced functions for better performance
+    console.log(`Parameter ${paramName} changed for node ${nodeId}, triggering debounced updates`);
     
-    // Schedule update after state changes are processed
-    setTimeout(() => {
-      if (updateAllNodePreviewsRef.current) {
-        updateAllNodePreviewsRef.current();
-      }
-      
-      if (processImageRef.current) {
-        processImageRef.current();
-      }
-    }, 150);
-  }, []);
+    // First update just this node's preview
+    debouncedUpdateAllNodePreviews();
+    
+    // Then update the main preview
+    debouncedProcessImage();
+  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
   
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
