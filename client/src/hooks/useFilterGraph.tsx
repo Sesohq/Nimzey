@@ -630,49 +630,53 @@ export function useFilterGraph() {
       return;
     }
     
-    console.log("Forcing update of all node previews");
+    console.log("Generating direct previews for all nodes");
     
     // Track all nodes we need to update with their new preview data
     const nodeUpdates: Record<string, string> = {};
     
-    // Process each node one at a time
+    // Process each node one at a time using the simplified previewer
     for (const node of nodes) {
       if (node.type !== 'imageNode' && node.type !== 'customNode') {
         try {
-          console.log(`Generating preview for node ${node.id} (${node.type})...`);
+          // Use the simplified direct preview generator
+          const preview = generateNodePreview(node, sourceImageRef.current!, nodes, edges);
           
-          // Find all nodes and edges in the chain leading to this node
-          const nodeChain = getNodeChain(node.id, nodes, edges);
-          
-          // Skip if the node has no input connections and it's not a noise generator
-          if (nodeChain.nodes.length <= 1 && 
-              !((node.data as FilterNodeData).filterType === 'noiseGenerator')) {
-            console.log(`Skipping node ${node.id} as it has no inputs`);
-            continue;
+          if (preview) {
+            nodeUpdates[node.id] = preview;
+            console.log(`Generated direct preview for node ${node.id}`);
+          } else {
+            console.log(`Failed to generate direct preview for node ${node.id}`);
+            
+            // If direct preview failed, create a placeholder
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 150;
+            tempCanvas.height = 150;
+            const ctx = tempCanvas.getContext('2d');
+            
+            if (ctx && sourceImageRef.current) {
+              // Draw the source image with filter name
+              ctx.drawImage(sourceImageRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
+              
+              // Add filter type label
+              if (node.type === 'filterNode') {
+                const filterType = (node.data as FilterNodeData).filterType;
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.fillRect(0, 0, tempCanvas.width, 20);
+                ctx.fillStyle = '#000';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(filterType, 5, 12);
+              }
+              
+              const placeholderResult = tempCanvas.toDataURL('image/png');
+              nodeUpdates[node.id] = placeholderResult;
+            }
           }
-          
-          // Create a temporary canvas for the preview
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = 150; // Smaller for embedded preview
-          tempCanvas.height = 150;
-          
-          // Make sure we have a 2D context
-          const ctx = tempCanvas.getContext('2d');
-          if (!ctx) {
-            console.error(`Failed to get 2D context for preview canvas for node ${node.id}`);
-            continue;
-          }
-          
-          // Process the image through the node chain
-          // Important: Do not clear cache during preview generation to maintain other nodes' previews
-          const result = applyFilters(
-            sourceImageRef.current!, 
-            nodeChain.nodes, 
-            nodeChain.edges, 
-            tempCanvas,
-            undefined, // no targetNodeId
-            false // do not clear cache
-          );
+        } catch (error) {
+          console.error(`Error generating preview for node ${node.id}:`, error);
+        }
+      }
+    }
           
           // If applyFilters failed, try using the nodeResultCache directly
           if (!result || !result.startsWith('data:image/')) {
