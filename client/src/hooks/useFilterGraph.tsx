@@ -777,22 +777,8 @@ export function useFilterGraph() {
     }
   }, [nodes, edges, sourceImageRef, setNodes]);
   
-  // Create debounced versions of our functions
-  const debouncedUpdateAllNodePreviews = useCallback(
-    debounce(() => {
-      console.log("Debounced update of all node previews triggered");
-      updateAllNodePreviews();
-    }, 150), // 150ms delay for better performance
-    [updateAllNodePreviews]
-  );
-
-  const debouncedProcessImage = useCallback(
-    debounce(() => {
-      console.log("Debounced process image triggered");
-      processImage();
-    }, 150), // 150ms delay for better performance
-    [processImage]
-  );
+  // We don't need debounced functions anymore as we're using timeouts directly
+  // This enhances reliability of preview updates
 
   // Store references to our update functions 
   useEffect(() => {
