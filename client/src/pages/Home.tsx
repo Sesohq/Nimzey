@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
@@ -43,8 +43,6 @@ export default function Home() {
   
   // State for custom node creation dialog
   const [createCustomNodeOpen, setCreateCustomNodeOpen] = useState(false);
-  
-  // We'll add a result node using the button in the filter panel instead
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
