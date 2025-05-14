@@ -429,6 +429,17 @@ export function useFilterGraph() {
     
     console.log(`Updating Result nodes with image (starts with: ${imageUrl.substring(0, 30)}...)`);
     
+    // First, verify if any result nodes exist
+    const resultNodes = nodes.filter(node => node.type === 'resultNode');
+    console.log(`Found ${resultNodes.length} Result nodes:`, resultNodes);
+    
+    if (resultNodes.length === 0) {
+      console.log("No Result nodes found, adding one now");
+      // Add a Result node if none exists
+      addResultNode();
+      return; // The preview will be updated on the next render cycle
+    }
+    
     let resultNodesCount = 0;
     
     setNodes(prevNodes => {
@@ -451,7 +462,7 @@ export function useFilterGraph() {
       console.log(`Updated ${resultNodesCount} Result nodes`);
       return updatedNodes;
     });
-  }, []);
+  }, [nodes, addResultNode]);
   
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
@@ -684,8 +695,12 @@ export function useFilterGraph() {
       data: sourceNodeData,
     };
     
+    console.log("Created source node:", sourceNode);
+    
     // Add result node
     const resultId = `result-${uuidv4().substring(0, 8)}`;
+    console.log("Creating result node with ID:", resultId);
+    
     const resultNodeData: FilterNodeData = {
       label: 'Result',
       filterType: 'result',
@@ -704,8 +719,14 @@ export function useFilterGraph() {
       id: resultId,
       type: 'resultNode',
       position: { x: 500, y: 200 },
-      data: resultNodeData,
+      data: {
+        ...resultNodeData,
+        // If we have a source image, set it as the initial preview
+        preview: sourceImage
+      },
     };
+    
+    console.log("Created result node:", resultNode);
     
     // Create a default edge connecting source to result
     const defaultEdge: Edge = {
