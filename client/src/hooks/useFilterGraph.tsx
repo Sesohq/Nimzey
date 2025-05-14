@@ -191,64 +191,49 @@ export function useFilterGraph() {
     }, 10);
   }, [nodes, edges]);
   
-  // Function to update a node's preview in state
-  const updateNodePreviewInState = useCallback((nodeId: string, previewUrl: string) => {
-    setNodes(prevNodes => 
-      prevNodes.map(node => 
-        node.id === nodeId ? { ...node, data: { ...node.data, preview: previewUrl } } : node
-      )
-    );
-  }, []);
-  
-  // Add a function to update a specific node's preview
+  // Function to update a specific node's preview
   const updateNodePreview = useCallback((nodeId: string) => {
     if (!sourceImageRef.current) return;
     
-    // Use the updateNodePreview function from nodePreviewGenerator
-    import('../lib/nodePreviewGenerator').then(({ updateNodePreview }) => {
-      // We already checked that sourceImageRef.current is not null above
-      updateNodePreview(
-        sourceImageRef.current!,
-        nodes,
-        edges,
-        nodeId,
-        updateNodePreviewInState
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    // Create a small canvas for the preview
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = 150; // Small size for preview
+    previewCanvas.height = 150;
+    
+    // Process the image chain leading to this node
+    const previewUrl = applyFilters(
+      sourceImageRef.current,
+      nodes,
+      edges,
+      previewCanvas,
+      nodeId, // Target this specific node
+      false   // Don't clear cache
+    );
+    
+    // Update the node with its preview
+    if (previewUrl) {
+      setNodes(prevNodes => 
+        prevNodes.map(n => 
+          n.id === nodeId ? { ...n, data: { ...n.data, preview: previewUrl } } : n
+        )
       );
-    });
-  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
+    }
+  }, [nodes, edges, sourceImageRef]);
   
-  // Add a function to update all node previews
+  // Function to update all node previews
   const updateAllNodePreviews = useCallback(() => {
     if (!sourceImageRef.current) return;
     
-    // Use the updateAllNodePreviews function from nodePreviewGenerator
-    import('../lib/nodePreviewGenerator').then(({ updateAllNodePreviews }) => {
-      // We already checked that sourceImageRef.current is not null above
-      updateAllNodePreviews(
-        sourceImageRef.current!,
-        nodes,
-        edges,
-        updateNodePreviewInState
-      );
+    // Update previews for all filter/blend nodes
+    nodes.forEach(node => {
+      if (node.type !== 'imageNode') {
+        updateNodePreview(node.id);
+      }
     });
-  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
-  
-  // Add a function to update previews affected by a parameter change
-  const updatePreviewsAfterParamChange = useCallback((changedNodeId: string) => {
-    if (!sourceImageRef.current) return;
-    
-    // Use the updatePreviewsAfterParamChange function from nodePreviewGenerator
-    import('../lib/nodePreviewGenerator').then(({ updatePreviewsAfterParamChange }) => {
-      // We already checked that sourceImageRef.current is not null above
-      updatePreviewsAfterParamChange(
-        sourceImageRef.current!,
-        nodes,
-        edges,
-        changedNodeId,
-        updateNodePreviewInState
-      );
-    });
-  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
+  }, [nodes, updateNodePreview]);
   
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
