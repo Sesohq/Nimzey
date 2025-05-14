@@ -18,8 +18,8 @@ export type FilterType =
   | 'motionBlur'
   | 'noiseDistortion'
   | 'refraction'
-  // Generate texture node
-  | 'textureGenerator'
+  // Generate texture node (renamed from textureGenerator)
+  | 'noiseGenerator'
   // Compositing node types
   | 'mask'
   | 'multiply'
@@ -93,6 +93,7 @@ export type FilterNodeData = {
   onBlendModeChange?: (nodeId: string, blendMode: BlendMode) => void;
   onOpacityChange?: (nodeId: string, opacity: number) => void;
   onRemoveNode?: () => void; // Function to remove a node
+  onTriggerPreviewUpdate?: (nodeId: string) => void; // Function to manually trigger preview update
 };
 
 export type ImageNodeData = {
