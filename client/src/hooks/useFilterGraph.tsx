@@ -594,7 +594,7 @@ export function useFilterGraph() {
   // Add a source image node if needed
   const addSourceNodeIfNeeded = useCallback(() => {
     if (!nodes.some(node => node.type === 'imageNode')) {
-      const id = 'source-image';
+      const id = 'source-1';
       const nodeData: ImageNodeData = {
         src: sourceImage,
         onUploadImage: uploadImage
@@ -610,6 +610,53 @@ export function useFilterGraph() {
       setNodes(prevNodes => [...prevNodes, newNode]);
     }
   }, [nodes, sourceImage, uploadImage]);
+  
+  // Initialize a basic workflow with source image and result nodes
+  const initializeBasicWorkflow = useCallback(() => {
+    // Clear everything first
+    setNodes([]);
+    setEdges([]);
+    
+    // Add source node
+    const sourceId = 'source-1';
+    const sourceNodeData: ImageNodeData = {
+      src: sourceImage,
+      onUploadImage: uploadImage
+    };
+    
+    const sourceNode: Node<ImageNodeData> = {
+      id: sourceId,
+      type: 'imageNode',
+      position: { x: 100, y: 100 },
+      data: sourceNodeData,
+    };
+    
+    // Add result node
+    const resultId = `result-${uuidv4().substring(0, 8)}`;
+    const resultNodeData: FilterNodeData = {
+      label: 'Result',
+      filterType: 'result',
+      params: [],
+      enabled: true,
+      blendMode: 'normal',
+      opacity: 1,
+      onParamChange: handleParamChange,
+      onToggleEnabled: handleToggleEnabled,
+      onBlendModeChange: handleBlendModeChange,
+      onOpacityChange: handleOpacityChange,
+      onRemoveNode: () => handleRemoveNode(resultId)
+    };
+    
+    const resultNode: Node<FilterNodeData> = {
+      id: resultId,
+      type: 'resultNode',
+      position: { x: 400, y: 100 },
+      data: resultNodeData,
+    };
+    
+    // Add both nodes to canvas
+    setNodes([sourceNode, resultNode]);
+  }, [sourceImage, uploadImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
   
   // Initialize the graph with a source image node
   useEffect(() => {

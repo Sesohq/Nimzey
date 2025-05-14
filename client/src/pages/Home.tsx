@@ -44,7 +44,7 @@ export default function Home() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
-      <Header onNewProject={resetCanvas} onExportImage={exportImage} />
+      <Header onNewProject={resetGraph} onExportImage={exportImage} />
       
       <div className="flex flex-1 overflow-hidden">
         <div className="h-full flex flex-col" style={{ width: `${filtersPanelWidth}px` }}>
@@ -134,7 +134,7 @@ export default function Home() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={onNodeSelect}
+          onNodeClick={onNodeClick}
           selectedNodeId={selectedNodeId}
           zoomIn={zoomIn}
           zoomOut={zoomOut}
