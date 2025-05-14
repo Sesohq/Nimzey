@@ -433,13 +433,6 @@ export function useFilterGraph() {
     const resultNodes = nodes.filter(node => node.type === 'resultNode');
     console.log(`Found ${resultNodes.length} Result nodes:`, resultNodes);
     
-    if (resultNodes.length === 0) {
-      console.log("No Result nodes found, adding one now");
-      // Add a Result node if none exists
-      addResultNode();
-      return; // The preview will be updated on the next render cycle
-    }
-    
     let resultNodesCount = 0;
     
     setNodes(prevNodes => {
@@ -462,7 +455,7 @@ export function useFilterGraph() {
       console.log(`Updated ${resultNodesCount} Result nodes`);
       return updatedNodes;
     });
-  }, [nodes, addResultNode]);
+  }, [nodes]);
   
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
@@ -519,7 +512,34 @@ export function useFilterGraph() {
       // Always update Result nodes with the final processed image
       if (finalResult) {
         console.log("Updating Result nodes with processed image");
-        updateResultNodePreviews(finalResult);
+        
+        // Check if any result nodes exist
+        const resultNodes = nodes.filter(node => node.type === 'resultNode');
+        
+        if (resultNodes.length === 0) {
+          console.log("No Result nodes found, adding one now");
+          // Add a Result node if none exists - need to add now in this run
+          const resultId = addResultNode();
+          
+          // Manually update the node with the current image since it was just created
+          setNodes(prevNodes => {
+            return prevNodes.map(node => {
+              if (node.id === resultId) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    preview: finalResult
+                  }
+                };
+              }
+              return node;
+            });
+          });
+        } else {
+          // Update existing result nodes
+          updateResultNodePreviews(finalResult);
+        }
       }
     } catch (error) {
       console.error('Error processing image:', error);
