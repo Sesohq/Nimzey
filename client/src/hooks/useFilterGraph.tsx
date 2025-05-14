@@ -649,7 +649,7 @@ export function useFilterGraph() {
     const sourceNode: Node<ImageNodeData> = {
       id: sourceId,
       type: 'imageNode',
-      position: { x: 100, y: 100 },
+      position: { x: 100, y: 200 },
       data: sourceNodeData,
     };
     
@@ -672,12 +672,31 @@ export function useFilterGraph() {
     const resultNode: Node<FilterNodeData> = {
       id: resultId,
       type: 'resultNode',
-      position: { x: 400, y: 100 },
+      position: { x: 500, y: 200 },
       data: resultNodeData,
     };
     
-    // Add both nodes to canvas
+    // Create a default edge connecting source to result
+    const defaultEdge: Edge = {
+      id: `edge-${sourceId}-${resultId}`,
+      source: sourceId,
+      target: resultId,
+      sourceHandle: null, // Source node output
+      targetHandle: 'input', // Result node input
+      animated: true,
+      style: { stroke: '#888' },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#888',
+      },
+      data: {
+        label: 'Source → Result'
+      }
+    };
+    
+    // Add both nodes and the connecting edge to canvas
     setNodes([sourceNode, resultNode]);
+    setEdges([defaultEdge]);
   }, [sourceImage, uploadImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
   
   // Initialize the graph with a source image node and result node
