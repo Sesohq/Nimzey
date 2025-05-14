@@ -478,15 +478,138 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandl
 const nodeResultCache = new Map<string, HTMLCanvasElement>();
 
 // Main function to apply filters
+// Helper function to check if a node is in the chain for a target node
+function isNodeInChain(nodeId: string, targetNodeId: string, nodes: Node[], edges: Edge[]): boolean {
+  if (nodeId === targetNodeId) return true;
+  
+  // Build a dependency graph (what nodes depend on this node)
+  const dependents: Record<string, string[]> = {};
+  nodes.forEach(node => {
+    dependents[node.id] = [];
+  });
+  
+  edges.forEach(edge => {
+    if (dependents[edge.source]) {
+      dependents[edge.source].push(edge.target);
+    }
+  });
+  
+  // Use BFS to find if targetNodeId can be reached from nodeId
+  const visited = new Set<string>();
+  const queue = [nodeId];
+  
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    visited.add(currentId);
+    
+    // If we found the target node, return true
+    if (currentId === targetNodeId) {
+      return true;
+    }
+    
+    // Add all unvisited dependents to the queue
+    for (const dependent of dependents[currentId] || []) {
+      if (!visited.has(dependent)) {
+        queue.push(dependent);
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Check if a node is a leaf node (no outgoing edges)
+function isLeafNode(nodeId: string, edges: Edge[]): boolean {
+  return !edges.some(edge => edge.source === nodeId);
+}
+
+// Get the processing order for nodes
+function getNodeProcessingOrder(nodes: Node[], edges: Edge[], targetNodeId?: string): string[] {
+  // If we have a target node, start from that node and work backwards
+  if (targetNodeId) {
+    // Get all nodes in the chain leading to the target
+    const chain = new Set<string>();
+    const visited = new Set<string>();
+    const stack = [targetNodeId];
+    
+    while (stack.length > 0) {
+      const nodeId = stack.pop()!;
+      chain.add(nodeId);
+      visited.add(nodeId);
+      
+      // Find all edges pointing to this node
+      const incomingEdges = edges.filter(edge => edge.target === nodeId);
+      for (const edge of incomingEdges) {
+        if (!visited.has(edge.source)) {
+          stack.push(edge.source);
+        }
+      }
+    }
+    
+    // Now do a topological sort on just these nodes
+    return topologicalSort(nodes.filter(node => chain.has(node.id)), edges);
+  }
+  
+  // Otherwise, do a normal topological sort
+  return topologicalSort(nodes, edges);
+}
+
+// Topological sort for nodes
+function topologicalSort(nodes: Node[], edges: Edge[]): string[] {
+  // Build dependency graph
+  const graph: Record<string, string[]> = {};
+  nodes.forEach(node => {
+    graph[node.id] = [];
+  });
+  
+  edges.forEach(edge => {
+    if (graph[edge.target]) {
+      graph[edge.target].push(edge.source);
+    }
+  });
+  
+  // Topological sort
+  const visited: Record<string, boolean> = {};
+  const temp: Record<string, boolean> = {};
+  const order: string[] = [];
+  
+  function visit(nodeId: string) {
+    if (visited[nodeId]) return;
+    if (temp[nodeId]) return; // Cycle detected
+    
+    temp[nodeId] = true;
+    
+    for (const depId of graph[nodeId] || []) {
+      visit(depId);
+    }
+    
+    temp[nodeId] = false;
+    visited[nodeId] = true;
+    order.push(nodeId);
+  }
+  
+  // Visit all nodes
+  for (const node of nodes) {
+    if (!visited[node.id]) {
+      visit(node.id);
+    }
+  }
+  
+  return order.reverse();
+}
+
 export const applyFilters = (
   sourceImage: HTMLImageElement,
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
-  targetNodeId?: string
+  targetNodeId?: string,
+  clearCache: boolean = false
 ): string | null => {
-  // Clear the cache before each processing run
-  nodeResultCache.clear();
+  // Handle cache control
+  if (clearCache) {
+    nodeResultCache.clear();
+  }
   
   console.log('=== Starting filter processing ===');
   console.log(`Processing with ${nodes.length} nodes and ${edges.length} edges`);
