@@ -499,34 +499,8 @@ export function useFilterGraph() {
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
 
-  // Generate node preview for the selected node
-  const generateNodePreview = useCallback((targetNode: Node) => {
-    if (!sourceImageRef.current) return;
-    
-    try {
-      // Find all nodes and edges in the chain leading to the selected node
-      const nodeChain = getNodeChain(targetNode.id, nodes, edges);
-      
-      // Create a temporary canvas for the preview
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 300;
-      tempCanvas.height = 300;
-      
-      // Process the image through the selected node chain
-      const result = applyFilters(
-        sourceImageRef.current, 
-        nodeChain.nodes, 
-        nodeChain.edges, 
-        tempCanvas
-      );
-      
-      // Set the preview
-      setNodePreview(result);
-    } catch (error) {
-      console.error('Error generating node preview:', error);
-      setNodePreview(null);
-    }
-  }, [nodes, edges, sourceImageRef]);
+  // This function has been replaced by the earlier implementation
+  // of generateNodePreview which returns a preview URL directly
   
   // Gets all nodes and edges in a chain leading to a specific node
   const getNodeChain = (nodeId: string, allNodes: Node[], allEdges: Edge[]) => {
