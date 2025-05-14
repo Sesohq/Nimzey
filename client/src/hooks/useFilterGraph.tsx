@@ -153,13 +153,23 @@ export function useFilterGraph() {
       });
     });
     
-    // Update previews with debounced functions
-    debouncedUpdateAllNodePreviews();
-    debouncedProcessImage();
-  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
+    // Use timeout for preview updates
+    setTimeout(() => {
+      if (updateAllNodePreviewsRef.current) {
+        updateAllNodePreviewsRef.current();
+      }
+      
+      if (processImageRef.current) {
+        processImageRef.current();
+      }
+    }, 150);
+  }, []);
   
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
+    // Clear node from cache since blendMode changed
+    nodeResultCache.delete(nodeId);
+    
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -174,10 +184,24 @@ export function useFilterGraph() {
         return node;
       });
     });
+    
+    // Use timeout for preview updates
+    setTimeout(() => {
+      if (updateAllNodePreviewsRef.current) {
+        updateAllNodePreviewsRef.current();
+      }
+      
+      if (processImageRef.current) {
+        processImageRef.current();
+      }
+    }, 150);
   }, []);
   
   // Handle changing opacity on filter nodes
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
+    // Clear node from cache since opacity changed
+    nodeResultCache.delete(nodeId);
+    
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -192,6 +216,17 @@ export function useFilterGraph() {
         return node;
       });
     });
+    
+    // Use timeout for preview updates
+    setTimeout(() => {
+      if (updateAllNodePreviewsRef.current) {
+        updateAllNodePreviewsRef.current();
+      }
+      
+      if (processImageRef.current) {
+        processImageRef.current();
+      }
+    }, 150);
   }, []);
   
   // Handle removing nodes
