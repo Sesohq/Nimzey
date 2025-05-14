@@ -1,25 +1,35 @@
-import { memo, useState, useMemo, useEffect } from 'react';
+import React, { memo, useState, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { MinusIcon, LayersIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FilterNodeData, BlendMode } from '@/types';
-import NodeControls from './NodeControls';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
+import SimpleNodePreview from './SimpleNodePreview';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [showLargePreview, setShowLargePreview] = useState(false);
   
+  // Get the source image from context
+  const sourceImage = useContext(SourceImageContext);
+  
   // Determine the filter category and get the appropriate color
   const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
   const categoryStyle = useMemo(() => categoryColors[category as keyof typeof categoryColors], [category]);
+  
+  // Create a node object for the preview component
+  const node = useMemo(() => ({
+    id,
+    type: 'filterNode',
+    data,
+    position: { x: 0, y: 0 } // Position is required but not used in the preview
+  }), [id, data]);
   
   const handleToggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,30 +41,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       data.onParamChange(id, paramName, value);
     }
   };
-  
-  // Log when the component renders to check if preview data is available
-  // Display more detailed debugging to track preview data
-  console.log(`FilterNode [${id}] (${data.filterType}) rendering, preview:`,  
-    data.preview ? `valid: ${data.preview.startsWith('data:image/')} length: ${data.preview.length}` : 'missing');
-
-  // Use a different useEffect to create a direct preview if needed
-  const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null);
-
-  // Immediate access to preview from passed props
-  useEffect(() => {
-    if (data.preview && data.preview.startsWith('data:image/')) {
-      console.log(`Using provided preview for ${id} (${data.filterType})`);
-      setInternalPreviewUrl(data.preview);
-    } else {
-      // Missing or invalid preview
-      console.log(`No valid preview found for ${id} (${data.filterType})`);
-      
-      // Reset our internal preview if the external one is no longer valid
-      if (internalPreviewUrl) {
-        setInternalPreviewUrl(null);
-      }
-    }
-  }, [data.preview, id, data.filterType, internalPreviewUrl]);
 
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
@@ -71,6 +57,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const handleOpacityChange = (values: number[]) => {
     if (data.onOpacityChange) {
       data.onOpacityChange(id, values[0] / 100); // Convert percentage to 0-1 scale
+    }
+  };
+  
+  const handleRetryPreview = () => {
+    if (data.onTriggerPreviewUpdate) {
+      console.log(`Manually refreshing preview for ${id} (${data.filterType})`);
+      data.onTriggerPreviewUpdate(id);
     }
   };
 
@@ -101,53 +94,21 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
-          {/* Node Preview Area */}
+          {/* Node Preview Area - Using the DirectNodePreview component */}
           <div 
             className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
             style={{ height: '80px' }}
             onClick={() => setShowLargePreview(!showLargePreview)}
           >
-            {internalPreviewUrl ? (
-              <>
-                <img 
-                  src={internalPreviewUrl} 
-                  alt={`${data.filterType} preview`}
-                  className="max-w-full max-h-full object-contain"
-                  onLoad={() => console.log(`Preview image loaded successfully for ${id} (${data.filterType})`)}
-                  onError={(e) => console.error(`Preview image failed to load for ${id} (${data.filterType})`, e)}
-                />
-              </>
-            ) : (
-              <div 
-                className="text-xs text-gray-500 p-2 text-center flex flex-col items-center justify-center h-full cursor-pointer"
-                onClick={(e) => {
-                  // Prevent opening large preview
-                  e.stopPropagation();
-                  
-                  // Try to manually refresh the preview
-                  console.log(`Manually refreshing preview for ${id} (${data.filterType})`);
-                  
-                  // If we have an onTriggerPreviewUpdate function, call it
-                  if (data.onTriggerPreviewUpdate) {
-                    data.onTriggerPreviewUpdate(id);
-                  }
-                }}
-              >
-                {/* Show loading animation */}
-                <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mb-2"></div>
-                <div>Preview generating...</div>
-                <div className="text-[10px] mt-1 text-gray-400">
-                  {data.filterType} filter
-                </div>
-                <div className="text-[9px] text-blue-500 mt-2">
-                  Click to retry preview
-                </div>
-              </div>
-            )}
+            <DirectNodePreview 
+              node={node} 
+              sourceImage={sourceImage}
+              onRetryClick={handleRetryPreview}
+            />
           </div>
           
           {/* Large preview modal */}
-          {showLargePreview && internalPreviewUrl && (
+          {showLargePreview && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
               <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
                 <div className="flex justify-between items-center mb-2">
@@ -158,13 +119,16 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     </svg>
                   </button>
                 </div>
-                <img 
-                  src={internalPreviewUrl} 
-                  alt={`${data.filterType} preview (large)`}
-                  className="max-w-full" 
-                  onLoad={() => console.log(`Large preview image loaded for ${id}`)}
-                  onError={(e) => console.error(`Large preview image failed to load for ${id}`, e)}
-                />
+                <div style={{ width: '400px', height: '400px' }}>
+                  <DirectNodePreview 
+                    node={{
+                      ...node,
+                      position: { x: 0, y: 0 } // Make sure this is properly set for the large preview too
+                    }}
+                    sourceImage={sourceImage}
+                    onRetryClick={handleRetryPreview}
+                  />
+                </div>
               </div>
             </div>
           )}
