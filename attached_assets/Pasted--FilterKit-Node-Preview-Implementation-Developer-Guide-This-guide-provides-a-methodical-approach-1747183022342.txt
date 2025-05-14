@@ -1,0 +1,269 @@
+# FilterKit Node Preview Implementation - Developer Guide
+
+This guide provides a methodical approach to implementing node previews in FilterKit without breaking existing functionality.
+
+## Overview
+
+We need to add preview windows inside each filter node to show the intermediate state of the image at that point in the processing chain, while maintaining the main preview that shows the final output.
+
+## Implementation Plan
+
+We'll break this down into small, testable steps with specific file changes.
+
+---
+
+## PHASE 1: Add Preview Property to Types
+
+### File: `/types.ts`
+
+**Change 1:** Add `preview` property to the `FilterNodeData` interface:
+
+```typescript
+interface FilterNodeData {
+  label: string;
+  filterType: FilterType;
+  params: FilterParam[];
+  enabled: boolean;
+  blendMode: BlendMode;
+  opacity: number;
+  preview?: string;  // Add this line - Data URL for node preview
+  onParamChange: (nodeId: string, paramName: string, value: number | string) => void;
+  onToggleEnabled: (nodeId: string, enabled: boolean) => void;
+  onBlendModeChange: (nodeId: string, blendMode: BlendMode) => void;
+  onOpacityChange: (nodeId: string, opacity: number) => void;
+  onRemoveNode: (nodeId: string) => void;
+}
+```
+
+**Test:** Verify that the application builds without errors after this change.
+
+---
+
+## PHASE 2: Update Filter Node Component to Display Preview
+
+### File: `/components/FilterNode.tsx` (or wherever your node component is defined)
+
+**Change 1:** Add the preview display area inside the node component:
+
+```tsx
+function FilterNode({ data, id, selected }: NodeProps<FilterNodeData>) {
+  const {
+    label,
+    filterType,
+    params,
+    enabled,
+    preview,  // Get the preview from props
+    onParamChange,
+    onToggleEnabled,
+    onRemoveNode
+  } = data;
+
+  return (
+    <div className={`filter-node ${!enabled ? 'disabled' : ''} ${selected ? 'selected' : ''}`}>
+      <div className="filter-node-header">
+        <div className="filter-node-title">{label}</div>
+        <div className="filter-node-controls">
+          <button
+            className={`toggle-button ${enabled ? 'enabled' : 'disabled'}`}
+            onClick={() => onToggleEnabled(id, !enabled)}
+          >
+            {enabled ? 'ON' : 'OFF'}
+          </button>
+          <button className="remove-button" onClick={() => onRemoveNode(id)}>
+            ×
+          </button>
+        </div>
+      </div>
+      
+      {/* Add Preview Area Here */}
+      <div className="filter-node-preview">
+        {preview ? (
+          <img 
+            src={preview} 
+            alt={`${label} preview`} 
+            className="node-preview-image"
+          />
+        ) : (
+          <div className="node-preview-placeholder">No Preview</div>
+        )}
+      </div>
+      
+      {/* Existing Parameters Section */}
+      <div className="filter-node-params">
+        {params.map((param) => (
+          <div key={param.name} className="param-row">
+            <label>{param.label}</label>
+            <input
+              type="range"
+              min={param.min || 0}
+              max={param.max || 100}
+              step={param.step || 1}
+              value={param.value as number}
+              onChange={(e) => 
+                onParamChange(id, param.name, parseFloat(e.target.value))
+              }
+              disabled={!enabled}
+            />
+            <span className="param-value">
+              {param.value}{param.unit || ''}
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Existing Handles */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ background: '#555' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ background: '#555' }}
+      />
+    </div>
+  );
+}
+```
+
+### File: `/styles/FilterNode.css` (or your CSS file)
+
+**Change 2:** Add CSS for the preview area:
+
+```css
+.filter-node-preview {
+  width: 100%;
+  height: 80px;
+  background-color: #1a1a1a;
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.node-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.node-preview-placeholder {
+  color: #555;
+  font-size: 12px;
+}
+```
+
+**Test:** Verify that nodes display correctly with a "No Preview" placeholder, without breaking the existing layout.
+
+---
+
+## PHASE 3: Modify Filter Processing to Generate Node Previews
+
+### File: `/lib/filterAlgorithms.ts`
+
+**Change 1:** First, add a node result cache if you don't already have one:
+
+```typescript
+// Add at the top of the file
+export const nodeResultCache = new Map<string, HTMLCanvasElement>();
+```
+
+**Change 2:** Modify the `applyFilters` function to support targeting a specific node:
+
+```typescript
+export function applyFilters(
+  sourceImage: HTMLImageElement,
+  nodes: Node[],
+  edges: Edge[],
+  canvas: HTMLCanvasElement,
+  targetNodeId?: string,  // Add this parameter
+  clearCache: boolean = false  // Add this parameter
+): string {
+  // Initialize canvas
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Clear cache if requested
+  if (clearCache) {
+    nodeResultCache.clear();
+  }
+
+  // First, ensure the source image is cached
+  const sourceNode = nodes.find(node => node.type === 'imageNode');
+  if (sourceNode) {
+    // Create a canvas for the source image
+    const sourceCanvas = document.createElement('canvas');
+    sourceCanvas.width = canvas.width;
+    sourceCanvas.height = canvas.height;
+    const sourceCtx = sourceCanvas.getContext('2d');
+    
+    if (sourceCtx) {
+      // Draw the source image to the canvas
+      sourceCtx.drawImage(sourceImage, 0, 0, sourceCanvas.width, sourceCanvas.height);
+      // Store in cache
+      nodeResultCache.set(sourceNode.id, sourceCanvas);
+    }
+  }
+  
+  // If there's a targetNodeId, only process nodes in the chain leading to that node
+  let nodesToProcess = nodes;
+  let edgesToProcess = edges;
+  
+  if (targetNodeId) {
+    // Find all nodes in the chain leading to the target node
+    const result = findChainToNode(targetNodeId, nodes, edges);
+    nodesToProcess = result.nodes;
+    edgesToProcess = result.edges;
+  }
+  
+  // Get a topologically sorted array of node IDs
+  const nodeOrder = getTopologicalOrder(nodesToProcess, edgesToProcess);
+  
+  // Process each node in order
+  for (const nodeId of nodeOrder) {
+    const node = nodesToProcess.find(n => n.id === nodeId);
+    
+    // Skip source nodes and disabled nodes
+    if (!node || node.type === 'imageNode' || !node.data.enabled) {
+      continue;
+    }
+    
+    try {
+      // Process based on node type
+      if (node.type === 'filterNode') {
+        processFilterNode(node, nodes, edges);
+      } else if (node.type === 'blendNode') {
+        processBlendNode(node, nodes, edges);
+      }
+      
+      // If this is the target node, or a leaf node in the full graph and no target is specified,
+      // draw its result to the canvas
+      if (nodeId === targetNodeId || 
+         (!targetNodeId && !edges.some(e => e.source === nodeId))) {
+        // Get the cached result for this node
+        const resultCanvas = nodeResultCache.get(nodeId);
+        if (resultCanvas) {
+          // Draw to the output canvas
+          ctx.drawImage(resultCanvas, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // If we're targeting a specific node, we can stop after processing it
+        if (nodeId === targetNodeId) {
+          break;
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing node ${nodeId}:`, error);
+    }
+  }
+  
+  // Return the data URL of the canvas
+  return canvas.toDataURL();
+}
+```

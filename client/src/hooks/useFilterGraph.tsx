@@ -15,6 +15,21 @@ import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNod
 import { applyFilters, nodeResultCache } from '@/lib/filterAlgorithms';
 import { filterCategories } from '@/lib/filterCategories';
 
+// Utility function for debouncing
+function debounce(func: Function, wait: number) {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return function(...args: any[]) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+    
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 export function useFilterGraph() {
   // State for nodes and edges
   const [nodes, setNodes] = useState<Node[]>([]);
