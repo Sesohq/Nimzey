@@ -622,6 +622,13 @@ export const applyFilters = (
     console.log(`Edge: ${edge.source} -> ${edge.target} (${edge.targetHandle || 'default'})`);
   });
   
+  // Initialize the canvas context
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
   if (!sourceNode) {
@@ -631,40 +638,30 @@ export const applyFilters = (
   
   console.log(`Found source node: ${sourceNode.id}`);
   
-  // If a target node is specified, get the path to it
-  const nodesToProcess = targetNodeId 
-    ? getPathToNode(targetNodeId, nodes, edges)
-    : buildProcessingChain(sourceNode.id, nodes, edges);
-
-  console.log(`Processing chain contains ${nodesToProcess.length} nodes:`);
-  nodesToProcess.forEach(node => {
-    console.log(`- ${node.id} (${node.type})`);
-  });
-
-  if (nodesToProcess.length === 0) {
-    console.warn('No nodes to process!');
-    return null;
-  }
+  // Create a map of node processing order - we'll use a modified topological sort
+  // that respects the node chain we're trying to visualize
+  const processOrder = getNodeProcessingOrder(nodes, edges, targetNodeId);
   
-  // Set up the canvas
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  
-  canvas.width = sourceImage.width;
-  canvas.height = sourceImage.height;
-  
-  // Create a source image canvas and cache it
+  // First, cache the source image
   const sourceCanvas = document.createElement('canvas');
   sourceCanvas.width = canvas.width;
   sourceCanvas.height = canvas.height;
   const sourceCtx = sourceCanvas.getContext('2d');
-  if (!sourceCtx) return null;
   
-  // Draw the source image to the source canvas
-  sourceCtx.drawImage(sourceImage, 0, 0);
+  if (sourceCtx) {
+    // Draw the source image and store in cache
+    sourceCtx.drawImage(sourceImage, 0, 0, sourceCanvas.width, sourceCanvas.height);
+    nodeResultCache.set(sourceNode.id, sourceCanvas);
+  }
   
-  // Store the source node result in the cache
-  nodeResultCache.set(sourceNode.id, sourceCanvas);
+  if (processOrder.length === 0) {
+    console.warn('No nodes to process!');
+    return null;
+  }
+  
+  // Make sure canvas has the right dimensions
+  canvas.width = sourceImage.width;
+  canvas.height = sourceImage.height;
   
   // Create a temporary canvas for operations
   const tempCanvas = document.createElement('canvas');

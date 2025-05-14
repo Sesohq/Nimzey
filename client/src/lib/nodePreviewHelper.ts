@@ -1,7 +1,6 @@
 import { Node, Edge } from 'reactflow';
-import { FilterNodeData, ImageNodeData } from '@/types';
 
-// Cache for storing intermediate node results
+// Cache of node results to avoid recomputing the same filter chain
 export const nodeResultCache = new Map<string, HTMLCanvasElement>();
 
 // Helper function to check if a node is in the chain for a target node
@@ -25,228 +24,111 @@ export function isNodeInChain(nodeId: string, targetNodeId: string, nodes: Node[
   const queue = [nodeId];
   
   while (queue.length > 0) {
-    const currentId = queue.shift()!;
-    visited.add(currentId);
+    const current = queue.shift()!;
     
-    // If we found the target node, return true
-    if (currentId === targetNodeId) {
-      return true;
-    }
+    if (current === targetNodeId) return true;
+    if (visited.has(current)) continue;
     
-    // Add all unvisited dependents to the queue
-    for (const dependent of dependents[currentId] || []) {
+    visited.add(current);
+    
+    dependents[current]?.forEach(dependent => {
       if (!visited.has(dependent)) {
         queue.push(dependent);
       }
-    }
+    });
   }
   
   return false;
 }
 
-// Check if a node is a leaf node (no outgoing edges)
+// Helper function to determine if a node is a leaf node (has no outgoing edges)
 export function isLeafNode(nodeId: string, edges: Edge[]): boolean {
   return !edges.some(edge => edge.source === nodeId);
 }
 
-// Get the processing order for nodes
+// Function to determine processing order for nodes
 export function getNodeProcessingOrder(nodes: Node[], edges: Edge[], targetNodeId?: string): string[] {
-  // If we have a target node, start from that node and work backwards
   if (targetNodeId) {
-    // Get all nodes in the chain leading to the target
-    const chain = new Set<string>();
-    const visited = new Set<string>();
-    const stack = [targetNodeId];
+    // If a target node is specified, process only the nodes in the path to it
+    // Use topological sort to ensure proper processing order
+    const sorted = topologicalSort(nodes, edges);
     
-    while (stack.length > 0) {
-      const nodeId = stack.pop()!;
-      chain.add(nodeId);
-      visited.add(nodeId);
-      
-      // Find all edges pointing to this node
-      const incomingEdges = edges.filter(edge => edge.target === nodeId);
-      for (const edge of incomingEdges) {
-        if (!visited.has(edge.source)) {
-          stack.push(edge.source);
-        }
-      }
-    }
-    
-    // Now do a topological sort on just these nodes
-    return topologicalSort(nodes.filter(node => chain.has(node.id)), edges);
+    // Filter out only the nodes that are in the path to the target
+    return sorted.filter(nodeId => {
+      const node = nodes.find(n => n.id === nodeId);
+      return node && (node.type === 'imageNode' || isNodeInChain(nodeId, targetNodeId, nodes, edges));
+    });
+  } else {
+    // If no target node, process all nodes in topological order
+    return topologicalSort(nodes, edges);
   }
-  
-  // Otherwise, do a normal topological sort
-  return topologicalSort(nodes, edges);
 }
 
-// Topological sort for nodes
+// Topological sort implementation
 export function topologicalSort(nodes: Node[], edges: Edge[]): string[] {
-  // Build dependency graph
+  const sorted: string[] = [];
+  const visited = new Set<string>();
+  const temp = new Set<string>();
+  
+  // Build adjacency list
   const graph: Record<string, string[]> = {};
   nodes.forEach(node => {
     graph[node.id] = [];
   });
   
   edges.forEach(edge => {
-    if (graph[edge.target]) {
-      graph[edge.target].push(edge.source);
+    if (graph[edge.source]) {
+      graph[edge.source].push(edge.target);
     }
   });
   
-  // Topological sort
-  const visited: Record<string, boolean> = {};
-  const temp: Record<string, boolean> = {};
-  const order: string[] = [];
-  
+  // Visit function for DFS
   function visit(nodeId: string) {
-    if (visited[nodeId]) return;
-    if (temp[nodeId]) return; // Cycle detected
-    
-    temp[nodeId] = true;
-    
-    for (const depId of graph[nodeId] || []) {
-      visit(depId);
+    if (temp.has(nodeId)) {
+      // Cycle detected, skip this node
+      return;
     }
     
-    temp[nodeId] = false;
-    visited[nodeId] = true;
-    order.push(nodeId);
+    if (visited.has(nodeId)) {
+      return;
+    }
+    
+    temp.add(nodeId);
+    
+    graph[nodeId]?.forEach(neighbor => {
+      visit(neighbor);
+    });
+    
+    temp.delete(nodeId);
+    visited.add(nodeId);
+    sorted.unshift(nodeId);
   }
   
-  // Visit all nodes
-  for (const node of nodes) {
-    if (!visited[node.id]) {
+  // Start with the source node
+  const sourceNode = nodes.find(node => node.type === 'imageNode');
+  if (sourceNode) {
+    visit(sourceNode.id);
+  }
+  
+  // Process any remaining nodes that weren't visited
+  nodes.forEach(node => {
+    if (!visited.has(node.id)) {
       visit(node.id);
     }
-  }
+  });
   
-  return order.reverse();
+  return sorted;
 }
 
-// Function to generate a preview for a specific node
+// Helper function to generate a node preview
 export function generateNodePreview(
-  sourceImage: HTMLImageElement | null,
+  sourceImage: HTMLImageElement,
   nodes: Node[],
   edges: Edge[],
+  canvas: HTMLCanvasElement,
   targetNodeId: string,
   clearCache: boolean = false
 ): string | null {
-  if (!sourceImage) return null;
-
-  // Create a small canvas for the preview
-  const previewCanvas = document.createElement('canvas');
-  previewCanvas.width = 150; // Small size for preview
-  previewCanvas.height = 150;
-  
-  const ctx = previewCanvas.getContext('2d');
-  if (!ctx) return null;
-  
-  // Handle cache control
-  if (clearCache) {
-    nodeResultCache.clear();
-  }
-  
-  // Find the source node
-  const sourceNode = nodes.find(node => node.type === 'imageNode');
-  if (!sourceNode) return null;
-  
-  // Create a source canvas with the image
-  const sourceCanvas = document.createElement('canvas');
-  sourceCanvas.width = previewCanvas.width;
-  sourceCanvas.height = previewCanvas.height;
-  const sourceCtx = sourceCanvas.getContext('2d');
-  
-  if (!sourceCtx) return null;
-  
-  // Draw the source image to the source canvas
-  sourceCtx.drawImage(sourceImage, 0, 0, sourceCanvas.width, sourceCanvas.height);
-  
-  // Cache the source image
-  nodeResultCache.set(sourceNode.id, sourceCanvas);
-  
-  // Get the processing order for the target node
-  const processOrder = getNodeProcessingOrder(nodes, edges, targetNodeId);
-  
-  // Process each node in order
-  for (const nodeId of processOrder) {
-    // Skip if not needed for this preview
-    if (!isNodeInChain(nodeId, targetNodeId, nodes, edges)) {
-      continue;
-    }
-    
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node || node.type === 'imageNode' || (node.data.enabled === false)) {
-      continue;
-    }
-    
-    try {
-      // For different node types, process them accordingly
-      // This is a simplified version - in a real implementation,
-      // you'd handle each type appropriately
-      
-      // For texture generators, create directly
-      if (node.type === 'textureGenerator') {
-        const resultCanvas = document.createElement('canvas');
-        resultCanvas.width = previewCanvas.width;
-        resultCanvas.height = previewCanvas.height;
-        const resultCtx = resultCanvas.getContext('2d');
-        
-        if (resultCtx) {
-          // Fill with a default color or pattern
-          // In practice, you'd generate the texture here
-          resultCtx.fillStyle = '#ffffff';
-          resultCtx.fillRect(0, 0, resultCanvas.width, resultCanvas.height);
-          
-          // Store in cache
-          nodeResultCache.set(nodeId, resultCanvas);
-        }
-        continue;
-      }
-      
-      // Find input nodes
-      const incomingEdges = edges.filter(edge => edge.target === nodeId);
-      
-      // If no inputs, skip
-      if (incomingEdges.length === 0) continue;
-      
-      // Get input canvas (simplified, in reality you'd handle multiple inputs)
-      let inputCanvas = null;
-      for (const edge of incomingEdges) {
-        if (nodeResultCache.has(edge.source)) {
-          inputCanvas = nodeResultCache.get(edge.source);
-          break;
-        }
-      }
-      
-      if (!inputCanvas) continue;
-      
-      // Create result canvas
-      const resultCanvas = document.createElement('canvas');
-      resultCanvas.width = previewCanvas.width;
-      resultCanvas.height = previewCanvas.height;
-      const resultCtx = resultCanvas.getContext('2d');
-      
-      if (!resultCtx) continue;
-      
-      // Copy input to result
-      resultCtx.drawImage(inputCanvas, 0, 0);
-      
-      // Apply the filter (simplified)
-      // In practice, you'd properly apply the filter based on node type and parameters
-      
-      // Store result in cache
-      nodeResultCache.set(nodeId, resultCanvas);
-      
-      // If this is our target node, we're done
-      if (nodeId === targetNodeId) {
-        ctx.drawImage(resultCanvas, 0, 0);
-      }
-    } catch (error) {
-      console.error(`Error processing node ${nodeId} for preview:`, error);
-    }
-  }
-  
-  // Return the preview as a data URL
-  return previewCanvas.toDataURL();
+  // TODO: Implement this function based on applyFilters
+  return null;
 }

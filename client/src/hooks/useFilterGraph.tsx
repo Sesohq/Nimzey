@@ -108,33 +108,61 @@ export function useFilterGraph() {
     }, 10);
   }, [nodes, edges]);
   
+  // Function to update a node's preview in state
+  const updateNodePreviewInState = useCallback((nodeId: string, previewUrl: string) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId ? { ...node, data: { ...node.data, preview: previewUrl } } : node
+      )
+    );
+  }, []);
+  
   // Add a function to update a specific node's preview
   const updateNodePreview = useCallback((nodeId: string) => {
     if (!sourceImageRef.current) return;
     
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
-    
-    // Import the function from nodePreviewHelper
-    import('@/lib/nodePreviewHelper').then(({ generateNodePreview }) => {
-      // Generate the preview for this node
-      const previewUrl = generateNodePreview(
+    // Use the updateNodePreview function from nodePreviewGenerator
+    import('../lib/nodePreviewGenerator').then(({ updateNodePreview }) => {
+      updateNodePreview(
         sourceImageRef.current,
         nodes,
         edges,
-        nodeId
+        nodeId,
+        updateNodePreviewInState
       );
-      
-      // Update the node with its preview
-      if (previewUrl) {
-        setNodes(prevNodes => 
-          prevNodes.map(n => 
-            n.id === nodeId ? { ...n, data: { ...n.data, preview: previewUrl } } : n
-          )
-        );
-      }
     });
-  }, [nodes, edges, sourceImageRef]);
+  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
+  
+  // Add a function to update all node previews
+  const updateAllNodePreviews = useCallback(() => {
+    if (!sourceImageRef.current) return;
+    
+    // Use the updateAllNodePreviews function from nodePreviewGenerator
+    import('../lib/nodePreviewGenerator').then(({ updateAllNodePreviews }) => {
+      updateAllNodePreviews(
+        sourceImageRef.current,
+        nodes,
+        edges,
+        updateNodePreviewInState
+      );
+    });
+  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
+  
+  // Add a function to update previews affected by a parameter change
+  const updatePreviewsAfterParamChange = useCallback((changedNodeId: string) => {
+    if (!sourceImageRef.current) return;
+    
+    // Use the updatePreviewsAfterParamChange function from nodePreviewGenerator
+    import('../lib/nodePreviewGenerator').then(({ updatePreviewsAfterParamChange }) => {
+      updatePreviewsAfterParamChange(
+        sourceImageRef.current,
+        nodes,
+        edges,
+        changedNodeId,
+        updateNodePreviewInState
+      );
+    });
+  }, [nodes, edges, sourceImageRef, updateNodePreviewInState]);
   
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
@@ -158,7 +186,7 @@ export function useFilterGraph() {
       updateNodePreview(nodeId);
       processImage();
     }, 10);
-  }, [updateNodePreview]);
+  }, [updateNodePreview, processImage]);
   
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
@@ -182,7 +210,7 @@ export function useFilterGraph() {
       updateNodePreview(nodeId);
       processImage();
     }, 10);
-  }, [updateNodePreview]);
+  }, [updateNodePreview, processImage]);
   
   // Handle changing opacity on filter nodes
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
@@ -206,7 +234,7 @@ export function useFilterGraph() {
       updateNodePreview(nodeId);
       processImage();
     }, 10);
-  }, [updateNodePreview]);
+  }, [updateNodePreview, processImage]);
   
   // Handle removing nodes
   const handleRemoveNode = useCallback((nodeId: string) => {
