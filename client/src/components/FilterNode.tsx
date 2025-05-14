@@ -1,4 +1,4 @@
-import React, { memo, useState, useMemo } from 'react';
+import React, { memo, useState, useMemo, useEffect } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -12,24 +12,35 @@ import { Separator } from '@/components/ui/separator';
 import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
 import SimpleNodePreview from './SimpleNodePreview';
 
+// Import the context from a separate file to avoid Hot Module Replacement issues
+import { SourceImageContext } from './ContextProviders';
+
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [showLargePreview, setShowLargePreview] = useState(false);
+  const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   
-  // Get the source image from context
-  const sourceImage = useContext(SourceImageContext);
+  // Load the global source image once it's set in the app
+  useEffect(() => {
+    // Create an image loader
+    const loadSourceImage = () => {
+      // If we already have the app-level source image URL
+      if (data.preview && data.preview.startsWith('data:image/')) {
+        // Create a new image
+        const img = new Image();
+        img.onload = () => {
+          setSourceImage(img);
+        };
+        img.src = data.preview;
+      }
+    };
+    
+    loadSourceImage();
+  }, [data.preview]);
   
   // Determine the filter category and get the appropriate color
   const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
   const categoryStyle = useMemo(() => categoryColors[category as keyof typeof categoryColors], [category]);
-  
-  // Create a node object for the preview component
-  const node = useMemo(() => ({
-    id,
-    type: 'filterNode',
-    data,
-    position: { x: 0, y: 0 } // Position is required but not used in the preview
-  }), [id, data]);
   
   const handleToggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -94,14 +105,16 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
-          {/* Node Preview Area - Using the DirectNodePreview component */}
+          {/* Node Preview Area - Using the SimpleNodePreview component */}
           <div 
             className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
             style={{ height: '80px' }}
             onClick={() => setShowLargePreview(!showLargePreview)}
           >
-            <DirectNodePreview 
-              node={node} 
+            <SimpleNodePreview 
+              nodeId={id}
+              nodeType="filterNode"
+              nodeData={data}
               sourceImage={sourceImage}
               onRetryClick={handleRetryPreview}
             />
@@ -120,13 +133,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   </button>
                 </div>
                 <div style={{ width: '400px', height: '400px' }}>
-                  <DirectNodePreview 
-                    node={{
-                      ...node,
-                      position: { x: 0, y: 0 } // Make sure this is properly set for the large preview too
-                    }}
-                    sourceImage={sourceImage}
+                  <SimpleNodePreview 
+                    nodeId={id}
+                    nodeType="filterNode"
+                    nodeData={data}
+                    sourceImage={data.sourceImage || null}
                     onRetryClick={handleRetryPreview}
+                    size={{ width: 400, height: 400 }}
                   />
                 </div>
               </div>
