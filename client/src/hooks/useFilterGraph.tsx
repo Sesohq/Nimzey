@@ -656,16 +656,143 @@ export function useFilterGraph() {
     processImage();
   }, [nodes, processImage]);
   
+  // Function for initializing a basic workflow with a source node and result node
+  // Defined early to avoid circular references
+  const initializeBasicWorkflow = useCallback(() => {
+    console.log("Initializing basic workflow");
+    
+    // Clear everything first
+    setNodes([]);
+    setEdges([]);
+    
+    // Add source node
+    const sourceId = 'source-1';
+    const sourceNodeData: ImageNodeData = {
+      src: sourceImage,
+      onUploadImage: (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            setSourceImage(e.target.result as string);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    const sourceNode: Node<ImageNodeData> = {
+      id: sourceId,
+      type: 'imageNode',
+      position: { x: 100, y: 200 },
+      data: sourceNodeData,
+    };
+    
+    console.log("Created source node:", sourceNode);
+    
+    // Add result node
+    const resultId = `result-${uuidv4().substring(0, 8)}`;
+    console.log("Creating result node with ID:", resultId);
+    
+    const resultNodeData: FilterNodeData = {
+      label: 'Result',
+      filterType: 'result',
+      params: [],
+      enabled: true,
+      blendMode: 'normal',
+      opacity: 1,
+      onParamChange: handleParamChange,
+      onToggleEnabled: handleToggleEnabled,
+      onBlendModeChange: handleBlendModeChange,
+      onOpacityChange: handleOpacityChange,
+      onRemoveNode: () => handleRemoveNode(resultId)
+    };
+    
+    const resultNode: Node<FilterNodeData> = {
+      id: resultId,
+      type: 'resultNode',
+      position: { x: 600, y: 200 },
+      data: {
+        ...resultNodeData,
+        // If we have a source image, set it as the initial preview
+        preview: sourceImage
+      },
+    };
+    
+    // Force the result node to have a valid preview
+    if (!resultNode.data.preview && sourceImage) {
+      resultNode.data.preview = sourceImage;
+    }
+    
+    console.log("Created result node:", resultNode);
+    
+    // Create a default edge connecting source to result
+    const defaultEdge: Edge = {
+      id: `edge-${sourceId}-${resultId}`,
+      source: sourceId,
+      target: resultId,
+      sourceHandle: null, // Source node output
+      targetHandle: 'input', // Result node input
+      animated: true,
+      style: { stroke: '#888' },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#888',
+      },
+      data: {
+        label: 'Source → Result'
+      }
+    };
+    
+    // Add both nodes and the connecting edge to canvas
+    setNodes([sourceNode, resultNode]);
+    setEdges([defaultEdge]);
+    
+    // Force immediate processing to update the Result node preview
+    setTimeout(() => {
+      if (sourceImage) {
+        // Set the processed image to be the source image initially
+        setProcessedImage(sourceImage);
+        
+        // Update all Result nodes with the source image - use direct node update
+        setNodes(prevNodes => prevNodes.map(node => {
+          if (node.type === 'resultNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                preview: sourceImage
+              }
+            };
+          }
+          return node;
+        }));
+      }
+    }, 100);
+  }, [sourceImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
+  
   // Upload an image
   const uploadImage = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
+        // First set the source image
         setSourceImage(e.target.result as string);
+        
+        // Force a workflow initialization if needed
+        setTimeout(() => {
+          // Check if we need to initialize the workflow
+          if (nodes.length === 0 || !nodes.some(n => n.type === 'resultNode')) {
+            console.log("No nodes or result node found - initializing workflow");
+            initializeBasicWorkflow();
+          } else {
+            // Just process the image with the existing nodes
+            processImage();
+          }
+        }, 100);
       }
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [nodes, initializeBasicWorkflow, processImage]);
   
   // Export the processed image
   const exportImage = useCallback((format = 'png', quality = 1) => {
@@ -738,13 +865,18 @@ export function useFilterGraph() {
     const resultNode: Node<FilterNodeData> = {
       id: resultId,
       type: 'resultNode',
-      position: { x: 500, y: 200 },
+      position: { x: 600, y: 200 },
       data: {
         ...resultNodeData,
         // If we have a source image, set it as the initial preview
         preview: sourceImage
       },
     };
+    
+    // Force the result node to have a valid preview
+    if (!resultNode.data.preview && sourceImage) {
+      resultNode.data.preview = sourceImage;
+    }
     
     console.log("Created result node:", resultNode);
     
@@ -769,6 +901,29 @@ export function useFilterGraph() {
     // Add both nodes and the connecting edge to canvas
     setNodes([sourceNode, resultNode]);
     setEdges([defaultEdge]);
+    
+    // Force immediate processing to update the Result node preview
+    setTimeout(() => {
+      if (sourceImage) {
+        // Set the processed image to be the source image initially
+        setProcessedImage(sourceImage);
+        
+        // Update all Result nodes with the source image
+        const resultNodes = [resultNode].filter(node => node.type === 'resultNode');
+        console.log(`Updating ${resultNodes.length} result nodes with source image during initialization`);
+        
+        resultNodes.forEach(node => {
+          if (node.type === 'resultNode' && sourceImage) {
+            // Update the node directly
+            setNodes(prevNodes => prevNodes.map(n => 
+              n.id === node.id 
+                ? { ...n, data: { ...n.data, preview: sourceImage } } 
+                : n
+            ));
+          }
+        });
+      }
+    }, 100);
   }, [sourceImage, uploadImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
   
   // Initialize the graph with a source image node and result node
