@@ -27,7 +27,7 @@ const nodeTypes: NodeTypes = {
   imageNode: ImageNode,
   blendNode: BlendNode,
   customNode: CustomNode,
-  noiseGenerator: NoiseGeneratorNode
+  textureGenerator: NoiseGeneratorNode
 };
 
 interface NodeCanvasProps {

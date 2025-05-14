@@ -18,8 +18,8 @@ export type FilterType =
   | 'motionBlur'
   | 'noiseDistortion'
   | 'refraction'
-  // Generate texture node (renamed from textureGenerator)
-  | 'noiseGenerator'
+  // Generate texture node
+  | 'textureGenerator'
   // Compositing node types
   | 'mask'
   | 'multiply'
