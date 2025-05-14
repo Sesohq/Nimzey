@@ -410,21 +410,35 @@ export function useFilterGraph() {
   
   // Helper function to update all Result nodes with the processed image
   const updateResultNodePreviews = useCallback((imageUrl: string | null) => {
-    if (!imageUrl) return;
+    if (!imageUrl) {
+      console.log("Cannot update Result nodes - no image URL provided");
+      return;
+    }
     
-    setNodes(prevNodes => prevNodes.map(node => {
-      // Check if this is a Result node
-      if (node.type === 'resultNode') {
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            preview: imageUrl
-          }
-        };
-      }
-      return node;
-    }));
+    console.log(`Updating Result nodes with image (starts with: ${imageUrl.substring(0, 30)}...)`);
+    
+    let resultNodesCount = 0;
+    
+    setNodes(prevNodes => {
+      const updatedNodes = prevNodes.map(node => {
+        // Check if this is a Result node
+        if (node.type === 'resultNode') {
+          resultNodesCount++;
+          console.log(`Updating Result node: ${node.id}`);
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              preview: imageUrl
+            }
+          };
+        }
+        return node;
+      });
+      
+      console.log(`Updated ${resultNodesCount} Result nodes`);
+      return updatedNodes;
+    });
   }, []);
   
   // Process the entire image with all filter nodes
@@ -440,6 +454,8 @@ export function useFilterGraph() {
     }
     
     try {
+      let finalResult: string | null = null;
+      
       // If a node is selected, only process nodes in that chain
       if (selectedNodeId) {
         const selectedNode = nodes.find(node => node.id === selectedNodeId);
@@ -456,28 +472,31 @@ export function useFilterGraph() {
           );
           
           // Process the image
-          const result = applyFilters(
+          finalResult = applyFilters(
             sourceImageRef.current,
             allNodesToProcess,
             relevantEdges,
             exportCanvasRef.current
           );
           
-          setProcessedImage(result);
+          setProcessedImage(finalResult);
         }
       } else {
         // Process the full graph
-        const result = applyFilters(
+        finalResult = applyFilters(
           sourceImageRef.current,
           nodes,
           edges,
           exportCanvasRef.current
         );
         
-        setProcessedImage(result);
-        
-        // Update all Result nodes with the processed image
-        updateResultNodePreviews(result);
+        setProcessedImage(finalResult);
+      }
+
+      // Always update Result nodes with the final processed image
+      if (finalResult) {
+        console.log("Updating Result nodes with processed image");
+        updateResultNodePreviews(finalResult);
       }
     } catch (error) {
       console.error('Error processing image:', error);

@@ -81,7 +81,9 @@ export default function NodeCanvas({
       });
       
       // Clear the focused node
-      onNodeClick('');
+      if (typeof onNodeClick === 'function') {
+        onNodeClick('');
+      }
     }
   };
 
@@ -101,7 +103,13 @@ export default function NodeCanvas({
       onNodesChange([{ type: 'select', id: node.id, selected: updatedNode.selected }]);
     } else {
       // Single select mode - normal behavior
-      onNodeClick(node.id);
+      if (typeof onNodeClick === 'function') {
+        onNodeClick(node.id);
+      } else {
+        console.warn('onNodeClick is not a function or is undefined');
+        // Fall back to just selecting the node
+        onNodesChange([{ type: 'select', id: node.id, selected: true }]);
+      }
     }
   };
 

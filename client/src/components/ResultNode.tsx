@@ -13,10 +13,16 @@ const ResultNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   // Update preview image when data changes
   useEffect(() => {
+    console.log("ResultNode: Preview data updated", data.preview ? "has preview" : "no preview");
     if (data.preview) {
       setPreviewImage(data.preview);
     }
   }, [data.preview]);
+  
+  // Log when the component mounts or updates
+  useEffect(() => {
+    console.log("ResultNode rendered. Has preview:", !!previewImage);
+  }, [previewImage]);
   
   return (
     <div className={cn(
