@@ -685,7 +685,7 @@ export function useFilterGraph() {
     if (sourceImage && nodes.length === 0) {
       initializeBasicWorkflow();
     }
-  }, [sourceImage, nodes, initializeBasicWorkflow]);
+  }, [sourceImage, nodes.length, initializeBasicWorkflow]);
   
   // Update source image node when source image changes
   useEffect(() => {

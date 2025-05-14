@@ -9,6 +9,8 @@ import CreateCustomNodeDialog from '@/components/CreateCustomNodeDialog';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
 
 export default function Home() {
+  const filterGraph = useFilterGraph();
+  
   const {
     nodes,
     edges,
@@ -32,7 +34,7 @@ export default function Home() {
     nodePreview,
     loadPreset,
     addResultNode
-  } = useFilterGraph();
+  } = filterGraph;
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
