@@ -86,20 +86,24 @@ export function useFilterGraph() {
   
   // Handle parameter changes and preview updates on filter nodes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
+    // Skip regular processing if this is just a preview update
+    if (paramName === 'preview') {
+      setNodes(prevNodes => 
+        prevNodes.map(node => 
+          node.id === nodeId ? { ...node, data: { ...node.data, preview: value as string } } : node
+        )
+      );
+      return;
+    }
+    
+    // For regular parameter updates, clear node cache entry
+    console.log(`Clearing cache for node ${nodeId} due to parameter change`);
+    nodeResultCache.delete(nodeId);
+    
+    // Update the node parameters
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
-          // Handle special case for preview updates
-          if (paramName === 'preview') {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                preview: value as string,
-              },
-            };
-          }
-          // Regular parameter update
           return {
             ...node,
             data: {
@@ -114,16 +118,21 @@ export function useFilterGraph() {
       });
     });
     
-    // After parameter changes, trigger processing if this isn't a preview update
-    if (paramName !== 'preview' && processImageRef.current) {
-      setTimeout(() => {
-        processImageRef.current?.();
-      }, 100);
-    }
-  }, []);
+    // Use debounced functions for better performance
+    console.log(`Parameter ${paramName} changed for node ${nodeId}, triggering debounced updates`);
+    
+    // First update just this node's preview
+    debouncedUpdateAllNodePreviews();
+    
+    // Then update the main preview
+    debouncedProcessImage();
+  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
   
   // Handle toggling filter nodes on/off
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
+    // Clear node from cache since its enabled state changed
+    nodeResultCache.delete(nodeId);
+    
     setNodes((prevNodes) => {
       return prevNodes.map((node) => {
         if (node.id === nodeId) {
@@ -138,7 +147,11 @@ export function useFilterGraph() {
         return node;
       });
     });
-  }, []);
+    
+    // Update previews with debounced functions
+    debouncedUpdateAllNodePreviews();
+    debouncedProcessImage();
+  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
   
   // Handle changing blend mode on filter nodes
   const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
@@ -673,10 +686,28 @@ export function useFilterGraph() {
     }
   }, [nodes, edges, sourceImageRef, setNodes]);
   
-  // Store the reference to use in processImage
+  // Create debounced versions of our functions
+  const debouncedUpdateAllNodePreviews = useCallback(
+    debounce(() => {
+      console.log("Debounced update of all node previews triggered");
+      updateAllNodePreviews();
+    }, 150), // 150ms delay for better performance
+    [updateAllNodePreviews]
+  );
+
+  const debouncedProcessImage = useCallback(
+    debounce(() => {
+      console.log("Debounced process image triggered");
+      processImage();
+    }, 150), // 150ms delay for better performance
+    [processImage]
+  );
+
+  // Store references to our update functions 
   useEffect(() => {
-    updateAllNodePreviewsRef.current = updateAllNodePreviews;
-  }, [updateAllNodePreviews]);
+    updateAllNodePreviewsRef.current = debouncedUpdateAllNodePreviews;
+    processImageRef.current = debouncedProcessImage;
+  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
   
   // Effect to update selected node preview for the main panel
   useEffect(() => {
