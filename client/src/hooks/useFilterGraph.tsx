@@ -66,7 +66,19 @@ export function useFilterGraph() {
   
   // Handle node click
   const onNodeClick = useCallback((nodeId: string) => {
-    setSelectedNodeId((currentSelectedId) => (currentSelectedId === nodeId ? null : nodeId));
+    console.log('Node clicked:', nodeId);
+    setSelectedNodeId((currentSelectedId) => {
+      const newSelectedId = currentSelectedId === nodeId ? null : nodeId;
+      
+      // Schedule processing to update previews after state updates
+      setTimeout(() => {
+        if (processImageRef.current) {
+          processImageRef.current();
+        }
+      }, 10);
+      
+      return newSelectedId;
+    });
   }, []);
   
   // Handle parameter changes on filter nodes
