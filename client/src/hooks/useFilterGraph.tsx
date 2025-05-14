@@ -191,29 +191,53 @@ export function useFilterGraph() {
     }, 10);
   }, [nodes, edges]);
   
-  // Function to update a specific node's preview
-  const updateNodePreview = useCallback((nodeId: string) => {
-    if (!sourceImageRef.current) return;
+  // Function to generate a preview for a specific node
+  const generateNodePreview = useCallback((targetNode: Node) => {
+    if (!sourceImageRef.current) return null;
     
+    try {
+      // Create a small canvas for the preview
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = 150; // Small size for preview
+      previewCanvas.height = 150;
+      const previewCtx = previewCanvas.getContext('2d');
+      if (!previewCtx) return null;
+      
+      // Clear the canvas
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      
+      // Find all nodes in the chain leading to this node
+      let nodeChain = [];
+      
+      // For image nodes, just use the source image
+      if (targetNode.type === 'imageNode') {
+        previewCtx.drawImage(sourceImageRef.current, 0, 0, previewCanvas.width, previewCanvas.height);
+        return previewCanvas.toDataURL();
+      }
+      
+      // For filter nodes and blend nodes, we need to process the filter chain
+      // Use existing applyFilters function but with a different canvas size
+      const previewUrl = applyFilters(
+        sourceImageRef.current,
+        nodes,
+        edges,
+        previewCanvas,
+        targetNode.id
+      );
+      
+      return previewUrl;
+    } catch (error) {
+      console.error('Error generating node preview:', error);
+      return null;
+    }
+  }, [nodes, edges, sourceImageRef]);
+  
+  // Function to update a node's preview
+  const updateNodePreview = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     
-    // Create a small canvas for the preview
-    const previewCanvas = document.createElement('canvas');
-    previewCanvas.width = 150; // Small size for preview
-    previewCanvas.height = 150;
-    
-    // Process the image chain leading to this node
-    const previewUrl = applyFilters(
-      sourceImageRef.current,
-      nodes,
-      edges,
-      previewCanvas,
-      nodeId, // Target this specific node
-      false   // Don't clear cache
-    );
-    
-    // Update the node with its preview
+    const previewUrl = generateNodePreview(node);
     if (previewUrl) {
       setNodes(prevNodes => 
         prevNodes.map(n => 
@@ -221,17 +245,13 @@ export function useFilterGraph() {
         )
       );
     }
-  }, [nodes, edges, sourceImageRef]);
+  }, [nodes, generateNodePreview]);
   
   // Function to update all node previews
   const updateAllNodePreviews = useCallback(() => {
-    if (!sourceImageRef.current) return;
-    
-    // Update previews for all filter/blend nodes
+    // Update previews for all nodes
     nodes.forEach(node => {
-      if (node.type !== 'imageNode') {
-        updateNodePreview(node.id);
-      }
+      updateNodePreview(node.id);
     });
   }, [nodes, updateNodePreview]);
   
