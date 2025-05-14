@@ -137,7 +137,7 @@ export default function Home() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={(nodeId) => filterGraph.onNodeClick(nodeId)}
+          onNodeClick={onNodeClick}
           selectedNodeId={selectedNodeId}
           zoomIn={zoomIn}
           zoomOut={zoomOut}
