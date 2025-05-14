@@ -13,20 +13,64 @@ export function generateNodePreview(
   // Create a small canvas for the preview
   const previewCanvas = document.createElement('canvas');
   
-  // Use a smaller size for preview to improve performance
-  previewCanvas.width = 150;
-  previewCanvas.height = 150;
+  // Use a smaller size for preview to improve performance while maintaining aspect ratio
+  const aspectRatio = sourceImage.width / sourceImage.height;
+  const previewWidth = 150;
+  const previewHeight = previewWidth / aspectRatio;
   
-  // Generate the preview by using the existing applyFilters function
-  // but targeting only the specific node and its dependencies
-  return applyFilters(
-    sourceImage,
-    nodes,
-    edges,
-    previewCanvas,
-    targetNodeId,  // Target the specific node
-    false          // Don't clear the cache
-  );
+  previewCanvas.width = previewWidth;
+  previewCanvas.height = previewHeight;
+  
+  // Get the context
+  const ctx = previewCanvas.getContext('2d');
+  if (!ctx) return null;
+  
+  // Clear the canvas
+  ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  
+  // Create a temporary canvas for processing
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = previewWidth;
+  tempCanvas.height = previewHeight;
+  const tempCtx = tempCanvas.getContext('2d');
+  if (!tempCtx) return null;
+  
+  // Draw the source image onto the temp canvas first, scaled to the preview size
+  tempCtx.drawImage(sourceImage, 0, 0, previewWidth, previewHeight);
+  
+  // Get the node processing order specific to this target
+  const processOrder = getNodeProcessingOrder(nodes, edges, targetNodeId);
+  
+  // Find the source node
+  const sourceNode = nodes.find(node => node.type === 'imageNode');
+  if (!sourceNode) return null;
+  
+  // First, cache the source image
+  nodeResultCache.set(sourceNode.id, tempCanvas.cloneNode(true) as HTMLCanvasElement);
+  
+  // Process each node in order
+  for (const nodeId of processOrder) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) continue;
+    
+    // Only process the node if it's in the path to the target
+    if (nodeId === sourceNode.id || isNodeInChain(nodeId, targetNodeId, nodes, edges)) {
+      // TODO: Process the node based on its type (similar to applyFilters function)
+      // This will require specific node processing logic
+    }
+  }
+  
+  // Draw the final result to the preview canvas
+  if (nodeResultCache.has(targetNodeId)) {
+    const resultCanvas = nodeResultCache.get(targetNodeId)!;
+    ctx.drawImage(resultCanvas, 0, 0, previewWidth, previewHeight);
+  } else {
+    // If no result for the target node, draw the source image as fallback
+    ctx.drawImage(sourceImage, 0, 0, previewWidth, previewHeight);
+  }
+  
+  // Return the data URL for the preview
+  return previewCanvas.toDataURL('image/png');
 }
 
 // Function to update previews for all nodes

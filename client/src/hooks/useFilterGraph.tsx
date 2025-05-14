@@ -11,9 +11,9 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '@/types';
-import { applyFilters } from '@/lib/filterAlgorithms';
-import { filterCategories } from '@/lib/filterCategories';
+import { FilterNodeData, FilterType, Filter, BlendMode, ImageNodeData, CustomNodeData, DbCustomNodeData } from '../types';
+import { applyFilters } from '../lib/filterAlgorithms';
+import { filterCategories } from '../lib/filterCategories';
 
 export function useFilterGraph() {
   // State for nodes and edges
@@ -123,8 +123,9 @@ export function useFilterGraph() {
     
     // Use the updateNodePreview function from nodePreviewGenerator
     import('../lib/nodePreviewGenerator').then(({ updateNodePreview }) => {
+      // We already checked that sourceImageRef.current is not null above
       updateNodePreview(
-        sourceImageRef.current,
+        sourceImageRef.current!,
         nodes,
         edges,
         nodeId,
@@ -139,8 +140,9 @@ export function useFilterGraph() {
     
     // Use the updateAllNodePreviews function from nodePreviewGenerator
     import('../lib/nodePreviewGenerator').then(({ updateAllNodePreviews }) => {
+      // We already checked that sourceImageRef.current is not null above
       updateAllNodePreviews(
-        sourceImageRef.current,
+        sourceImageRef.current!,
         nodes,
         edges,
         updateNodePreviewInState
@@ -154,8 +156,9 @@ export function useFilterGraph() {
     
     // Use the updatePreviewsAfterParamChange function from nodePreviewGenerator
     import('../lib/nodePreviewGenerator').then(({ updatePreviewsAfterParamChange }) => {
+      // We already checked that sourceImageRef.current is not null above
       updatePreviewsAfterParamChange(
-        sourceImageRef.current,
+        sourceImageRef.current!,
         nodes,
         edges,
         changedNodeId,
