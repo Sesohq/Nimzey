@@ -796,9 +796,9 @@ export function useFilterGraph() {
 
   // Store references to our update functions 
   useEffect(() => {
-    updateAllNodePreviewsRef.current = debouncedUpdateAllNodePreviews;
-    processImageRef.current = debouncedProcessImage;
-  }, [debouncedUpdateAllNodePreviews, debouncedProcessImage]);
+    updateAllNodePreviewsRef.current = updateAllNodePreviews;
+    processImageRef.current = processImage;
+  }, [updateAllNodePreviews, processImage]);
   
   // Effect to update selected node preview for the main panel
   useEffect(() => {
