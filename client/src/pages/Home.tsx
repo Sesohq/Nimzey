@@ -107,6 +107,7 @@ export default function Home() {
                 width={filtersPanelWidth} 
                 onAddFilter={addNode}
                 onUploadImage={uploadImage}
+                onAddResultNode={addResultNode}
                 sourceImage={sourceImage}
               />
             ) : activeLeftTab === 'presets' ? (

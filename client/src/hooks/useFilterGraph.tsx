@@ -408,6 +408,25 @@ export function useFilterGraph() {
     return Array.from(resultNodes);
   };
   
+  // Helper function to update all Result nodes with the processed image
+  const updateResultNodePreviews = useCallback((imageUrl: string | null) => {
+    if (!imageUrl) return;
+    
+    setNodes(prevNodes => prevNodes.map(node => {
+      // Check if this is a Result node
+      if (node.type === 'resultNode') {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            preview: imageUrl
+          }
+        };
+      }
+      return node;
+    }));
+  }, []);
+  
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
@@ -690,25 +709,6 @@ export function useFilterGraph() {
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
   }, [uploadImage, uploadFunctionRef]);
-  
-  // Helper function to update all Result nodes with the processed image
-  const updateResultNodePreviews = useCallback((imageUrl: string | null) => {
-    if (!imageUrl) return;
-    
-    setNodes(prevNodes => prevNodes.map(node => {
-      // Check if this is a Result node
-      if (node.type === 'resultNode') {
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            preview: imageUrl
-          }
-        };
-      }
-      return node;
-    }));
-  }, []);
   
   // Reset the graph
   const resetGraph = useCallback(() => {
