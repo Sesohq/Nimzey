@@ -137,7 +137,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     nodeId={id}
                     nodeType="filterNode"
                     nodeData={data}
-                    sourceImage={data.sourceImage || null}
+                    sourceImage={sourceImage}
                     onRetryClick={handleRetryPreview}
                     size={{ width: 400, height: 400 }}
                   />

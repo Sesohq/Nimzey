@@ -1,7 +1,7 @@
-import { memo, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FilterNodeData } from '@/types';
+import { RefreshCcwIcon } from 'lucide-react';
 
-// Simple preview component that doesn't depend on ReactFlow
 interface SimpleNodePreviewProps {
   nodeId: string;
   nodeType: string;
@@ -11,138 +11,159 @@ interface SimpleNodePreviewProps {
   size?: { width: number; height: number };
 }
 
-const SimpleNodePreview = ({ 
+const SimpleNodePreview: React.FC<SimpleNodePreviewProps> = ({
   nodeId,
   nodeType,
   nodeData,
-  sourceImage, 
+  sourceImage,
   onRetryClick,
-  size = { width: 150, height: 150 }
-}: SimpleNodePreviewProps) => {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  size = { width: 100, height: 100 }
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
-  // Generate a simple preview when the component mounts or source image changes
-  useEffect(() => {
-    if (!sourceImage) {
-      setError('No source image available');
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
+  // Function to directly render the preview - using useCallback for performance
+  const renderPreview = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     
-    try {
-      // Create a canvas for the preview
-      const canvas = document.createElement('canvas');
-      canvas.width = size.width;
-      canvas.height = size.height;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        setError('Could not create canvas context');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Draw the source image as a base
-      ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
-      
-      // Apply a simple visual effect based on the filter type
-      if (nodeType === 'filterNode' || nodeType === 'blendNode') {
-        // Simple preview effect based on filter type
-        switch(nodeData.filterType) {
-          case 'blur':
-            // Apply a blur effect
-            ctx.filter = `blur(${nodeData.params.find(p => p.name === 'radius')?.value || 5}px)`;
-            ctx.drawImage(canvas, 0, 0);
-            ctx.filter = 'none';
-            break;
-            
-          case 'grayscale':
-            // Apply grayscale
-            ctx.filter = 'grayscale(100%)';
-            ctx.drawImage(canvas, 0, 0);
-            ctx.filter = 'none';
-            break;
-            
-          case 'invert':
-            // Invert colors
-            ctx.filter = 'invert(100%)';
-            ctx.drawImage(canvas, 0, 0);
-            ctx.filter = 'none';
-            break;
-          
-          // For more complex filters, add a visual indicator
-          default:
-            // Add a text overlay with the filter type
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, 20);
-            ctx.fillStyle = '#fff';
-            ctx.font = '12px sans-serif';
-            ctx.fillText(nodeData.filterType, 5, 15);
-            break;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    setIsLoading(true);
+    setHasError(false);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // If we have a preview URL in the node data, use it directly
+    if (nodeData.preview && nodeData.preview.startsWith('data:image/')) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Calculate aspect ratio for proper display
+        let drawWidth = canvas.width;
+        let drawHeight = canvas.height;
+        const imageAspect = img.width / img.height;
+        const canvasAspect = canvas.width / canvas.height;
+        
+        if (imageAspect > canvasAspect) {
+          // Image is wider than canvas, adjust height
+          drawHeight = canvas.width / imageAspect;
+        } else {
+          // Image is taller than canvas, adjust width
+          drawWidth = canvas.height * imageAspect;
         }
+        
+        const x = (canvas.width - drawWidth) / 2;
+        const y = (canvas.height - drawHeight) / 2;
+        
+        ctx.drawImage(img, x, y, drawWidth, drawHeight);
+        setIsLoading(false);
+      };
+      
+      img.onerror = () => {
+        setIsLoading(false);
+        setHasError(true);
+      };
+      
+      img.src = nodeData.preview;
+    } 
+    // If we have a source image but no preview yet
+    else if (sourceImage) {
+      // Use the source image as fallback
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Calculate aspect ratio for proper display
+      let drawWidth = canvas.width;
+      let drawHeight = canvas.height;
+      const imageAspect = sourceImage.width / sourceImage.height;
+      const canvasAspect = canvas.width / canvas.height;
+      
+      if (imageAspect > canvasAspect) {
+        drawHeight = canvas.width / imageAspect;
+      } else {
+        drawWidth = canvas.height * imageAspect;
       }
       
-      // Convert to a data URL and update state
-      const dataUrl = canvas.toDataURL('image/png');
-      setPreviewUrl(dataUrl);
-      setIsLoading(false);
-      setError(null);
+      const x = (canvas.width - drawWidth) / 2;
+      const y = (canvas.height - drawHeight) / 2;
       
-    } catch (err) {
-      console.error('Error generating preview:', err);
-      setError('Failed to generate preview');
+      try {
+        ctx.drawImage(sourceImage, x, y, drawWidth, drawHeight);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error drawing source image:', error);
+        setIsLoading(false);
+        setHasError(true);
+      }
+    } else {
+      // No source image or preview, show placeholder
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#999';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('No Preview', canvas.width / 2, canvas.height / 2);
       setIsLoading(false);
     }
-  }, [nodeId, nodeType, nodeData, sourceImage, size]);
+  }, [nodeData.preview, sourceImage, size]);
 
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-2"></div>
-          <div className="text-xs text-gray-500">Generating preview...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full h-full flex items-center justify-center" onClick={onRetryClick}>
-        <div className="text-center">
-          <div className="text-xs text-gray-500">{error}</div>
-          <button 
-            className="text-xs text-blue-500 mt-1 underline cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRetryClick?.();
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Render on component mount and when dependencies change
+  useEffect(() => {
+    const renderTimer = setTimeout(() => {
+      renderPreview();
+    }, 0);
+    
+    // Cleanup function to cancel timer if component unmounts or dependencies change
+    return () => {
+      clearTimeout(renderTimer);
+    };
+  }, [renderPreview]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      {previewUrl ? (
-        <img 
-          src={previewUrl} 
-          alt={`${nodeData.filterType} preview`}
-          className="max-w-full max-h-full object-contain"
-          onError={() => setError('Failed to load preview')}
-        />
-      ) : (
-        <div className="text-xs text-gray-500">No preview available</div>
+    <div className="w-full h-full relative flex items-center justify-center">
+      <canvas 
+        ref={canvasRef} 
+        width={size.width} 
+        height={size.height}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          objectFit: 'contain'
+        }}
+      />
+      
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-70">
+          <div className="animate-spin w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full"></div>
+        </div>
+      )}
+      
+      {hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 bg-opacity-90">
+          <div className="text-red-500 text-sm mb-2">Preview Failed</div>
+          {onRetryClick && (
+            <button 
+              onClick={onRetryClick}
+              className="flex items-center justify-center space-x-1 text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+            >
+              <RefreshCcwIcon size={12} />
+              <span>Retry</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
 };
 
-export default memo(SimpleNodePreview);
+export default SimpleNodePreview;
