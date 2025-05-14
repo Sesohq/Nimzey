@@ -1,7 +1,6 @@
 import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '../types';
 import { applyFilters } from './filterAlgorithms';
-import { nodeResultCache, getNodeProcessingOrder, isNodeInChain } from './nodePreviewHelper';
 
 // Function to generate a node preview
 export function generateNodePreview(
@@ -21,56 +20,16 @@ export function generateNodePreview(
   previewCanvas.width = previewWidth;
   previewCanvas.height = previewHeight;
   
-  // Get the context
-  const ctx = previewCanvas.getContext('2d');
-  if (!ctx) return null;
-  
-  // Clear the canvas
-  ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  
-  // Create a temporary canvas for processing
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = previewWidth;
-  tempCanvas.height = previewHeight;
-  const tempCtx = tempCanvas.getContext('2d');
-  if (!tempCtx) return null;
-  
-  // Draw the source image onto the temp canvas first, scaled to the preview size
-  tempCtx.drawImage(sourceImage, 0, 0, previewWidth, previewHeight);
-  
-  // Get the node processing order specific to this target
-  const processOrder = getNodeProcessingOrder(nodes, edges, targetNodeId);
-  
-  // Find the source node
-  const sourceNode = nodes.find(node => node.type === 'imageNode');
-  if (!sourceNode) return null;
-  
-  // First, cache the source image
-  nodeResultCache.set(sourceNode.id, tempCanvas.cloneNode(true) as HTMLCanvasElement);
-  
-  // Process each node in order
-  for (const nodeId of processOrder) {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) continue;
-    
-    // Only process the node if it's in the path to the target
-    if (nodeId === sourceNode.id || isNodeInChain(nodeId, targetNodeId, nodes, edges)) {
-      // TODO: Process the node based on its type (similar to applyFilters function)
-      // This will require specific node processing logic
-    }
-  }
-  
-  // Draw the final result to the preview canvas
-  if (nodeResultCache.has(targetNodeId)) {
-    const resultCanvas = nodeResultCache.get(targetNodeId)!;
-    ctx.drawImage(resultCanvas, 0, 0, previewWidth, previewHeight);
-  } else {
-    // If no result for the target node, draw the source image as fallback
-    ctx.drawImage(sourceImage, 0, 0, previewWidth, previewHeight);
-  }
-  
-  // Return the data URL for the preview
-  return previewCanvas.toDataURL('image/png');
+  // Generate the preview by using the existing applyFilters function
+  // but targeting only the specific node and its dependencies
+  return applyFilters(
+    sourceImage,
+    nodes,
+    edges,
+    previewCanvas,
+    targetNodeId,  // Target the specific node
+    false          // Don't clear the cache
+  );
 }
 
 // Function to update previews for all nodes
@@ -127,10 +86,10 @@ export function updatePreviewsAfterParamChange(
   updateNodePreview(sourceImage, nodes, edges, changedNodeId, updateNodeCallback);
   
   // Then find and update any nodes that depend on this node
-  const affectedNodes = findDependentNodes(changedNodeId, nodes, edges);
+  const dependentNodes = findDependentNodes(changedNodeId, nodes, edges);
   
   // Update previews for all affected nodes
-  affectedNodes.forEach(nodeId => {
+  dependentNodes.forEach(nodeId => {
     updateNodePreview(sourceImage, nodes, edges, nodeId, updateNodeCallback);
   });
 }
@@ -139,22 +98,20 @@ export function updatePreviewsAfterParamChange(
 function findDependentNodes(nodeId: string, nodes: Node[], edges: Edge[]): string[] {
   const dependents: string[] = [];
   
-  // Function to recursively find all dependent nodes
-  function findDependents(currentId: string) {
-    // Find all edges where this node is the source
-    const outgoingEdges = edges.filter(edge => edge.source === currentId);
-    
-    // For each target of these edges, recursively find their dependents
-    outgoingEdges.forEach(edge => {
-      if (!dependents.includes(edge.target)) {
-        dependents.push(edge.target);
-        findDependents(edge.target);
-      }
-    });
-  }
-  
-  // Start the search
-  findDependents(nodeId);
+  // Find all edges where this node is the source
+  edges.forEach(edge => {
+    if (edge.source === nodeId && !dependents.includes(edge.target)) {
+      dependents.push(edge.target);
+      
+      // Recursively find nodes that depend on this target
+      const childDependents = findDependentNodes(edge.target, nodes, edges);
+      childDependents.forEach(childId => {
+        if (!dependents.includes(childId)) {
+          dependents.push(childId);
+        }
+      });
+    }
+  });
   
   return dependents;
 }

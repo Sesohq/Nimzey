@@ -2,7 +2,6 @@ import { Node, Edge } from 'reactflow';
 import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '../types';
 import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { applyFilterGPU, isGPUAccelerationAvailable, gpuAcceleratedFilters } from './gpuFilters';
-import { nodeResultCache, getNodeProcessingOrder } from './nodePreviewHelper';
 
 // Refraction filter implementation - mimics optical refraction phenomenon
 function applyRefractionFilter(
@@ -639,9 +638,11 @@ export const applyFilters = (
   
   console.log(`Found source node: ${sourceNode.id}`);
   
-  // Create a map of node processing order - we'll use a modified topological sort
+  // Create a map of node processing order - we'll use the buildProcessingChain function
   // that respects the node chain we're trying to visualize
-  const processOrder = getNodeProcessingOrder(nodes, edges, targetNodeId);
+  const processOrder = targetNodeId 
+    ? getPathToNode(targetNodeId, nodes, edges).map(node => node.id)
+    : buildProcessingChain(sourceNode.id, nodes, edges).map(node => node.id);
   
   // First, cache the source image
   const sourceCanvas = document.createElement('canvas');

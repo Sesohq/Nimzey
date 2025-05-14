@@ -54,6 +54,89 @@ export function useFilterGraph() {
   // Reference to processImage function to avoid circular dependencies
   const processImageRef = useRef<(() => void) | null>(null);
   
+  // Helper function to get downstream nodes
+  const getDownstreamNodes = useCallback((nodeId: string, allNodes: Node[], allEdges: Edge[]): Node[] => {
+    const result: Node[] = [];
+    const visited = new Set<string>();
+    
+    function dfs(currentId: string) {
+      if (visited.has(currentId)) return;
+      visited.add(currentId);
+      
+      // Find all outgoing edges from this node
+      const outgoingEdges = allEdges.filter(e => e.source === currentId);
+      
+      // For each target node, recursively find its downstream nodes
+      outgoingEdges.forEach(edge => {
+        const targetNode = allNodes.find(n => n.id === edge.target);
+        if (targetNode && !result.some(n => n.id === targetNode.id)) {
+          result.push(targetNode);
+          dfs(targetNode.id);
+        }
+      });
+    }
+    
+    // Start the search
+    dfs(nodeId);
+    return result;
+  }, []);
+  
+  // Process the entire image with all filter nodes
+  // Define this early to avoid 'used before definition' errors
+  const processImage = useCallback(() => {
+    if (!sourceImageRef.current) return;
+    
+    // Store reference to this function
+    processImageRef.current = processImage;
+    
+    // Create a canvas for the processed image
+    if (!exportCanvasRef.current) {
+      exportCanvasRef.current = document.createElement('canvas');
+    }
+    
+    try {
+      // If a node is selected, only process nodes in that chain
+      if (selectedNodeId) {
+        const selectedNode = nodes.find(node => node.id === selectedNodeId);
+        if (selectedNode) {
+          const downstreamNodes = getDownstreamNodes(selectedNodeId, nodes, edges);
+          
+          // Include the selected node and all downstream nodes
+          const allNodesToProcess = [selectedNode, ...downstreamNodes];
+          
+          // Find edges connecting these nodes
+          const relevantEdges = edges.filter(edge => 
+            allNodesToProcess.find(node => node.id === edge.source) && 
+            allNodesToProcess.find(node => node.id === edge.target)
+          );
+          
+          // Process the image
+          const result = applyFilters(
+            sourceImageRef.current,
+            allNodesToProcess,
+            relevantEdges,
+            exportCanvasRef.current
+          );
+          
+          setProcessedImage(result);
+        }
+      } else {
+        // Process the full graph
+        const result = applyFilters(
+          sourceImageRef.current,
+          nodes,
+          edges,
+          exportCanvasRef.current
+        );
+        
+        setProcessedImage(result);
+      }
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setProcessedImage(null);
+    }
+  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
+  
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds));
