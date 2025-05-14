@@ -853,6 +853,38 @@ export function useFilterGraph() {
     };
   }, [handleKeyDown]);
   
+  // Create a Result node to display the final output
+  const addResultNode = useCallback(() => {
+    const id = `result-${uuidv4().substring(0, 8)}`;
+    
+    // Create node data
+    const nodeData: FilterNodeData = {
+      label: 'Result',
+      filterType: 'result',
+      params: [],
+      enabled: true,
+      blendMode: 'normal',
+      opacity: 1,
+      onParamChange: handleParamChange,
+      onToggleEnabled: handleToggleEnabled,
+      onBlendModeChange: handleBlendModeChange,
+      onOpacityChange: handleOpacityChange,
+      onRemoveNode: () => handleRemoveNode(id)
+    };
+    
+    // Create the node
+    const newNode: Node<FilterNodeData> = {
+      id,
+      type: 'resultNode',
+      position: { x: 450, y: 150 },
+      data: nodeData,
+    };
+    
+    setNodes(prevNodes => [...prevNodes, newNode]);
+    
+    return id;
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
+
   return {
     nodes,
     edges,
@@ -876,6 +908,7 @@ export function useFilterGraph() {
     createCustomNode,
     addCustomNode,
     copySelectedNodes,
-    pasteNodes
+    pasteNodes,
+    addResultNode
   };
 }

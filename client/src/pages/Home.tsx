@@ -15,7 +15,7 @@ export default function Home() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    onNodeSelect,
+    onNodeClick,
     addNode,
     addCustomNode,
     createCustomNode,
@@ -25,12 +25,13 @@ export default function Home() {
     uploadImage,
     exportImage,
     sourceImage,
-    resetCanvas,
+    resetGraph,
     zoomIn,
     zoomOut,
     zoomLevel,
     nodePreview,
-    loadPreset
+    loadPreset,
+    addResultNode
   } = useFilterGraph();
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
