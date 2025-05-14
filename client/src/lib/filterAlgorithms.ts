@@ -1,7 +1,8 @@
 import { Node, Edge } from 'reactflow';
-import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
+import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '../types';
 import { createNoise2D, createNoise3D } from 'simplex-noise';
 import { applyFilterGPU, isGPUAccelerationAvailable, gpuAcceleratedFilters } from './gpuFilters';
+import { nodeResultCache, getNodeProcessingOrder } from './nodePreviewHelper';
 
 // Refraction filter implementation - mimics optical refraction phenomenon
 function applyRefractionFilter(
@@ -670,9 +671,14 @@ export const applyFilters = (
   const tempCtx = tempCanvas.getContext('2d');
   if (!tempCtx) return null;
   
-  // Process each node in the chain
-  for (let i = 1; i < nodesToProcess.length; i++) {
-    const node = nodesToProcess[i];
+  // Use the already calculated processing order from above
+  
+  // Process each node in the order
+  for (let i = 1; i < processOrder.length; i++) {
+    const nodeId = processOrder[i];
+    const node = nodes.find(n => n.id === nodeId);
+    
+    if (!node) continue;
     
     // Skip nodes we've already processed (in the cache)
     if (nodeResultCache.has(node.id)) continue;
@@ -685,7 +691,7 @@ export const applyFilters = (
   }
   
   // The result should be in the cache for the last node (or target node)
-  const resultNodeId = targetNodeId || nodesToProcess[nodesToProcess.length - 1].id;
+  const resultNodeId = targetNodeId || processOrder[processOrder.length - 1];
   const resultCanvas = nodeResultCache.get(resultNodeId);
   
   if (resultCanvas) {
