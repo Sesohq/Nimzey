@@ -34,7 +34,7 @@ export default function Home() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
-      <Header onNewProject={resetCanvas} onExportImage={exportImage} />
+      <Header onNewProject={resetCanvas} />
       
       <div className="flex flex-1 overflow-hidden">
         <FilterPanel 

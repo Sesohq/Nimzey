@@ -2,10 +2,9 @@ import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   onNewProject: () => void;
-  onExportImage: () => void;
 }
 
-export default function Header({ onNewProject, onExportImage }: HeaderProps) {
+export default function Header({ onNewProject }: HeaderProps) {
   return (
     <header className="bg-darkBg text-white p-3 flex justify-between items-center shadow-md">
       <div className="flex items-center">
@@ -21,13 +20,7 @@ export default function Header({ onNewProject, onExportImage }: HeaderProps) {
         >
           New Project
         </Button>
-        <Button 
-          size="sm" 
-          variant="secondary"
-          onClick={onExportImage}
-        >
-          Export Image
-        </Button>
+
       </div>
     </header>
   );
