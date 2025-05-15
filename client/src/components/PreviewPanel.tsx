@@ -8,10 +8,17 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
-import { Maximize2, Minimize2, ExternalLink, X } from 'lucide-react';
+import { Maximize2, Minimize2, ExternalLink, X, Settings } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface PreviewPanelProps {
@@ -396,31 +403,10 @@ export default function PreviewPanel({
           </div>
         </div>
         
-        {/* Format selector */}
-        <div className="border-t border-gray-700 bg-black flex-shrink-0">
-          <div className="p-3 mb-0">
-            <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              EXPORT OPTIONS
-            </div>
-            <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
-            <Select value={exportFormat} onValueChange={setExportFormat}>
-              <SelectTrigger className="w-full bg-gray-900 border border-gray-700 rounded">
-                <SelectValue placeholder="PNG" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="png">PNG</SelectItem>
-                <SelectItem value="jpeg">JPEG</SelectItem>
-                <SelectItem value="webp">WEBP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+
       </div>
 
-      {/* Export button - completely outside the panel flow */}
+      {/* Export button and settings - completely outside the panel flow */}
       <div 
         className="fixed z-40 bottom-0 border-t border-gray-700" 
         style={{
@@ -431,9 +417,9 @@ export default function PreviewPanel({
           transform: isDetached ? `translateY(${detachedPosition.y + 500}px)` : 'none'
         }}
       >
-        <div className="p-4">
+        <div className="p-4 flex items-center justify-between">
           <div 
-            className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`btn-glitch special-filters flex-1 ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => processedImage && onExportImage(exportFormat)}
             style={{marginBottom: 0}}
           >
@@ -446,6 +432,38 @@ export default function PreviewPanel({
               </svg>
             </div>
           </div>
+          
+          {/* Settings button */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="ml-2 bg-black border-gray-700 hover:bg-gray-900 text-white"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            
+            <DialogContent className="bg-black border-gray-700 text-white">
+              <DialogHeader>
+                <DialogTitle className="font-mono text-white">Export Settings</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
+                <Select value={exportFormat} onValueChange={setExportFormat}>
+                  <SelectTrigger className="w-full bg-gray-900 border border-gray-700 rounded">
+                    <SelectValue placeholder="PNG" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="png">PNG</SelectItem>
+                    <SelectItem value="jpeg">JPEG</SelectItem>
+                    <SelectItem value="webp">WEBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
