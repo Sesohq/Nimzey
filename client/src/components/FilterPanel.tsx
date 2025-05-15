@@ -68,8 +68,10 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
   return (
     <div className="filter-panel flex flex-col" style={{ width: `${width}px` }}>
       <div className="filter-panel-header">
-        <Layers className="h-5 w-5 mr-2 inline-block" />
-        Filters
+        <div className="icon-container basic-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
+          <Layers className="h-5 w-5" />
+        </div>
+        <span className="text-lg">Filters</span>
       </div>
       
       <ScrollArea className="flex-1">
@@ -110,17 +112,17 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         </div>
       </ScrollArea>
       
-      <div className="p-4 bg-gray-900">
+      <div className="p-4" style={{backgroundColor: '#1d2129'}}>
         <div 
-          className="orange-button"
+          className="btn-container special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}
+          style={{marginBottom: 0}}
         >
-          <div className="blob1"></div>
-          <div className="inner">
-            <span className="font-semibold">Upload Image</span>
-            <div className="inner-button">
-              <Upload className="h-5 w-5 icon" />
-            </div>
+          <div className="text-container font-semibold">
+            Upload Image
+          </div>
+          <div className="icon-container" style={{backgroundColor: '#FF7D00'}}>
+            <Upload size={16} />
           </div>
         </div>
         <input 
