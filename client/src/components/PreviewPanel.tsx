@@ -112,11 +112,11 @@ export default function PreviewPanel({
               
               {/* Display thumbnail preview if available */}
               {nodePreviewImg && (
-                <div className="border border-gray-800 rounded overflow-hidden mt-1">
+                <div className="border border-gray-800 rounded overflow-hidden mt-1 h-20">
                   <img 
                     src={nodePreviewImg} 
                     alt={`Preview of ${nodeLabel}`}
-                    className="w-full h-auto max-h-24 object-contain bg-gray-900"
+                    className="w-full h-full object-cover bg-black"
                   />
                 </div>
               )}
@@ -392,8 +392,10 @@ export default function PreviewPanel({
         )}
         
         <div className="p-3 border-t border-gray-700">
-          <div className="text-xs text-gray-400 mb-2">Filter Chain</div>
-          <ScrollArea className="h-[150px]">
+          <div className="text-xs text-white font-mono mb-2 flex items-center">
+            <span className="text-gray-400 mr-1">//</span> Filter Chain
+          </div>
+          <ScrollArea className="h-[250px]">
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
