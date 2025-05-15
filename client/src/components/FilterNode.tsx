@@ -216,7 +216,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 top: 10, // 2px down
                 width: 8, 
                 height: 8,
-                background: '#ffcc00',
+                background: '#777777',
                 borderRadius: '50%',
                 border: '2px solid #333',
                 zIndex: 10
@@ -260,7 +260,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   top: 10, // 2px down
                   width: 8, 
                   height: 8, 
-                  background: param.isConnected ? '#ff5555' : '#ffcc00',
+                  background: param.isConnected ? '#ff5555' : '#777777',
                   borderRadius: '50%',
                   border: '2px solid #333',
                   zIndex: 10
@@ -357,7 +357,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             top: 18, // 2px down
             width: 8, 
             height: 8, 
-            background: '#ffcc00',
+            background: '#777777',
             borderRadius: '50%',
             border: '2px solid #333',
             zIndex: 10
