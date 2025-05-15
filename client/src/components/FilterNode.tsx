@@ -212,14 +212,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               type="target"
               position={Position.Left}
               style={{ 
-                left: 0, 
-                top: 12, // Aligned with the center of the parameter name
+                left: -20, 
+                top: 8, // Moved up slightly
                 width: 8, 
                 height: 8,
                 background: '#ffcc00',
                 borderRadius: '50%',
                 border: '2px solid #333',
-                transform: 'translateX(-50%)', // Center on the border
                 zIndex: 10
               }}
             />
@@ -257,14 +256,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 type="target"
                 position={Position.Left}
                 style={{ 
-                  left: 0, 
-                  top: 12, // Aligned with the center of the parameter name
+                  left: -20, 
+                  top: 8, // Moved up slightly
                   width: 8, 
                   height: 8, 
                   background: param.isConnected ? '#ff5555' : '#ffcc00',
                   borderRadius: '50%',
                   border: '2px solid #333',
-                  transform: 'translateX(-50%)', // Center on the border
                   zIndex: 10
                 }}
               />
@@ -355,14 +353,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           type="source"
           position={Position.Right}
           style={{ 
-            right: 0, 
+            right: -20, 
             top: 16, 
             width: 8, 
             height: 8, 
             background: '#ffcc00',
             borderRadius: '50%',
             border: '2px solid #333',
-            transform: 'translateX(50%)', // Center on the border
             zIndex: 10
           }}
         />
