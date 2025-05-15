@@ -45,8 +45,14 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     // Handle mouse down to start dragging
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
       if (disabled) return;
+      
+      // Prevent default to avoid text selection during drag
+      e.preventDefault();
+      
       setIsDragging(true);
       updateValueFromPosition(e.clientX);
+      
+      // Add event listeners to document
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     };
@@ -54,8 +60,14 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     // Handle touch start for mobile
     const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
       if (disabled) return;
+      
+      // Prevent default to avoid scrolling during touch drag
+      e.preventDefault();
+      
       setIsDragging(true);
       updateValueFromPosition(e.touches[0].clientX);
+      
+      // Add event listeners to document
       document.addEventListener("touchmove", handleTouchMove);
       document.addEventListener("touchend", handleTouchEnd);
     };
@@ -64,12 +76,15 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     const updateValueFromPosition = (clientX: number) => {
       if (!containerRef.current) return;
       
+      // Get the slider dimensions
       const rect = containerRef.current.getBoundingClientRect();
       const containerWidth = rect.width;
-      const offsetX = clientX - rect.left;
       
-      // Calculate percentage and clamp between 0 and 100
-      let percentage = Math.max(0, Math.min(100, (offsetX / containerWidth) * 100));
+      // Calculate offset relative to the slider's left edge
+      const offsetX = Math.max(0, Math.min(containerWidth, clientX - rect.left));
+      
+      // Calculate percentage (0 to 100)
+      let percentage = (offsetX / containerWidth) * 100;
       
       // Calculate the new value based on percentage and range
       let newValue = min + (percentage / 100) * (max - min);
@@ -81,6 +96,8 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
       
       // Clamp between min and max
       newValue = Math.max(min, Math.min(max, newValue));
+      
+      // We've finished calculating the value, no need for debug logging
       
       // Notify parent component
       if (onValueChange) {
@@ -98,22 +115,28 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     // Handle document touch move for mobile dragging
     const handleTouchMove = (e: TouchEvent) => {
       if (isDragging) {
+        e.preventDefault(); // Prevent scrolling while dragging
         updateValueFromPosition(e.touches[0].clientX);
       }
     };
 
     // Handle document mouse up to end dragging
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+    const handleMouseUp = (e: MouseEvent) => {
+      // If we barely moved, treat it as a click
+      if (isDragging) {
+        setIsDragging(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      }
     };
 
     // Handle document touch end to end dragging on mobile
-    const handleTouchEnd = () => {
-      setIsDragging(false);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isDragging) {
+        setIsDragging(false);
+        document.removeEventListener("touchmove", handleTouchMove);
+        document.removeEventListener("touchend", handleTouchEnd);
+      }
     };
 
     // Clean up event listeners on unmount
@@ -141,6 +164,12 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
         )}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
+        onClick={(e) => {
+          // Handle direct clicks without dragging
+          if (!isDragging && !disabled) {
+            updateValueFromPosition(e.clientX);
+          }
+        }}
         {...props}
       >
         {/* Background of slider */}
@@ -148,7 +177,7 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
         
         {/* Fill layer */}
         <div 
-          className="absolute h-full bg-blue-600 dark:bg-blue-600 transition-all duration-100"
+          className="absolute h-full bg-blue-600 dark:bg-blue-600 transition-all duration-75"
           style={{ width: `${fillPercentage}%` }}
         ></div>
         
