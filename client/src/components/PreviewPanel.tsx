@@ -247,9 +247,16 @@ export default function PreviewPanel({
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setIsFullscreen(false)}>
-        <div className="bg-darkBg rounded-lg overflow-hidden max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-          <div className="p-3 bg-secondary font-medium flex items-center justify-between">
-            <span>Preview (Fullscreen)</span>
+        <div className="bg-black border border-gray-700 rounded-lg overflow-hidden max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between h-[40px]">
+            <div className="flex items-center">
+              <div className="icon-container effect-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+                </svg>
+              </div>
+              <span className="text-lg">Preview (Fullscreen)</span>
+            </div>
             <div className="flex space-x-2">
               <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
                 <Minimize2 className="h-4 w-4" />
@@ -257,7 +264,7 @@ export default function PreviewPanel({
             </div>
           </div>
           <div className="p-3">
-            <div className="bg-gray-800 rounded-md overflow-hidden">
+            <div className="bg-black border border-gray-800 rounded-md overflow-hidden">
               {getDisplayImage()}
             </div>
           </div>
@@ -288,8 +295,8 @@ export default function PreviewPanel({
 
       <div 
         ref={mainPanelRef}
-        className={`bg-darkBg text-white flex flex-col relative 
-          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden' : 'fixed right-0 top-0 h-screen overflow-y-auto'} 
+        className={`bg-black text-white flex flex-col relative 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-y-auto border-l border-gray-700'} 
           ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
         style={{ 
           width: `${width}px`,
@@ -359,8 +366,9 @@ export default function PreviewPanel({
         </div>
         
         <div className="p-3">
-          <div className="text-xs text-gray-400 mb-1">
-            Selected Node: <span>{selectedNode ? 
+          <div className="text-xs text-white font-mono mb-1 flex items-center">
+            <span className="text-gray-400 mr-1">//</span> 
+            Selected Node: <span className="ml-1 text-yellow-400">{selectedNode ? 
               (selectedNode.type === 'imageNode' ? 'Source Image' : (selectedNode.data as FilterNodeData).label) 
               : 'None'}</span>
           </div>
