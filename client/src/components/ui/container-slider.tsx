@@ -26,44 +26,76 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     },
     ref
   ) => {
+    // State for tracking drag operations
     const [isDragging, setIsDragging] = React.useState<boolean>(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
     
-    // For event handler stability
-    const dragStateRef = React.useRef({
-      isDragging: false,
+    // Store initial drag state for reference during drag operations
+    const dragRef = React.useRef({
+      startX: 0,
+      startValue: 0,
+      scale: 1, // Scale factor for drag sensitivity
+      active: false
     });
 
-    // Calculate percentage fill based on value and range
-    const fillPercentage = ((value - min) / (max - min)) * 100;
+    // Calculate percentage for fill bar
+    const fillPercentage = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
 
-    // Get formatted display value
+    // Format the display value
     const getDisplayValue = () => {
-      // If it's a whole number, show as integer
       if (Number.isInteger(value)) {
         return `${value}${unit}`;
       }
-      // Otherwise show with up to 3 decimal places (but trim trailing zeros)
       return `${parseFloat(value.toFixed(3))}${unit}`;
     };
 
-    // Update value based on mouse/touch position
-    const updateValueFromPosition = (clientX: number) => {
-      if (!containerRef.current) return;
+    // Calculate new value based on drag movement
+    const updateValueFromDrag = (clientX: number) => {
+      if (!containerRef.current || !dragRef.current.active) return;
       
+      // Get the container width for scale calculation
       const rect = containerRef.current.getBoundingClientRect();
       const containerWidth = rect.width;
-      const offsetX = Math.max(0, Math.min(containerWidth, clientX - rect.left));
       
-      let percentage = (offsetX / containerWidth) * 100;
-      let newValue = min + (percentage / 100) * (max - min);
+      // Calculate movement as a percentage of container width
+      const deltaX = clientX - dragRef.current.startX;
+      const deltaPercentage = (deltaX / containerWidth) * 100 * dragRef.current.scale;
       
-      // Apply step if provided
+      // Convert percentage to value range and add to start value
+      const valueRange = max - min;
+      const deltaValue = (deltaPercentage / 100) * valueRange;
+      let newValue = dragRef.current.startValue + deltaValue;
+      
+      // Apply step quantization if needed
       if (step !== 0) {
         newValue = Math.round(newValue / step) * step;
       }
       
-      // Clamp between min and max
+      // Clamp to valid range
+      newValue = Math.max(min, Math.min(max, newValue));
+      
+      // Update through callback
+      if (onValueChange && newValue !== value) {
+        onValueChange(newValue);
+      }
+    };
+    
+    // Set value directly from position (for clicks)
+    const setValueFromPosition = (clientX: number) => {
+      if (!containerRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const offsetX = clientX - rect.left;
+      const percentage = offsetX / rect.width;
+      
+      let newValue = min + percentage * (max - min);
+      
+      // Apply step if needed
+      if (step !== 0) {
+        newValue = Math.round(newValue / step) * step;
+      }
+      
+      // Clamp to range
       newValue = Math.max(min, Math.min(max, newValue));
       
       if (onValueChange) {
@@ -71,51 +103,76 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
       }
     };
 
+    // Start dragging (mouse events)
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
       if (disabled) return;
       
+      // Prevent text selection
       e.preventDefault();
       
-      // Set dragging states
+      // Initialize drag state
+      dragRef.current = {
+        startX: e.clientX,
+        startValue: value,
+        scale: 1, // Can be adjusted for different sensitivity
+        active: true
+      };
+      
       setIsDragging(true);
-      dragStateRef.current.isDragging = true;
       
-      // Update value immediately at click position
-      updateValueFromPosition(e.clientX);
+      // For direct clicks, also update immediately
+      if (e.target === containerRef.current) {
+        setValueFromPosition(e.clientX);
+        // Update start values after direct position change
+        dragRef.current.startValue = value; 
+      }
       
-      // Add document event listeners
+      // Add document event listeners for drag operations
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     };
     
     const handleMouseMove = (e: MouseEvent) => {
-      if (disabled || !dragStateRef.current.isDragging) return;
+      if (disabled) return;
       
       e.preventDefault();
-      updateValueFromPosition(e.clientX);
+      if (dragRef.current.active) {
+        updateValueFromDrag(e.clientX);
+      }
     };
     
     const handleMouseUp = () => {
-      // Reset dragging states
+      // End drag operation
+      dragRef.current.active = false;
       setIsDragging(false);
-      dragStateRef.current.isDragging = false;
       
       // Remove document event listeners
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
     
+    // Touch event handlers (mobile)
     const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
       if (disabled) return;
       
+      // Prevent scrolling during drag
       e.preventDefault();
       
-      // Set dragging states
-      setIsDragging(true);
-      dragStateRef.current.isDragging = true;
+      // Initialize drag state
+      dragRef.current = {
+        startX: e.touches[0].clientX,
+        startValue: value,
+        scale: 1,
+        active: true
+      };
       
-      // Update value immediately at touch position
-      updateValueFromPosition(e.touches[0].clientX);
+      setIsDragging(true);
+      
+      // For direct touches, also update immediately
+      if (e.target === containerRef.current) {
+        setValueFromPosition(e.touches[0].clientX);
+        dragRef.current.startValue = value;
+      }
       
       // Add document event listeners
       document.addEventListener("touchmove", handleTouchMove, { passive: false });
@@ -123,16 +180,20 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     };
     
     const handleTouchMove = (e: TouchEvent) => {
-      if (disabled || !dragStateRef.current.isDragging) return;
+      if (disabled) return;
       
+      // Prevent scrolling during drag
       e.preventDefault();
-      updateValueFromPosition(e.touches[0].clientX);
+      
+      if (dragRef.current.active) {
+        updateValueFromDrag(e.touches[0].clientX);
+      }
     };
     
     const handleTouchEnd = () => {
-      // Reset dragging states
+      // End drag operation
+      dragRef.current.active = false;
       setIsDragging(false);
-      dragStateRef.current.isDragging = false;
       
       // Remove document event listeners
       document.removeEventListener("touchmove", handleTouchMove);
@@ -141,14 +202,12 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
     
     // Cleanup on unmount
     React.useEffect(() => {
-      const cleanup = () => {
+      return () => {
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
         document.removeEventListener("touchmove", handleTouchMove);
         document.removeEventListener("touchend", handleTouchEnd);
       };
-      
-      return cleanup;
     }, []);
 
     return (
@@ -156,7 +215,7 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
         ref={containerRef}
         className={cn(
           "relative h-7 rounded overflow-hidden select-none",
-          isDragging ? "cursor-grabbing" : "cursor-pointer",
+          isDragging ? "cursor-ew-resize" : "cursor-pointer",
           disabled ? "opacity-50 cursor-not-allowed" : "",
           className
         )}
@@ -164,7 +223,7 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
         onTouchStart={handleTouchStart}
         {...props}
       >
-        {/* Background of slider */}
+        {/* Background layer */}
         <div className="absolute inset-0 bg-gray-700 dark:bg-gray-800"></div>
         
         {/* Fill layer */}
@@ -173,7 +232,7 @@ const ContainerSlider = React.forwardRef<HTMLDivElement, ContainerSliderProps>(
           style={{ width: `${fillPercentage}%` }}
         ></div>
         
-        {/* Value text */}
+        {/* Value display */}
         <div className="absolute inset-0 flex items-center justify-end pr-3 text-xs font-mono font-medium text-white pointer-events-none">
           {getDisplayValue()}
         </div>
