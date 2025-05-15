@@ -212,12 +212,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               type="target"
               position={Position.Left}
               style={{ 
-                left: -8, 
+                left: -5, 
                 top: 12, // Aligned with the center of the parameter name
                 width: 8, 
                 height: 8,
                 background: '#555555',
-                borderRadius: '50%' 
+                borderRadius: '50%',
+                border: '2px solid #333'
               }}
             />
             
@@ -254,12 +255,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 type="target"
                 position={Position.Left}
                 style={{ 
-                  left: -8, 
+                  left: -5, 
                   top: 12, // Aligned with the center of the parameter name
                   width: 8, 
                   height: 8, 
                   background: param.isConnected ? '#ff5555' : '#555555',
-                  borderRadius: '50%'  
+                  borderRadius: '50%',
+                  border: '2px solid #333'
                 }}
               />
               
@@ -343,33 +345,21 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           style={{ top: 16, transform: 'translateY(-50%)' }}
         />
         
-        {/* Output handle */}
+        {/* Single output handle - centered on the right edge */}
         <Handle
           id="node-output"
           type="source"
           position={Position.Right}
-          className="w-5 h-5 rounded-full -mr-3 bg-green-600"
-          style={{ top: 16, transform: 'translateY(-50%)' }}
+          style={{ 
+            right: -5, 
+            top: 16, 
+            width: 8, 
+            height: 8, 
+            background: '#ffcc00',
+            borderRadius: '50%',
+            border: '2px solid #333'
+          }}
         />
-
-        {/* Parameter output handles - only for nodes that produce values that can be used by other nodes */}
-        {data.params.map((param, index) => (
-          <Handle
-            key={`output-${param.id || param.name}`} /* Fixed duplicate key warning */
-            id={`output-param-${param.id || param.name}`}
-            type="source"
-            position={Position.Right}
-            style={{ 
-              top: 16, // Fixed position aligned with the main output handle
-              right: -8, 
-              width: 8, 
-              height: 8, 
-              background: '#ff5555',
-              borderRadius: '50%',
-              display: index < 3 ? 'block' : 'none' // Only show first few for demo
-            }}
-          />
-        ))}
       </div>
     </Card>
   );
