@@ -1,4 +1,5 @@
-import { memo, useState } from 'react';
+import { memo, useState, useRef } from 'react';
+import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -42,6 +43,8 @@ const blendModeLabels: Record<BlendMode, string> = {
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
+  const [editingParam, setEditingParam] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
