@@ -486,14 +486,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   className="mt-1"
                 />
               )}
-              
-              {/* Badge showing parameter type */}
-              <Badge 
-                variant="outline" 
-                className="absolute right-0 -top-1 text-[9px] px-1 py-0 h-4"
-              >
-                {param.paramType}
-              </Badge>
             </div>
           ))}
         </div>
