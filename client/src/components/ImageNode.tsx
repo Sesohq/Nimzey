@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { ImageNodeData } from '@/types';
@@ -9,16 +9,12 @@ interface ExtendedNodeProps extends NodeProps<ImageNodeData> {
 }
 
 const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
   // Use the uploadImage function from either props or data
   const uploadFunc = onUploadImage || data.onUploadImage;
   
+  // Simply trigger the file input click
   const handleClick = () => {
-    // Only trigger file input if an upload function is available
-    if (uploadFunc && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    document.getElementById('imageNodeUpload')?.click();
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,7 +62,7 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
         {/* Hidden file input */}
         <input 
           type="file" 
-          ref={fileInputRef}
+          id="imageNodeUpload"
           className="hidden" 
           accept="image/*"
           onChange={handleFileChange}
