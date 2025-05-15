@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
+import { toast } from '@/hooks/use-toast';
 
 export function useFilterGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -814,8 +815,89 @@ export function useFilterGraph() {
     setEdges(eds => applyEdgeChanges(changes, eds));
   }, [edges, handleDisconnectParam]);
 
+  // Check if adding a connection would create a cycle in the graph
+  const checkForCycles = (currentEdges: Edge[], allNodes: Node[], newConnection: Connection): boolean => {
+    if (!newConnection.source || !newConnection.target) return false;
+    
+    // If this is a self-connection, it's definitely a cycle
+    if (newConnection.source === newConnection.target) {
+      return true;
+    }
+    
+    // Create a graph representation for cycle detection
+    const graph: Record<string, string[]> = {};
+    
+    // Add existing edges to the graph
+    currentEdges.forEach(edge => {
+      if (!graph[edge.source]) {
+        graph[edge.source] = [];
+      }
+      graph[edge.source].push(edge.target);
+    });
+    
+    // Add the new edge
+    if (!graph[newConnection.source]) {
+      graph[newConnection.source] = [];
+    }
+    graph[newConnection.source].push(newConnection.target);
+    
+    // DFS to detect cycles
+    const visited = new Set<string>();
+    const path = new Set<string>();
+    
+    const hasCycle = (node: string): boolean => {
+      if (!graph[node]) return false;
+      
+      if (path.has(node)) return true;
+      if (visited.has(node)) return false;
+      
+      visited.add(node);
+      path.add(node);
+      
+      for (const neighbor of graph[node]) {
+        if (hasCycle(neighbor)) {
+          return true;
+        }
+      }
+      
+      path.delete(node);
+      return false;
+    };
+    
+    // Check for cycles from each node
+    for (const node of allNodes) {
+      if (!visited.has(node.id) && hasCycle(node.id)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+  
   // Handle new connections
   const onConnect = useCallback((connection: Connection) => {
+    // Prevent connections to the same node (no self-connections)
+    if (connection.source === connection.target) {
+      console.warn("Cannot connect a node to itself");
+      toast({
+        title: "Invalid Connection",
+        description: "Cannot connect a node to itself",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check for cycles before allowing the connection
+    if (checkForCycles(edges, nodes, connection)) {
+      console.warn("Cannot create connection: would create a cycle in the graph");
+      toast({
+        title: "Invalid Connection",
+        description: "This would create a cycle in the filter graph. Cycles are not allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Check if this is a parameter-level connection
     if (connection.targetHandle && connection.targetHandle.startsWith('param-') && 
         connection.sourceHandle && connection.sourceHandle.startsWith('output-param-')) {
@@ -889,7 +971,7 @@ export function useFilterGraph() {
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage, handleConnectParam, updateConnectedParams]);
+  }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {
