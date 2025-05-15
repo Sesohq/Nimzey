@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { filterCategories } from '@/lib/filterCategories';
-import { Upload } from 'lucide-react';
+import { Upload, Plus, FilterIcon, Layers } from 'lucide-react';
 import { NodeType, FilterType } from '@/types';
 
 interface FilterPanelProps {
@@ -32,46 +32,52 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
   };
 
   return (
-    <div className="w-64 bg-darkBg text-white flex flex-col" style={{ width: `${width}px` }}>
-      <div className="p-3 bg-secondary font-medium">Filters</div>
+    <div className="filter-panel flex flex-col" style={{ width: `${width}px` }}>
+      <div className="filter-panel-header">
+        <Layers className="h-5 w-5 mr-2 inline-block" />
+        Filters
+      </div>
       
       <ScrollArea className="flex-1">
-        <div className="p-2">
-          <Accordion type="multiple" defaultValue={Object.keys(filterCategories)}>
-            {Object.entries(filterCategories).map(([categoryId, category]) => (
-              <AccordionItem value={categoryId} key={categoryId}>
-                <AccordionTrigger className="px-2 py-2 bg-gray-700 bg-opacity-30 rounded">
-                  {category.name}
-                </AccordionTrigger>
-                <AccordionContent className="mt-1 pl-2">
-                  {category.filters.map(filter => (
-                    <div
-                      key={filter.type}
-                      className="p-2 hover:bg-gray-700 rounded cursor-pointer"
-                      draggable
-                      onDragStart={(e) => handleFilterDragStart(e, filter.type)}
-                      onDragEnd={handleFilterDragEnd}
-                      onClick={() => onAddFilter(filter.type)}
-                    >
-                      {filter.name}
+        <div className="p-3">
+          {Object.entries(filterCategories).map(([categoryId, category]) => (
+            <div className="filter-category mb-4" key={categoryId}>
+              <div className="filter-category-header">
+                <span>{category.name}</span>
+                <FilterIcon className="h-4 w-4" />
+              </div>
+              <div className="filter-list">
+                {category.filters.map(filter => (
+                  <div
+                    key={filter.type}
+                    className={`styled-button ${draggedFilter === filter.type ? 'dragging' : ''}`}
+                    draggable
+                    onDragStart={(e) => handleFilterDragStart(e, filter.type)}
+                    onDragEnd={handleFilterDragEnd}
+                    onClick={() => onAddFilter(filter.type)}
+                  >
+                    <span>{filter.name}</span>
+                    <div className="inner-button ml-auto">
+                      <Plus className="h-5 w-5 icon" />
                     </div>
-                  ))}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </ScrollArea>
       
-      <div className="p-3 bg-gray-800">
-        <Button 
-          variant="default" 
-          className="w-full py-2 bg-primary hover:bg-primary/90"
+      <div className="p-4 bg-gray-900">
+        <div 
+          className="styled-button"
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
-          <Upload className="h-5 w-5 mr-1" />
-          Upload Image
-        </Button>
+          <span>Upload Image</span>
+          <div className="inner-button ml-auto">
+            <Upload className="h-5 w-5 icon" />
+          </div>
+        </div>
         <input 
           type="file" 
           id="imageUpload" 
