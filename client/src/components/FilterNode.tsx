@@ -58,7 +58,7 @@ const EditableValue = ({
   paramId: string,
   isEditing: boolean,
   editValue: string,
-  onStartEdit: (id: string, value: number | string) => void,
+  onStartEdit: (id: string, value: number | string | boolean) => void,
   onChangeEdit: (value: string) => void,
   onFinishEdit: () => void,
   onCancelEdit: () => void,
@@ -153,8 +153,12 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   };
   
   // Handle starting to edit a parameter value
-  const handleStartEditing = (paramId: string, value: number | string) => {
+  const handleStartEditing = (paramId: string, value: number | string | boolean) => {
     if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    
+    // Only allow editing numeric or string values
+    if (typeof value === 'boolean') return;
+    
     setEditingParam(paramId);
     setEditingValue(String(value));
   };
@@ -390,7 +394,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   />
                   {editingParam === (param.id || param.name) ? (
                     <Input
-                      type="text"
+                      type={param.paramType === 'float' || param.paramType === 'integer' ? 'number' : 'text'}
                       value={editingValue}
                       onChange={(e) => setEditingValue(e.target.value)}
                       onBlur={handleFinishEditing}
@@ -401,13 +405,21 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                           setEditingParam(null);
                         }
                       }}
-                      className="text-xs w-14 h-6 px-1 py-0"
+                      min={param.min}
+                      max={param.max}
+                      step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
+                      className="text-xs w-16 h-6 px-1 py-0"
                       autoFocus
                     />
                   ) : (
                     <span 
                       className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
-                      onClick={() => handleStartEditing(param.id || param.name, param.value)}
+                      onClick={() => {
+                        if (typeof param.value !== 'boolean') {
+                          handleStartEditing(param.id || param.name, param.value);
+                        }
+                      }}
+                      title="Click to edit value directly"
                     >
                       {param.value}{param.unit || ''}
                     </span>
