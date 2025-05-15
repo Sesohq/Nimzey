@@ -385,7 +385,7 @@ export default function PreviewPanel({
         </div>
         
         <div className="mt-auto p-3 border-t border-gray-700">
-          <div className="text-xs text-gray-400 mb-2">Export Settings</div>
+          <div className="text-sm font-semibold text-orange-400 mb-2">Export Settings</div>
           <div className="mb-2">
             <Label className="block text-xs text-gray-400 mb-1">Format</Label>
             <Select value={exportFormat} onValueChange={setExportFormat}>
@@ -414,7 +414,7 @@ export default function PreviewPanel({
             </div>
           </div>
           <Button 
-            className="w-full py-2 bg-primary hover:bg-primary/90"
+            className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold"
             onClick={() => onExportImage(exportFormat, exportQuality)}
             disabled={!processedImage}
           >
