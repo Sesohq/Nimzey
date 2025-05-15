@@ -79,9 +79,9 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
           <Accordion type="multiple" defaultValue={Object.keys(filterCategories)} className="space-y-3">
             {Object.entries(filterCategories).map(([categoryId, category]) => (
               <AccordionItem value={categoryId} key={categoryId} className="filter-category border-0">
-                <AccordionTrigger className="filter-category-header py-2 px-3 no-underline">
+                <AccordionTrigger className={`filter-category-header py-2 px-3 no-underline ${categoryId}-header`}>
                   <div className="flex items-center">
-                    <div className={`icon-container ${categoryId}-filters mr-3`} style={{width: '24px', height: '24px', minWidth: '24px'}}>
+                    <div className={`icon-container ${categoryId}-filters mr-3`} style={{width: '26px', height: '26px', minWidth: '26px'}}>
                       {getCategoryIcon(categoryId)}
                     </div>
                     <span>{category.name}</span>
