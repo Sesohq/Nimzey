@@ -74,9 +74,12 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
           className="orange-button"
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
-          <span>Upload Image</span>
-          <div className="inner-button ml-auto">
-            <Upload className="h-5 w-5 icon" />
+          <div className="blob1"></div>
+          <div className="inner">
+            <span className="font-semibold">Upload Image</span>
+            <div className="inner-button">
+              <Upload className="h-5 w-5 icon" />
+            </div>
           </div>
         </div>
         <input 
