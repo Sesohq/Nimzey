@@ -1,169 +1,219 @@
-import { useState } from 'react';
-import Header from '@/components/Header';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
+import { 
+  NodeStore,
+  NodeConnection,
+  NodeParameter,
+  NodeCategory
+} from '@shared/nodeTypes';
+import { NodeChange, EdgeChange } from 'reactflow';
+import { getNodeDefinition } from '@/lib/nodeDefinitions';
+import { 
+  processNodeGraph, 
+  getFinalOutput,
+  NodeResultCache 
+} from '@/lib/nodeEngine';
+
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
-import PresetPanel from '@/components/PresetPanel';
-import CustomNodesPanel from '@/components/CustomNodesPanel';
-import CreateCustomNodeDialog from '@/components/CreateCustomNodeDialog';
-import { useFilterGraph } from '@/hooks/useFilterGraph';
 
-export default function Home() {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    onNodeSelect,
-    addNode,
-    addCustomNode,
-    createCustomNode,
-    selectedNode,
-    selectedNodeId,
-    processedImage,
-    uploadImage,
-    exportImage,
-    sourceImage,
-    resetCanvas,
-    zoomIn,
-    zoomOut,
-    zoomLevel,
-    nodePreview,
-    loadPreset
-  } = useFilterGraph();
-
-  const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
-  const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
-  // Add state for selected tab in the left panel
-  const [activeLeftTab, setActiveLeftTab] = useState<'filters' | 'presets' | 'customNodes'>('filters');
+const Home = () => {
+  // Application state
+  const [nodes, setNodes] = useState<NodeStore[]>([]);
+  const [connections, setConnections] = useState<NodeConnection[]>([]);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [finalOutput, setFinalOutput] = useState<string | null>(null);
+  const [nodePreviews, setNodePreviews] = useState<Record<string, string>>({});
   
-  // State for custom node creation dialog
-  const [createCustomNodeOpen, setCreateCustomNodeOpen] = useState(false);
-
+  // Process the node graph when nodes or connections change
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    
+    const resultCache = processNodeGraph(nodes, connections);
+    
+    // Get the final output
+    const output = getFinalOutput(nodes, connections, resultCache);
+    setFinalOutput(output);
+    
+    // Update previews for all nodes
+    const previews: Record<string, string> = {};
+    nodes.forEach(node => {
+      const def = getNodeDefinition(node.type);
+      if (def && def.outputs.length > 0) {
+        const outputPort = def.outputs[0].id;
+        const preview = resultCache.get(node.id, outputPort);
+        if (preview) {
+          previews[node.id] = preview;
+        }
+      }
+    });
+    
+    setNodePreviews(previews);
+  }, [nodes, connections]);
+  
+  // Handle node changes
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    // React Flow changes like position
+    setNodes(prevNodes => {
+      return prevNodes.map(node => {
+        const change = changes.find(c => c.id === node.id);
+        if (change && change.type === 'position' && change.position) {
+          return {
+            ...node,
+            position: change.position
+          };
+        }
+        return node;
+      });
+    });
+  }, []);
+  
+  // Handle adding a new node
+  const handleNodeAdd = useCallback((node: NodeStore) => {
+    setNodes(prevNodes => [...prevNodes, node]);
+  }, []);
+  
+  // Handle deleting a node
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setNodes(prevNodes => prevNodes.filter(node => node.id !== nodeId));
+    setConnections(prevConnections => 
+      prevConnections.filter(conn => 
+        conn.sourceNodeId !== nodeId && conn.targetNodeId !== nodeId
+      )
+    );
+  }, []);
+  
+  // Handle toggling a node on/off
+  const handleNodeToggle = useCallback((nodeId: string, enabled: boolean) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId ? { ...node, enabled } : node
+      )
+    );
+  }, []);
+  
+  // Handle collapsing a node
+  const handleNodeCollapse = useCallback((nodeId: string, collapsed: boolean) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId ? { ...node, collapsed } : node
+      )
+    );
+  }, []);
+  
+  // Handle changing node color tag
+  const handleNodeColorTagChange = useCallback((nodeId: string, colorTag: string) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId ? { ...node, colorTag } : node
+      )
+    );
+  }, []);
+  
+  // Handle changing parameter values
+  const handleNodeParameterChange = useCallback((nodeId: string, parameterId: string, value: any) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => {
+        if (node.id === nodeId) {
+          const updatedParams = node.parameters.map(param => 
+            param.id === parameterId ? { ...param, value } : param
+          );
+          return { ...node, parameters: updatedParams };
+        }
+        return node;
+      })
+    );
+  }, []);
+  
+  // Handle adding a connection
+  const handleConnectionAdd = useCallback((connection: NodeConnection) => {
+    setConnections(prevConnections => [...prevConnections, connection]);
+  }, []);
+  
+  // Handle deleting a connection
+  const handleConnectionDelete = useCallback((connectionId: string) => {
+    setConnections(prevConnections => 
+      prevConnections.filter(conn => conn.id !== connectionId)
+    );
+  }, []);
+  
+  // Handle selection change
+  const handleSelectionChange = useCallback((nodeIds: string[]) => {
+    setSelectedNodeIds(nodeIds);
+  }, []);
+  
   return (
-    <div className="h-screen w-full flex flex-col bg-background text-foreground">
-      <Header onNewProject={resetCanvas} onExportImage={exportImage} />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <div className="h-full flex flex-col" style={{ width: `${filtersPanelWidth}px` }}>
-          <div className="flex border-b">
-            <button 
-              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'filters' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
-              onClick={() => setActiveLeftTab('filters')}
-            >
-              Filters
-            </button>
-            <button 
-              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'presets' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
-              onClick={() => setActiveLeftTab('presets')}
-            >
-              Presets
-            </button>
-            <button 
-              className={`flex-1 py-2 px-4 text-sm font-medium ${activeLeftTab === 'customNodes' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`}
-              onClick={() => setActiveLeftTab('customNodes')}
-            >
-              Custom
-            </button>
-          </div>
-          
-          {/* Upload Image Button - Now at the top of the panel */}
-          <div className="px-2 py-2 flex-shrink-0 bg-[#0A0D14]">
-            <button 
-              className="w-full flex items-center justify-center h-9 text-sm font-medium text-white relative overflow-hidden"
-              style={{
-                background: '#2A5DCE',
-                border: 'none',
-                borderRadius: '5px',
-                boxShadow: '0 0 10px rgba(0, 182, 254, 0.3)'
-              }}
-              onClick={() => document.getElementById('imageUpload')?.click()}
-            >
-              <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8L12 3L7 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 3V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Upload Image
-            </button>
-            <input 
-              type="file" 
-              id="imageUpload" 
-              className="hidden" 
-              accept="image/*"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  uploadImage(e.target.files[0]);
-                }
-              }}
-            />
-          </div>
-          
-          <div className="flex-1 overflow-hidden">
-            {activeLeftTab === 'filters' ? (
-              <FilterPanel 
-                width={filtersPanelWidth} 
-                onAddFilter={addNode}
-                onUploadImage={uploadImage}
-                sourceImage={sourceImage}
-              />
-            ) : activeLeftTab === 'presets' ? (
-              <PresetPanel
-                width={filtersPanelWidth}
-                nodes={nodes}
-                edges={edges}
-                onLoadPreset={loadPreset}
-                processedImage={processedImage}
-              />
-            ) : (
-              <CustomNodesPanel
-                width={filtersPanelWidth}
-                onAddCustomNode={addCustomNode}
-                onCreateCustomNode={() => setCreateCustomNodeOpen(true)} 
-                onDeleteCustomNode={() => {}}
-              />
-            )}
-          </div>
+    <div className="h-screen w-screen flex flex-col">
+      <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between">
+        <h1 className="text-lg font-semibold">FilterKit</h1>
+        
+        <div className="flex items-center space-x-4">
+          <button className="px-3 py-1 hover:bg-gray-800 rounded">File</button>
+          <button className="px-3 py-1 hover:bg-gray-800 rounded">Edit</button>
+          <button className="px-3 py-1 hover:bg-gray-800 rounded">View</button>
+          <button className="px-3 py-1 hover:bg-gray-800 rounded">Help</button>
         </div>
-        
-        <NodeCanvas
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeSelect}
-          selectedNodeId={selectedNodeId}
-          zoomIn={zoomIn}
-          zoomOut={zoomOut}
-          zoomLevel={zoomLevel}
-          onUploadImage={uploadImage}
-        />
-        
-        <PreviewPanel 
-          width={previewPanelWidth}
-          selectedNode={selectedNode}
-          nodePreview={nodePreview}
-          processedImage={processedImage}
-          onExportImage={exportImage}
-          nodes={nodes}
-          edges={edges}
-        />
       </div>
       
-      {/* Custom Node Creation Dialog */}
-      <CreateCustomNodeDialog
-        open={createCustomNodeOpen}
-        onOpenChange={setCreateCustomNodeOpen}
-        selectedNodes={nodes.filter(node => node.selected)}
-        allNodes={nodes}
-        edges={edges}
-        onCreateCustomNode={async (customNodeData) => {
-          await createCustomNode(customNodeData);
-          setCreateCustomNodeOpen(false);
-        }}
-      />
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={20} minSize={15}>
+            <FilterPanel 
+              onAddNode={handleNodeAdd}
+              className="h-full"
+            />
+          </ResizablePanel>
+          
+          <ResizableHandle />
+          
+          <ResizablePanel defaultSize={55}>
+            <NodeCanvas 
+              nodes={nodes}
+              connections={connections}
+              onNodesChange={handleNodesChange}
+              onNodeAdd={handleNodeAdd}
+              onNodeDelete={handleNodeDelete}
+              onConnectionAdd={handleConnectionAdd}
+              onConnectionDelete={handleConnectionDelete}
+              onNodeToggle={handleNodeToggle}
+              onNodeCollapse={handleNodeCollapse}
+              onNodeColorTagChange={handleNodeColorTagChange}
+              onNodeParameterChange={handleNodeParameterChange}
+              onSelectionChange={handleSelectionChange}
+            />
+          </ResizablePanel>
+          
+          <ResizableHandle />
+          
+          <ResizablePanel defaultSize={25} minSize={20}>
+            <PreviewPanel 
+              previewImage={finalOutput || undefined}
+              selectedNodeId={selectedNodeIds[0]}
+              nodePreviews={nodePreviews}
+              className="h-full"
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+      
+      <div className="bg-gray-100 border-t border-gray-300 px-4 py-2 flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {selectedNodeIds.length > 0 
+            ? `Selected: ${selectedNodeIds.join(', ')}` 
+            : 'No nodes selected'}
+        </div>
+        
+        <div className="text-sm text-gray-600">
+          {nodes.length} nodes | {connections.length} connections
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default Home;

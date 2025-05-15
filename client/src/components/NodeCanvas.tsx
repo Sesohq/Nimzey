@@ -1,152 +1,335 @@
-import { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import ReactFlow, {
-  Controls,
   Background,
-  BackgroundVariant,
-  MiniMap,
-  Node,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  Connection,
   Edge,
+  Node,
+  NodeTypes,
+  EdgeTypes,
+  MarkerType,
+  OnNodesChange,
   NodeChange,
   EdgeChange,
-  Connection,
-  useReactFlow,
-  NodeTypes
+  OnEdgesChange,
 } from 'reactflow';
-import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import FilterNode from './FilterNode';
-import ImageNode from './ImageNode';
-import BlendNode from './BlendNode';
-import CustomNode from './CustomNode';
-import { Badge } from '@/components/ui/badge';
+import 'reactflow/dist/style.css';
 
-// Using a renderNode function instead of creating new nodeTypes object on each render
+import { 
+  NodeStore, 
+  NodeConnection,
+  NodeDataType
+} from '@shared/nodeTypes';
+import { 
+  isConnectionValid, 
+  wouldCreateCycle, 
+  getTypeColor 
+} from '@/lib/nodeEngine';
+import BaseNode from './BaseNode';
+
+// Define custom node types
 const nodeTypes: NodeTypes = {
-  filterNode: FilterNode,
-  imageNode: ImageNode,
-  blendNode: BlendNode,
-  customNode: CustomNode
+  baseNode: BaseNode,
 };
 
+// Define custom edge types
+const EdgeWithType: React.FC<any> = ({ 
+  id, 
+  sourceX, 
+  sourceY, 
+  targetX, 
+  targetY, 
+  sourcePosition, 
+  targetPosition, 
+  data
+}) => {
+  const edgeType = data?.type || 'default';
+  const color = data?.type ? getTypeColor(data.type as NodeDataType) : '#888';
+  
+  return (
+    <g className="react-flow__edge">
+      <path
+        id={id}
+        className="react-flow__edge-path"
+        d={`M${sourceX},${sourceY} C${sourceX + 50},${sourceY} ${targetX - 50},${targetY} ${targetX},${targetY}`}
+        stroke={color}
+        strokeWidth={2}
+        fill="none"
+      />
+    </g>
+  );
+};
+
+const edgeTypes: EdgeTypes = {
+  typed: EdgeWithType,
+};
+
+// Convert internal node model to ReactFlow node
+const convertToReactFlowNode = (
+  node: NodeStore,
+  inputConnections: Record<string, Record<string, boolean>>,
+  outputConnections: Record<string, Record<string, boolean>>
+): Node => {
+  return {
+    id: node.id,
+    type: 'baseNode',
+    position: node.position,
+    data: {
+      ...node,
+      inputConnections: inputConnections[node.id] || {},
+      outputConnections: outputConnections[node.id] || {},
+    },
+  };
+};
+
+// Convert internal connection model to ReactFlow edge
+const convertToReactFlowEdge = (connection: NodeConnection): Edge => {
+  return {
+    id: connection.id,
+    source: connection.sourceNodeId,
+    sourceHandle: connection.sourcePortId,
+    target: connection.targetNodeId,
+    targetHandle: connection.targetPortId,
+    type: 'typed',
+    data: {
+      type: connection.type
+    },
+    animated: true,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: getTypeColor(connection.type),
+    },
+  };
+};
+
+// Props for the NodeCanvas component
 interface NodeCanvasProps {
-  nodes: Node[];
-  edges: Edge[];
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  onConnect: (connection: Connection) => void;
-  onNodeClick: (nodeId: string) => void;
-  selectedNodeId: string | null;
-  zoomIn: () => void;
-  zoomOut: () => void;
-  zoomLevel: number;
-  onUploadImage?: (file: File) => void;
+  nodes: NodeStore[];
+  connections: NodeConnection[];
+  onNodesChange?: (changes: NodeChange[]) => void;
+  onConnectionsChange?: (connections: EdgeChange[]) => void;
+  onNodeAdd?: (node: NodeStore) => void;
+  onNodeDelete?: (nodeId: string) => void;
+  onConnectionAdd?: (connection: NodeConnection) => void;
+  onConnectionDelete?: (connectionId: string) => void;
+  onNodeToggle?: (nodeId: string, enabled: boolean) => void;
+  onNodeCollapse?: (nodeId: string, collapsed: boolean) => void;
+  onNodeColorTagChange?: (nodeId: string, color: string) => void;
+  onNodeParameterChange?: (nodeId: string, parameterId: string, value: any) => void;
+  onSelectionChange?: (nodeIds: string[]) => void;
 }
 
-export default function NodeCanvas({ 
-  nodes, 
-  edges, 
-  onNodesChange, 
-  onEdgesChange, 
-  onConnect,
-  onNodeClick,
-  selectedNodeId,
-  zoomIn,
-  zoomOut,
-  zoomLevel,
-  onUploadImage
-}: NodeCanvasProps) {
-  // NodeCanvas component - renders the node-based editor
-  const reactFlowInstance = useReactFlow();
-  const [isDragging, setIsDragging] = useState(false);
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handlePaneClick = (event: React.MouseEvent) => {
-    // Only clear selections if not in multi-select mode
-    const isMultiSelectMode = event.ctrlKey || event.metaKey || event.shiftKey;
-    
-    if (!isMultiSelectMode) {
-      // Deselect all nodes
-      nodes.forEach(node => {
-        if (node.selected) {
-          onNodesChange([{ type: 'select', id: node.id, selected: false }]);
-        }
-      });
-      
-      // Clear the focused node
-      onNodeClick('');
+// Connection state tracking helper
+const getConnectionStates = (connections: NodeConnection[]) => {
+  const inputConnections: Record<string, Record<string, boolean>> = {};
+  const outputConnections: Record<string, Record<string, boolean>> = {};
+  
+  connections.forEach(conn => {
+    // Track target connections
+    if (!inputConnections[conn.targetNodeId]) {
+      inputConnections[conn.targetNodeId] = {};
     }
-  };
-
-  const handleNodeClick = (event: React.MouseEvent, node: Node) => {
-    // Support for multi-select with keyboard modifiers
-    const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey for Mac
-    const isShiftPressed = event.shiftKey;
     
-    if (isCtrlPressed || isShiftPressed) {
-      // Multi-select mode - toggle selection without changing the focused node
-      const updatedNode = {
-        ...node,
-        selected: !node.selected
-      };
-      
-      // Update node selection state
-      onNodesChange([{ type: 'select', id: node.id, selected: updatedNode.selected }]);
-    } else {
-      // Single select mode - normal behavior
-      onNodeClick(node.id);
+    inputConnections[conn.targetNodeId][conn.targetPortId] = true;
+    
+    // Track source connections
+    if (!outputConnections[conn.sourceNodeId]) {
+      outputConnections[conn.sourceNodeId] = {};
     }
-  };
+    
+    outputConnections[conn.sourceNodeId][conn.sourcePortId] = true;
+  });
+  
+  return { inputConnections, outputConnections };
+};
 
+// Main NodeCanvas component
+const NodeCanvas: React.FC<NodeCanvasProps> = ({
+  nodes,
+  connections,
+  onNodesChange: propOnNodesChange,
+  onConnectionsChange,
+  onNodeAdd,
+  onNodeDelete,
+  onConnectionAdd,
+  onConnectionDelete,
+  onNodeToggle,
+  onNodeCollapse,
+  onNodeColorTagChange,
+  onNodeParameterChange,
+  onSelectionChange,
+}) => {
+  // Convert nodes and connections to ReactFlow format
+  const { inputConnections, outputConnections } = useMemo(
+    () => getConnectionStates(connections),
+    [connections]
+  );
+  
+  const initialNodes = useMemo(
+    () => nodes.map(node => convertToReactFlowNode(node, inputConnections, outputConnections)),
+    [nodes, inputConnections, outputConnections]
+  );
+  
+  const initialEdges = useMemo(
+    () => connections.map(convertToReactFlowEdge),
+    [connections]
+  );
+  
+  // State for ReactFlow
+  const [reactflowNodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
+  const [reactflowEdges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  
+  // Update nodes when the props change
+  React.useEffect(() => {
+    setNodes(
+      nodes.map(node => convertToReactFlowNode(node, inputConnections, outputConnections))
+    );
+  }, [nodes, inputConnections, outputConnections, setNodes]);
+  
+  // Update edges when the props change
+  React.useEffect(() => {
+    setEdges(connections.map(convertToReactFlowEdge));
+  }, [connections, setEdges]);
+  
+  // Handle node selection
+  const handleSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
+    const selectedIds = selectedNodes.map((node: Node) => node.id);
+    setSelectedNodeIds(selectedIds);
+    
+    if (onSelectionChange) {
+      onSelectionChange(selectedIds);
+    }
+  }, [onSelectionChange]);
+  
+  // Handle node deletion
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    if (onNodeDelete) {
+      onNodeDelete(nodeId);
+    }
+  }, [onNodeDelete]);
+  
+  // Handle node toggling
+  const handleNodeToggle = useCallback((nodeId: string, enabled: boolean) => {
+    if (onNodeToggle) {
+      onNodeToggle(nodeId, enabled);
+    }
+  }, [onNodeToggle]);
+  
+  // Handle node collapsing
+  const handleNodeCollapse = useCallback((nodeId: string, collapsed: boolean) => {
+    if (onNodeCollapse) {
+      onNodeCollapse(nodeId, collapsed);
+    }
+  }, [onNodeCollapse]);
+  
+  // Handle color tag changes
+  const handleColorTagChange = useCallback((nodeId: string, color: string) => {
+    if (onNodeColorTagChange) {
+      onNodeColorTagChange(nodeId, color);
+    }
+  }, [onNodeColorTagChange]);
+  
+  // Handle parameter changes
+  const handleParameterChange = useCallback((nodeId: string, parameterId: string, value: any) => {
+    if (onNodeParameterChange) {
+      onNodeParameterChange(nodeId, parameterId, value);
+    }
+  }, [onNodeParameterChange]);
+  
+  // Handle connection changes
+  const handleConnect = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) return;
+    
+    // Check if the connection is valid
+    const sourceNode = nodes.find(node => node.id === connection.source);
+    const targetNode = nodes.find(node => node.id === connection.target);
+    
+    if (!sourceNode || !targetNode) return;
+    
+    // Check if the connection would create a cycle
+    if (wouldCreateCycle(connection.source, connection.target, nodes, connections)) {
+      console.warn('Connection would create a cycle, ignoring');
+      return;
+    }
+    
+    // Check if the connection is valid based on types
+    if (!connection.sourceHandle || !connection.targetHandle) return;
+    
+    const isValid = isConnectionValid(
+      sourceNode,
+      connection.sourceHandle,
+      targetNode,
+      connection.targetHandle
+    );
+    
+    if (!isValid) {
+      console.warn('Connection types are incompatible, ignoring');
+      return;
+    }
+    
+    // Find the type of the connection
+    const sourcePort = sourceNode.outputs.find(port => port.id === connection.sourceHandle);
+    if (!sourcePort) return;
+    
+    // Create the new connection
+    const newConnection: NodeConnection = {
+      id: `${connection.source}-${connection.sourceHandle}-${connection.target}-${connection.targetHandle}`,
+      sourceNodeId: connection.source,
+      sourcePortId: connection.sourceHandle,
+      targetNodeId: connection.target,
+      targetPortId: connection.targetHandle,
+      type: sourcePort.type
+    };
+    
+    if (onConnectionAdd) {
+      onConnectionAdd(newConnection);
+    }
+  }, [nodes, connections, onConnectionAdd]);
+  
+  // Handle ReactFlow node changes
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    if (propOnNodesChange) {
+      propOnNodesChange(changes);
+    }
+  }, [propOnNodesChange]);
+  
+  // Handle ReactFlow edge changes
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    if (onConnectionsChange) {
+      onConnectionsChange(changes);
+    }
+  }, [onConnectionsChange]);
+  
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden">
-      <div className="bg-gray-100 p-2 flex items-center border-b border-gray-300">
-        <div className="flex space-x-2">
-          <Button size="icon" variant="ghost" onClick={zoomIn}>
-            <ZoomIn className="h-5 w-5" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={zoomOut}>
-            <ZoomOut className="h-5 w-5" />
-          </Button>
-          <Badge variant="outline" className="text-sm px-2 py-1 bg-white border border-gray-300 rounded text-gray-800 font-medium">
-            {zoomLevel}%
-          </Badge>
-        </div>
-        <div className="flex items-center ml-auto">
-          <div className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 mr-3">
-            Use Ctrl+Click (⌘+Click on Mac) or Shift+Click to select multiple nodes
-          </div>
-          <div className="text-sm text-gray-500">
-            Drag to connect nodes • Double-click to delete connections
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex-1 h-full">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onPaneClick={handlePaneClick}
-          onNodeClick={handleNodeClick}
-          nodeTypes={nodeTypes}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-          snapToGrid={true}
-          snapGrid={[15, 15]}
-          onDragOver={onDragOver}
-          deleteKeyCode="Delete"
-        >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-      </div>
+    <div className="w-full h-full flex">
+      <ReactFlow
+        nodes={reactflowNodes}
+        edges={reactflowEdges}
+        onNodesChange={onNodesChangeInternal}
+        onEdgesChange={onEdgesChangeInternal}
+        onConnect={handleConnect}
+        onSelectionChange={handleSelectionChange}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        minZoom={0.2}
+        maxZoom={4}
+        nodesDraggable
+        elementsSelectable
+        selectNodesOnDrag={false}
+        snapToGrid
+        snapGrid={[10, 10]}
+        fitView
+      >
+        <Background color="#aaa" gap={16} />
+        <Controls />
+      </ReactFlow>
     </div>
   );
-}
+};
+
+export default NodeCanvas;
