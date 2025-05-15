@@ -27,7 +27,7 @@ const CustomSlider = React.forwardRef<
     primary: "bg-blue-100 [&>span]:bg-blue-600",
     secondary: "bg-purple-100 [&>span]:bg-purple-600",
     success: "bg-green-100 [&>span]:bg-green-600",
-    warning: "bg-amber-100 [&>span]:bg-amber-500",
+    warning: "bg-orange-100 [&>span]:bg-orange-500",
     danger: "bg-red-100 [&>span]:bg-red-500",
   };
 

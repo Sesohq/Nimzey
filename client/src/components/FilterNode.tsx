@@ -389,7 +389,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     min={param.min}
                     max={param.max}
                     step={param.step}
-                    color="success"
+                    color="warning"
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
