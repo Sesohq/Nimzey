@@ -40,31 +40,32 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       
       <ScrollArea className="flex-1">
         <div className="p-3">
-          {Object.entries(filterCategories).map(([categoryId, category]) => (
-            <div className="filter-category mb-4" key={categoryId}>
-              <div className="filter-category-header">
-                <span>{category.name}</span>
-                <FilterIcon className="h-4 w-4" />
-              </div>
-              <div className="filter-list">
-                {category.filters.map(filter => (
-                  <div
-                    key={filter.type}
-                    className={`styled-button ${draggedFilter === filter.type ? 'dragging' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleFilterDragStart(e, filter.type)}
-                    onDragEnd={handleFilterDragEnd}
-                    onClick={() => onAddFilter(filter.type)}
-                  >
-                    <span>{filter.name}</span>
-                    <div className="inner-button ml-auto">
-                      <Plus className="h-5 w-5 icon" />
+          <Accordion type="multiple" defaultValue={Object.keys(filterCategories)} className="space-y-3">
+            {Object.entries(filterCategories).map(([categoryId, category]) => (
+              <AccordionItem value={categoryId} key={categoryId} className="filter-category border-0">
+                <AccordionTrigger className="filter-category-header py-2 px-3 no-underline">
+                  <span>{category.name}</span>
+                </AccordionTrigger>
+                <AccordionContent className="filter-list">
+                  {category.filters.map(filter => (
+                    <div
+                      key={filter.type}
+                      className={`styled-button ${draggedFilter === filter.type ? 'dragging' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleFilterDragStart(e, filter.type)}
+                      onDragEnd={handleFilterDragEnd}
+                      onClick={() => onAddFilter(filter.type)}
+                    >
+                      <span>{filter.name}</span>
+                      <div className="inner-button ml-auto">
+                        <Plus className="h-4 w-4 icon" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       </ScrollArea>
       

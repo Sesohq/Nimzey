@@ -1,8 +1,8 @@
 /* From Uiverse.io by elijahgummer */ 
 .styled-button {
   position: relative;
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.95rem;
   font-weight: bold;
   color: #ffffff;
   background: linear-gradient(to bottom, #171717, #242424);
@@ -15,7 +15,7 @@
   justify-content: center;
   border: 1px solid #292929;
   width: 100%;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   text-align: left;
   justify-content: flex-start;
 }
@@ -49,9 +49,9 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(to bottom, #171717, #242424);
-  width: 40px;
-  height: 40px;
-  margin-left: 10px;
+  width: 32px;
+  height: 32px;
+  margin-left: 8px;
   border-radius: 50%;
   box-shadow: 0 0 1px rgba(0, 0, 0, 1);
   border: 1px solid #252525;
@@ -121,7 +121,6 @@
 
 .filter-category-header {
   background: linear-gradient(to bottom, #292929, #222222);
-  padding: 0.75rem 1rem;
   font-weight: bold;
   color: #ffffff;
   cursor: pointer;
@@ -131,8 +130,22 @@
   border-bottom: 1px solid #2a2a2a;
 }
 
+/* Custom accordion styles */
+[data-state="open"] > .filter-category-header svg {
+  transform: rotate(180deg);
+}
+
+[data-state="closed"] > .filter-category-header {
+  border-bottom: none;
+}
+
 .filter-list {
-  padding: 0.75rem;
+  padding: 0.75rem !important;
+}
+
+/* Override default accordion styles */
+.filter-category > [data-state] {
+  animation: none !important;
 }
 
 .styled-button.dragging {
