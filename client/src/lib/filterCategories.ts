@@ -413,7 +413,7 @@ export const filterCategories: Record<string, FilterCategory> = {
       }
     ]
   },
-  effects: {
+  effect: {
     name: 'Effects',
     filters: [
       {

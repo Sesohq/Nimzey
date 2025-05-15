@@ -60,6 +60,8 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         return <Sparkles size={16} />;
       case 'special':
         return <Stars size={16} />;
+      case 'effect':
+        return <Sparkles size={16} />;
       default:
         return <FilterIcon size={16} />;
     }
