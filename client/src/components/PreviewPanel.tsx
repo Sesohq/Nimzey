@@ -311,10 +311,17 @@ export default function PreviewPanel({
         }}
       >
         <div 
-          className="p-3 bg-secondary font-medium flex items-center justify-between cursor-move"
+          className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between cursor-move h-[40px]"
           onMouseDown={handleMouseDown}
         >
-          <span>Preview</span>
+          <div className="flex items-center">
+            <div className="icon-container effect-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+              </svg>
+            </div>
+            <span className="text-lg">Preview</span>
+          </div>
           <div className="flex space-x-2">
             {processedImage && (
               <Button 
@@ -357,7 +364,7 @@ export default function PreviewPanel({
               (selectedNode.type === 'imageNode' ? 'Source Image' : (selectedNode.data as FilterNodeData).label) 
               : 'None'}</span>
           </div>
-          <div className="bg-gray-800 rounded-md overflow-hidden">
+          <div className="bg-black border border-gray-800 rounded-md overflow-hidden">
             {getDisplayImage()}
           </div>
         </div>
