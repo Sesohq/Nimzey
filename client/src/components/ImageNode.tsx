@@ -11,17 +11,20 @@ interface ExtendedNodeProps extends NodeProps<ImageNodeData> {
 const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Use the uploadImage function from either props or data
+  const uploadFunc = onUploadImage || data.onUploadImage;
+  
   const handleClick = () => {
-    // Only trigger file input if onUploadImage is provided
-    if (onUploadImage && fileInputRef.current) {
+    // Only trigger file input if an upload function is available
+    if (uploadFunc && fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0 && onUploadImage) {
-      onUploadImage(files[0]);
+    if (files && files.length > 0 && uploadFunc) {
+      uploadFunc(files[0]);
       // Reset the input value so the same file can be selected again
       e.target.value = '';
     }
