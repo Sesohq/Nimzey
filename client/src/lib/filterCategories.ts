@@ -166,9 +166,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'dither',
         params: [
           {
+            id: 'dither-type',
             name: 'ditherType',
             label: 'Dither Type',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: [
               'Floyd-Steinberg', 
               'Sierra Lite', 
@@ -185,9 +187,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             value: 'Floyd-Steinberg'
           },
           {
+            id: 'dither-size',
             name: 'size',
             label: 'Dither Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 1,
             max: 10,
             step: 0.5,
@@ -195,9 +199,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: ''
           },
           {
+            id: 'dither-brightness',
             name: 'brightness',
             label: 'Brightness',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: -100,
             max: 100,
             step: 1,
@@ -205,9 +211,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'dither-contrast',
             name: 'contrast',
             label: 'Contrast',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: -100,
             max: 100,
             step: 1,
@@ -215,9 +223,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'dither-threshold',
             name: 'threshold',
             label: 'Threshold',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 0,
             max: 255,
             step: 1,
@@ -225,9 +235,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: ''
           },
           {
+            id: 'dither-noise',
             name: 'noise',
             label: 'Noise',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -235,16 +247,20 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'dither-grayscale',
             name: 'useGrayscale',
             label: 'Grayscale',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'boolean',
             options: ['On', 'Off'],
             value: 'On'
           },
           {
+            id: 'dither-gradient',
             name: 'applyGradient',
             label: 'Apply Gradient',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'boolean',
             options: ['On', 'Off'],
             value: 'Off'
           }
@@ -255,9 +271,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'texture',
         params: [
           {
+            id: 'texture-intensity',
             name: 'intensity',
             label: 'Intensity',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -265,9 +283,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'texture-pattern',
             name: 'pattern',
             label: 'Pattern',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Noise', 'Grain', 'Canvas'],
             value: 'Grain'
           }
@@ -283,9 +303,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'extrude',
         params: [
           {
+            id: 'extrude-blockSize',
             name: 'blockSize',
             label: 'Block Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 2,
             max: 50,
             step: 1,
@@ -293,9 +315,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: 'px'
           },
           {
+            id: 'extrude-depth',
             name: 'depth',
             label: 'Extrude Depth',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 1,
             max: 100,
             step: 1,
@@ -303,30 +327,38 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: 'px'
           },
           {
+            id: 'extrude-shape',
             name: 'shape',
             label: 'Shape',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Cube', 'Pyramid', 'Bevel'],
             value: 'Cube'
           },
           {
+            id: 'extrude-lightDirection',
             name: 'lightDirection',
             label: 'Light Direction',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right'],
             value: 'Top-Left'
           },
           {
+            id: 'extrude-materialColor',
             name: 'materialColor',
             label: 'Material Color',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'color',
             options: ['Original', 'Grayscale', 'Blue', 'Red', 'Green'],
             value: 'Original'
           },
           {
+            id: 'extrude-blendOriginal',
             name: 'blendOriginal',
             label: 'Blend with Original',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'boolean',
             options: ['On', 'Off'],
             value: 'Off'
           }
@@ -337,9 +369,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'wave',
         params: [
           {
+            id: 'wave-amplitude',
             name: 'amplitude',
             label: 'Amplitude',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 50,
             step: 1,
@@ -347,9 +381,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: 'px'
           },
           {
+            id: 'wave-frequency',
             name: 'frequency',
             label: 'Frequency',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 1,
             max: 20,
             step: 1,
@@ -362,9 +398,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'pixelate',
         params: [
           {
+            id: 'pixelate-size',
             name: 'pixelSize',
             label: 'Pixel Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 2,
             max: 50,
             step: 1,
@@ -383,9 +421,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'glow',
         params: [
           {
+            id: 'glow-radius',
             name: 'radius',
             label: 'Blur Radius',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 1,
             max: 50,
             step: 1,
@@ -393,9 +433,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: 'px'
           },
           {
+            id: 'glow-threshold',
             name: 'threshold',
             label: 'Highlight Range',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 120,
             max: 250,
             step: 1,
@@ -403,9 +445,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: ''
           },
           {
+            id: 'glow-intensity',
             name: 'intensity',
             label: 'Glow Intensity',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 200,
             step: 1,
@@ -413,16 +457,20 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'glow-blendMode',
             name: 'blendMode',
             label: 'Blend Mode',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Screen', 'Add', 'Lighten', 'Soft Light'],
             value: 'Screen'
           },
           {
+            id: 'glow-color',
             name: 'glowColor',
             label: 'Glow Color',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'color',
             options: ['Original', 'White', 'Golden', 'Blue', 'Pink'],
             value: 'Original'
           }
