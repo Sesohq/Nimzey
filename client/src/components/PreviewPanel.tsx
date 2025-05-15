@@ -32,6 +32,7 @@ export default function PreviewPanel({
   selectedNode, 
   nodePreview,
   processedImage,
+  processedImages = {},
   onExportImage,
   nodes,
   edges,
@@ -77,7 +78,7 @@ export default function PreviewPanel({
     const nodeChain = [node, ...getDownstreamNodes(node.id)];
     
     return (
-      <div className="space-y-2">
+      <div className="space-y-4">
         {nodeChain.map((chainNode) => {
           const isChainNodeSource = chainNode.type === 'imageNode';
           const nodeLabel = isChainNodeSource 
@@ -87,21 +88,39 @@ export default function PreviewPanel({
           const isEnabled = isChainNodeSource 
             ? true 
             : (chainNode.data as FilterNodeData).enabled;
+          
+          // Get the preview image for this node if available
+          const nodePreviewImg = isChainNodeSource 
+            ? (chainNode.data as ImageNodeData).src 
+            : processedImages[chainNode.id];
             
           return (
-            <div key={chainNode.id} className="flex items-center text-sm">
-              <div 
-                className={`w-2 h-2 rounded-full ${
-                  isChainNodeSource 
-                    ? 'bg-blue-500' 
-                    : isEnabled 
-                      ? 'bg-accent' 
-                      : 'bg-gray-600'
-                } mr-2`}
-              />
-              <span className={`${!isEnabled ? 'line-through text-gray-500' : ''}`}>
-                {nodeLabel}
-              </span>
+            <div key={chainNode.id} className="space-y-1">
+              <div className="flex items-center text-sm">
+                <div 
+                  className={`w-2 h-2 rounded-full ${
+                    isChainNodeSource 
+                      ? 'bg-blue-500' 
+                      : isEnabled 
+                        ? 'bg-accent' 
+                        : 'bg-gray-600'
+                  } mr-2`}
+                />
+                <span className={`${!isEnabled ? 'line-through text-gray-500' : ''}`}>
+                  {nodeLabel}
+                </span>
+              </div>
+              
+              {/* Display thumbnail preview if available */}
+              {nodePreviewImg && (
+                <div className="border border-gray-800 rounded overflow-hidden mt-1">
+                  <img 
+                    src={nodePreviewImg} 
+                    alt={`Preview of ${nodeLabel}`}
+                    className="w-full h-auto max-h-24 object-contain bg-gray-900"
+                  />
+                </div>
+              )}
             </div>
           );
         })}
