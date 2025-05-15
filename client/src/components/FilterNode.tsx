@@ -378,11 +378,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 <div className="flex items-center">
                   {param.isConnected && (
                     <button 
-                      className="text-xs text-red-500 hover:text-red-700 mr-1"
+                      className="text-xs text-red-500 hover:text-red-700 mr-1 px-1 border border-red-500 rounded"
                       onClick={() => handleDisconnectParam(param.id || param.name)}
                       title="Disconnect parameter"
                     >
-                      <MinusIcon className="w-3 h-3" />
+                      ×
                     </button>
                   )}
                   <Badge 
