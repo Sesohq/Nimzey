@@ -927,6 +927,7 @@ export function useFilterGraph() {
     selectedNode,
     selectedNodeId,
     processedImage,
+    processedImages,
     uploadImage,
     exportImage,
     sourceImage,
