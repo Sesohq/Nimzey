@@ -89,9 +89,7 @@ export enum NodeCategory {
 }
 
 // Node parameter without runtime-specific fields
-export type NodeParameterTemplate = Omit<NodeParameter, 'sourceNodeId' | 'sourceParameterId'> & {
-  disabled?: boolean; // Make disabled optional for templates
-};
+export type NodeParameterTemplate = Omit<NodeParameter, 'sourceNodeId' | 'sourceParameterId'>;
 
 // Node definition (template)
 export interface NodeDefinition {

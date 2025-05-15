@@ -123,7 +123,8 @@ export const wouldCreateCycle = (
       }
       
       // Recursively check downstream nodes
-      if (findDownstreamNodes(conn.targetNodeId, new Set(visited))) {
+      const newVisited = new Set<string>(visited);
+      if (findDownstreamNodes(conn.targetNodeId, newVisited)) {
         return true;
       }
     }
@@ -156,7 +157,9 @@ export class NodeResultCache {
   }
   
   has(nodeId: string, portId: string): boolean {
-    return this.cache.has(nodeId) && this.cache.get(nodeId)?.has(portId);
+    const nodeCache = this.cache.get(nodeId);
+    if (!nodeCache) return false;
+    return !!nodeCache.has(portId);
   }
   
   clear(): void {

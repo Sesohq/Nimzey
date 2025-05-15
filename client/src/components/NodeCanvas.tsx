@@ -291,7 +291,7 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
       sourcePortId: connection.sourceHandle,
       targetNodeId: connection.target,
       targetPortId: connection.targetHandle,
-      type: sourcePort.type
+      type: sourcePort.type // Type comes from the source port's type
     };
     
     if (onConnectionAdd) {
