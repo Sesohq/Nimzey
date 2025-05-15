@@ -146,6 +146,9 @@ export function useFilterGraph() {
     // Set processing state to true to show loading spinner
     setIsProcessing(true);
     
+    // First, update any connected parameters
+    updateConnectedParams();
+    
     // Use setTimeout to make processing non-blocking for UI
     setTimeout(() => {
       try {
@@ -188,7 +191,7 @@ export function useFilterGraph() {
         setIsProcessing(false);
       }
     }, 0); // Use 0ms timeout to defer execution until after UI updates
-  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview]);
+  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview, updateConnectedParams]);
   
   /* 
   // These functions will be used when we implement Web Workers fully

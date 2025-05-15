@@ -206,7 +206,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       {!collapsed && (
         <div className="p-3">
           {/* Source Image parameter */}
-          <div className="mb-4 relative border-b border-gray-200 pb-3">
+          <div className="mb-4 relative">
             <Handle
               id="param-sourceImage"
               type="target"
@@ -222,14 +222,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             
             <div className="flex justify-between items-center">
               <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
+              <Badge 
+                variant="outline" 
+                className="text-[9px] px-1 py-0 h-4"
+              >
+                image
+              </Badge>
             </div>
-            
-            <Badge 
-              variant="outline" 
-              className="absolute right-0 -top-1 text-[9px] px-1 py-0 h-4"
-            >
-              image
-            </Badge>
           </div>
           
           {/* Image Preview */}
