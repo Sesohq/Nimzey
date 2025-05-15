@@ -224,10 +224,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
             </div>
             
-            <div className="mt-1 text-xs text-gray-500">
-              Main input for this filter
-            </div>
-            
             <Badge 
               variant="outline" 
               className="absolute right-0 -top-1 text-[9px] px-1 py-0 h-4"

@@ -65,6 +65,80 @@ export function useFilterGraph() {
     return previewUrl;
   }, [nodes, edges, getCanvas]);
 
+  // Update connected parameter values
+  const updateConnectedParams = useCallback(() => {
+    const nodeMap = new Map<string, Node>();
+    nodes.forEach(node => nodeMap.set(node.id, node));
+    
+    // Get all filter nodes that have parameter connections
+    const filterNodes = nodes.filter(node => 
+      node.type === 'filterNode' && 
+      (node.data as FilterNodeData).paramConnections &&
+      Object.keys((node.data as FilterNodeData).paramConnections!).length > 0
+    );
+    
+    // For each filter node with connections
+    filterNodes.forEach(node => {
+      const nodeData = node.data as FilterNodeData;
+      const connections = nodeData.paramConnections || {};
+      
+      // Process each connected parameter
+      Object.entries(connections).forEach(([paramId, connection]) => {
+        const { sourceNodeId, sourceParamId } = connection;
+        const sourceNode = nodeMap.get(sourceNodeId);
+        
+        if (sourceNode && sourceNode.type === 'filterNode') {
+          const sourceNodeData = sourceNode.data as FilterNodeData;
+          
+          // Find the source parameter
+          const sourceParam = sourceNodeData.params.find(p => 
+            (p.id || p.name) === sourceParamId
+          );
+          
+          // Find the target parameter
+          const targetParamIndex = nodeData.params.findIndex(p => 
+            (p.id || p.name) === paramId
+          );
+          
+          // If both parameters exist, update the target parameter value
+          if (sourceParam && targetParamIndex !== -1) {
+            // Convert values if necessary based on parameter types
+            let updatedValue = sourceParam.value;
+            const targetParam = nodeData.params[targetParamIndex];
+            
+            // Type conversion if needed (e.g., float to int)
+            if (targetParam.paramType === 'integer' && typeof updatedValue === 'number') {
+              updatedValue = Math.round(updatedValue);
+            }
+            
+            // Update the node data directly
+            setNodes(currentNodes => 
+              currentNodes.map(n => {
+                if (n.id === node.id) {
+                  const data = n.data as FilterNodeData;
+                  const updatedParams = [...data.params];
+                  updatedParams[targetParamIndex] = {
+                    ...updatedParams[targetParamIndex],
+                    value: updatedValue,
+                  };
+                  
+                  return {
+                    ...n,
+                    data: {
+                      ...data,
+                      params: updatedParams
+                    }
+                  };
+                }
+                return n;
+              })
+            );
+          }
+        }
+      });
+    });
+  }, [nodes]);
+
   // Process the image through the filter chain
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
@@ -534,22 +608,77 @@ export function useFilterGraph() {
 
   // Handle new connections
   const onConnect = useCallback((connection: Connection) => {
-    const newEdge = {
-      ...connection,
-      id: `e-${connection.source}-${connection.target}`,
-      animated: true,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-      },
-    };
-    
-    setEdges(eds => addEdge(newEdge, eds));
+    // Check if this is a parameter-level connection
+    if (connection.targetHandle && connection.targetHandle.startsWith('param-') && 
+        connection.sourceHandle && connection.sourceHandle.startsWith('output-param-')) {
+      
+      // Extract the parameter IDs from the handles
+      const targetParamId = connection.targetHandle.replace('param-', '');
+      const sourceParamId = connection.sourceHandle.replace('output-param-', '');
+      
+      // If the target is "sourceImage", this is a main connection between nodes
+      if (targetParamId === 'sourceImage') {
+        // Create the main node connection as usual
+        const newEdge = {
+          ...connection,
+          id: `e-${connection.source}-${connection.target}`,
+          animated: true,
+          type: 'smoothstep',
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 20,
+            height: 20,
+          },
+        };
+        setEdges(eds => addEdge(newEdge, eds));
+      } else {
+        // This is a parameter-level connection
+        // Connect the parameters at the data level
+        if (connection.target && connection.source) {
+          // Call the parameter connection handler
+          handleConnectParam(
+            connection.target,      // Target node ID
+            targetParamId,          // Target parameter ID
+            connection.source,      // Source node ID
+            sourceParamId           // Source parameter ID
+          );
+          
+          // Also create a visual edge for the connection
+          const paramEdge = {
+            ...connection,
+            id: `param-edge-${connection.source}-${sourceParamId}-${connection.target}-${targetParamId}`,
+            type: 'straight',
+            animated: true,
+            style: { stroke: '#ff5555' },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 12,
+              height: 12,
+              color: '#ff5555',
+            },
+          };
+          setEdges(eds => addEdge(paramEdge, eds));
+        }
+      }
+    } else {
+      // Regular node-to-node connection
+      const newEdge = {
+        ...connection,
+        id: `e-${connection.source}-${connection.target}`,
+        animated: true,
+        type: 'smoothstep',
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+        },
+      };
+      setEdges(eds => addEdge(newEdge, eds));
+    }
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage]);
+  }, [processImage, handleConnectParam]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {
