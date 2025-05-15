@@ -397,7 +397,7 @@ export default function PreviewPanel({
         </div>
         
         {/* Format selector */}
-        <div className="border-t border-gray-700 bg-black flex-shrink-0 overflow-visible">
+        <div className="border-t border-gray-700 bg-black flex-shrink-0">
           <div className="p-3 mb-0">
             <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -418,23 +418,32 @@ export default function PreviewPanel({
             </Select>
           </div>
         </div>
-        
-        {/* Export button - fixed at bottom like Upload Image button */}
-        <div className="flex-shrink-0 border-t border-gray-700" style={{minHeight: '90px'}}>
-          <div className="p-4" style={{backgroundColor: '#000'}}>
-            <div 
-              className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => processedImage && onExportImage(exportFormat)}
-              style={{marginBottom: 0}}
-            >
-              <div className="text-container font-semibold">
-                // Export Image
-              </div>
-              <div className="icon-container" style={{ backgroundColor: '#FFC107' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
+      </div>
+
+      {/* Export button - completely outside the panel flow */}
+      <div 
+        className="fixed z-40 bottom-0 border-t border-gray-700" 
+        style={{
+          backgroundColor: '#000',
+          width: `${width}px`, 
+          right: isDetached ? 'auto' : 0,
+          left: isDetached ? `${detachedPosition.x}px` : 'auto',
+          transform: isDetached ? `translateY(${detachedPosition.y + 500}px)` : 'none'
+        }}
+      >
+        <div className="p-4">
+          <div 
+            className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => processedImage && onExportImage(exportFormat)}
+            style={{marginBottom: 0}}
+          >
+            <div className="text-container font-semibold">
+              // Export Image
+            </div>
+            <div className="icon-container" style={{ backgroundColor: '#FFC107' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
             </div>
           </div>
         </div>
