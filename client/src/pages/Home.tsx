@@ -63,6 +63,7 @@ export default function Home() {
           selectedNode={selectedNode}
           nodePreview={nodePreview}
           processedImage={processedImage}
+          processedImages={processedImages}
           onExportImage={exportImage}
           nodes={nodes}
           edges={edges}
