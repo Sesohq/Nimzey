@@ -1,4 +1,17 @@
 /* Category-specific header styles */
+.filter-category-header {
+  box-shadow: none !important;
+  transition: all 0.3s ease;
+}
+
+.filter-category-header:hover {
+  transform: none !important;
+}
+
+/* Override button container shadow for headers */
+.filter-category-header .icon-container {
+  box-shadow: none !important;
+}
 .basic-header {
   border-left: 3px solid #5B8FB9;
 }
