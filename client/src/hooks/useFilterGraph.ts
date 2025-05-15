@@ -897,7 +897,7 @@ export function useFilterGraph() {
     // For now, we'll just open the processed image in a new tab
     const a = document.createElement('a');
     a.href = processedImage;
-    a.download = `filter-forge-export.${format}`;
+    a.download = `filter-kit-export.${format}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
