@@ -1,26 +1,60 @@
 import { memo, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MinusIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, MinusIcon, TagIcon, Layers, Paintbrush } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FilterNodeData } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import NodeControls from './NodeControls';
 
-const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
-  const [isMinimized, setIsMinimized] = useState(false);
+// Color tag backgrounds
+const colorTagBg: Record<NodeColorTag, string> = {
+  default: 'bg-gray-600',
+  red: 'bg-red-600',
+  orange: 'bg-orange-600',
+  yellow: 'bg-yellow-500',
+  green: 'bg-green-600',
+  blue: 'bg-blue-600',
+  purple: 'bg-purple-600',
+  pink: 'bg-pink-600'
+};
 
-  const handleToggleMinimize = (e: React.MouseEvent) => {
+// Blend mode labels
+const blendModeLabels: Record<BlendMode, string> = {
+  'normal': 'Normal',
+  'multiply': 'Multiply',
+  'screen': 'Screen',
+  'overlay': 'Overlay',
+  'darken': 'Darken',
+  'lighten': 'Lighten',
+  'color-dodge': 'Color Dodge',
+  'color-burn': 'Color Burn',
+  'hard-light': 'Hard Light',
+  'soft-light': 'Soft Light',
+  'difference': 'Difference',
+  'exclusion': 'Exclusion'
+};
+
+const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsMinimized(!isMinimized);
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    if (data.onToggleCollapsed) {
+      data.onToggleCollapsed(id, newCollapsedState);
+    }
   };
 
-  const handleParamChange = (paramName: string, value: number | string) => {
+  const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
-      data.onParamChange(id, paramName, value);
+      data.onParamChange(id, paramId, value);
     }
   };
 
@@ -30,10 +64,38 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   };
 
+  const handleChangeBlendMode = (blendMode: BlendMode) => {
+    if (data.onChangeBlendMode) {
+      data.onChangeBlendMode(id, blendMode);
+    }
+  };
+
+  const handleChangeOpacity = (value: number) => {
+    if (data.onChangeOpacity) {
+      data.onChangeOpacity(id, value);
+    }
+  };
+
+  const handleChangeColorTag = (color: NodeColorTag) => {
+    if (data.onChangeColorTag) {
+      data.onChangeColorTag(id, color);
+    }
+  };
+
+  // For disconnecting parameter links
+  const handleDisconnectParam = (paramId: string) => {
+    if (data.onDisconnectParam) {
+      data.onDisconnectParam(id, paramId);
+    }
+  };
+
   return (
-    <Card className={`shadow-md w-[220px] bg-white ${selected ? 'ring-2 ring-primary' : ''} ${!data.enabled ? 'opacity-60' : ''}`}>
+    <Card 
+      className={`shadow-md w-[280px] bg-card ${selected ? 'ring-2 ring-primary' : ''} 
+        ${!data.enabled ? 'opacity-60' : ''}`}
+    >
       <div 
-        className="bg-accent text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move"
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
       >
         <div className="flex items-center space-x-2">
           <Checkbox 
@@ -46,21 +108,107 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           <span>{data.label}</span>
         </div>
         <div className="flex space-x-1">
-          <button 
-            className="hover:bg-purple-700 rounded p-1" 
-            onClick={handleToggleMinimize}
-          >
-            <MinusIcon className="h-3 w-3" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Layers className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Node Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={handleToggleCollapse}
+                >
+                  {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{collapsed ? 'Expand' : 'Collapse'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
-      {!isMinimized && (
+      {/* Node settings panel */}
+      {showSettings && (
+        <div className="p-3 border-b border-gray-200">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Blend Mode</Label>
+              <Select 
+                value={data.blendMode || 'normal'} 
+                onValueChange={(value) => handleChangeBlendMode(value as BlendMode)}
+                disabled={!data.enabled}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(blendModeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
+              <Select 
+                value={data.colorTag || 'default'} 
+                onValueChange={(value) => handleChangeColorTag(value as NodeColorTag)}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="red">Red</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="purple">Purple</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="mt-2">
+            <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
+            <Slider
+              value={[data.opacity || 100]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(values) => handleChangeOpacity(values[0])}
+              disabled={!data.enabled}
+            />
+          </div>
+        </div>
+      )}
+
+      {!collapsed && (
         <div className="p-3">
           {/* Image Preview */}
           {data.preview && (
             <div className="mb-3">
-              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '80px' }}>
+              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
                 <img 
                   src={data.preview} 
                   alt={`${data.label} preview`}
@@ -70,21 +218,45 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             </div>
           )}
           
-          {/* Parameters */}
+          {/* Parameters with connection handles */}
           {data.params.map((param) => (
-            <div key={param.name} className="mb-2">
-              <Label className="block text-xs text-gray-500 mb-1">{param.label}</Label>
+            <div key={param.id || param.name} className="mb-4 relative">
+              {/* Parameter connection handle */}
+              <Handle
+                id={`param-${param.id || param.name}`}
+                type="target"
+                position={Position.Left}
+                style={{ 
+                  left: -8, 
+                  top: 20, 
+                  width: 10, 
+                  height: 10, 
+                  background: param.isConnected ? '#ff5555' : '#555555' 
+                }}
+              />
               
-              {param.type === 'range' && (
-                <div className="flex items-center">
+              <div className="flex justify-between items-center">
+                <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
+                {param.isConnected && (
+                  <button 
+                    className="text-xs text-red-500 hover:text-red-700"
+                    onClick={() => handleDisconnectParam(param.id || param.name)}
+                  >
+                    Disconnect
+                  </button>
+                )}
+              </div>
+              
+              {param.controlType === 'range' && (
+                <div className="flex items-center mt-1">
                   <Slider
                     value={[param.value as number]}
                     min={param.min}
                     max={param.max}
                     step={param.step}
                     className="flex-1 mr-2"
-                    onValueChange={(values) => handleParamChange(param.name, values[0])}
-                    disabled={!data.enabled}
+                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                    disabled={!data.enabled || param.isConnected}
                   />
                   <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
                     {param.value}{param.unit || ''}
@@ -92,13 +264,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 </div>
               )}
               
-              {param.type === 'select' && (
+              {param.controlType === 'select' && (
                 <Select 
                   value={param.value as string} 
-                  onValueChange={(value) => handleParamChange(param.name, value)}
-                  disabled={!data.enabled}
+                  onValueChange={(value) => handleParamChange(param.id || param.name, value)}
+                  disabled={!data.enabled || param.isConnected}
                 >
-                  <SelectTrigger className="w-full text-sm">
+                  <SelectTrigger className="w-full text-sm mt-1">
                     <SelectValue placeholder={param.options?.[0]} />
                   </SelectTrigger>
                   <SelectContent>
@@ -110,24 +282,65 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   </SelectContent>
                 </Select>
               )}
+              
+              {param.controlType === 'checkbox' && (
+                <Checkbox 
+                  checked={param.value as boolean}
+                  onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
+                  disabled={!data.enabled || param.isConnected}
+                  className="mt-1"
+                />
+              )}
+              
+              {/* Badge showing parameter type */}
+              <Badge 
+                variant="outline" 
+                className="absolute right-0 -top-1 text-[9px] px-1 py-0 h-4"
+              >
+                {param.paramType}
+              </Badge>
             </div>
           ))}
         </div>
       )}
 
-      <div className="px-3 pb-2 flex justify-between relative h-6">
+      {/* Main node connection handles */}
+      <div className="px-3 pb-2 flex justify-between relative h-8">
+        {/* Input handle */}
         <Handle
+          id="node-input"
           type="target"
           position={Position.Left}
-          className="w-9 h-9 rounded-full -ml-4 bg-primary"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
+          className="w-6 h-6 rounded-full -ml-3 bg-blue-600"
+          style={{ top: 16, transform: 'translateY(-50%)' }}
         />
+        
+        {/* Output handle */}
         <Handle
+          id="node-output"
           type="source"
           position={Position.Right}
-          className="w-9 h-9 rounded-full -mr-4 bg-accent"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
+          className="w-6 h-6 rounded-full -mr-3 bg-green-600"
+          style={{ top: 16, transform: 'translateY(-50%)' }}
         />
+
+        {/* Parameter output handles - only for nodes that produce values that can be used by other nodes */}
+        {data.params.map((param, index) => (
+          <Handle
+            key={param.id || param.name}
+            id={`output-param-${param.id || param.name}`}
+            type="source"
+            position={Position.Right}
+            style={{ 
+              top: 16 + (index * 12), 
+              right: -8, 
+              width: 8, 
+              height: 8, 
+              background: '#ff5555',
+              display: index < 3 ? 'block' : 'none' // Only show first few for demo
+            }}
+          />
+        ))}
       </div>
     </Card>
   );

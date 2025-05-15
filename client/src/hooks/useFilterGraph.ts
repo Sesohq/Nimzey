@@ -176,7 +176,7 @@ export function useFilterGraph() {
   */
 
   // Handle node parameter changes
-  const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
+  const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
     setNodes(nds => 
       nds.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
@@ -186,7 +186,7 @@ export function useFilterGraph() {
             data: {
               ...nodeData,
               params: nodeData.params.map(param => 
-                param.name === paramName ? { ...param, value } : param
+                (param.id || param.name) === paramId ? { ...param, value } : param
               )
             }
           };
@@ -218,6 +218,175 @@ export function useFilterGraph() {
     );
     
     // Re-process the image when a filter is enabled/disabled
+    processImage();
+  }, [processImage]);
+  
+  // Handle changing a node's blend mode
+  const handleBlendModeChange = useCallback((nodeId: string, blendMode: BlendMode) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              blendMode
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    processImage();
+  }, [processImage]);
+  
+  // Handle changing node opacity
+  const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              opacity
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    processImage();
+  }, [processImage]);
+  
+  // Handle changing node color tag
+  const handleColorTagChange = useCallback((nodeId: string, colorTag: NodeColorTag) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              colorTag
+            }
+          };
+        }
+        return node;
+      })
+    );
+  }, []);
+  
+  // Handle collapsing/expanding node
+  const handleToggleCollapsed = useCallback((nodeId: string, collapsed: boolean) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              collapsed
+            }
+          };
+        }
+        return node;
+      })
+    );
+  }, []);
+  
+  // Handle connecting a parameter to another node's output
+  const handleConnectParam = useCallback((
+    nodeId: string, 
+    paramId: string, 
+    sourceNodeId: string, 
+    sourceParamId: string
+  ) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          
+          // Update the parameter to mark it as connected
+          const updatedParams = nodeData.params.map(param => {
+            if ((param.id || param.name) === paramId) {
+              return { 
+                ...param, 
+                isConnected: true,
+                sourceNodeId,
+                sourceParamId
+              };
+            }
+            return param;
+          });
+          
+          // Update the node's connection record
+          const paramConnections = {
+            ...(nodeData.paramConnections || {}),
+            [paramId]: {
+              sourceNodeId,
+              sourceParamId
+            }
+          };
+          
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              params: updatedParams,
+              paramConnections
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    processImage();
+  }, [processImage]);
+  
+  // Handle disconnecting a parameter
+  const handleDisconnectParam = useCallback((nodeId: string, paramId: string) => {
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.id === nodeId && node.type === 'filterNode') {
+          const nodeData = node.data as FilterNodeData;
+          
+          // Update the parameter to mark it as disconnected
+          const updatedParams = nodeData.params.map(param => {
+            if ((param.id || param.name) === paramId) {
+              // Create a new parameter without the connection properties
+              const { isConnected, sourceNodeId, sourceParamId, ...rest } = param;
+              return rest as FilterParam;
+            }
+            return param;
+          });
+          
+          // Remove the connection from the connections record
+          const paramConnections = { ...(nodeData.paramConnections || {}) };
+          if (paramConnections[paramId]) {
+            delete paramConnections[paramId];
+          }
+          
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              params: updatedParams,
+              paramConnections
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
     processImage();
   }, [processImage]);
 
@@ -302,15 +471,33 @@ export function useFilterGraph() {
 
     const newNodeId = `${filterType}-${uuidv4().substring(0, 8)}`;
     
+    // Process params to ensure they have IDs
+    const processedParams = filterDef.params.map(param => ({
+      ...param, 
+      id: param.id || `${param.name}-${uuidv4().substring(0, 8)}`,
+      controlType: param.controlType || 'range',
+      paramType: param.paramType || 'float'
+    }));
+    
     // Create the node data with default params and empty preview
     const nodeData: FilterNodeData = {
       label: `${filterDef.name}`,
       filterType,
-      params: filterDef.params.map(param => ({ ...param })),
+      params: processedParams,
       enabled: true,
       preview: null,
+      colorTag: 'default',
+      blendMode: 'normal',
+      opacity: 100,
+      collapsed: false,
       onParamChange: handleParamChange,
       onToggleEnabled: handleToggleEnabled,
+      onChangeBlendMode: handleBlendModeChange,
+      onChangeOpacity: handleOpacityChange,
+      onChangeColorTag: handleColorTagChange,
+      onToggleCollapsed: handleToggleCollapsed,
+      onConnectParam: handleConnectParam,
+      onDisconnectParam: handleDisconnectParam
     };
 
     const newNode = {

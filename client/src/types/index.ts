@@ -17,16 +17,23 @@ export type FilterType =
 
 export type NodeType = 'filterNode' | 'imageNode';
 
+export type ParamType = 'float' | 'integer' | 'color' | 'image' | 'mask' | 'texture' | 'boolean' | 'vector2' | 'option';
+
 export type FilterParam = {
+  id: string;
   name: string;
   label: string;
-  type: 'range' | 'select';
+  controlType: 'range' | 'select' | 'color' | 'checkbox';
+  paramType: ParamType;
   min?: number;
   max?: number;
   step?: number;
-  value: number | string;
+  value: number | string | boolean;
   unit?: string;
   options?: string[];
+  isConnected?: boolean;
+  sourceNodeId?: string;
+  sourceParamId?: string;
 };
 
 export type Filter = {
@@ -40,14 +47,36 @@ export type FilterCategory = {
   filters: Filter[];
 };
 
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion';
+
+export type NodeColorTag = 'default' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+
 export type FilterNodeData = {
   label: string;
   filterType: FilterType;
   params: FilterParam[];
   enabled: boolean;
   preview?: string | null; // Preview image data URL
-  onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
+  colorTag: NodeColorTag;
+  blendMode: BlendMode;
+  opacity: number; // 0-100
+  collapsed?: boolean;
+  // Parameter connections
+  paramConnections?: {
+    [paramId: string]: {
+      sourceNodeId: string;
+      sourceParamId: string;
+    }
+  };
+  // Callbacks
+  onParamChange?: (nodeId: string, paramId: string, value: number | string | boolean) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
+  onChangeBlendMode?: (nodeId: string, blendMode: BlendMode) => void;
+  onChangeOpacity?: (nodeId: string, opacity: number) => void;
+  onChangeColorTag?: (nodeId: string, color: NodeColorTag) => void;
+  onToggleCollapsed?: (nodeId: string, collapsed: boolean) => void;
+  onConnectParam?: (nodeId: string, paramId: string, sourceNodeId: string, sourceParamId: string) => void;
+  onDisconnectParam?: (nodeId: string, paramId: string) => void;
 };
 
 export type ImageNodeData = {
