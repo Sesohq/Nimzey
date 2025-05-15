@@ -9,9 +9,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'blur',
         params: [
           {
+            id: 'blur-radius',
             name: 'radius',
             label: 'Radius',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 50,
             step: 1,
@@ -19,9 +21,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: 'px'
           },
           {
+            id: 'blur-quality',
             name: 'quality',
             label: 'Quality',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Low', 'Medium', 'High'],
             value: 'Medium'
           }
@@ -32,9 +36,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'sharpen',
         params: [
           {
+            id: 'sharpen-amount',
             name: 'amount',
             label: 'Amount',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -48,9 +54,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'grayscale',
         params: [
           {
+            id: 'grayscale-strength',
             name: 'strength',
             label: 'Strength',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -69,16 +77,20 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'findEdges',
         params: [
           {
+            id: 'findEdges-method',
             name: 'method',
             label: 'Method',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Sobel', 'Laplacian', 'Prewitt', 'Canny'],
             value: 'Sobel'
           },
           {
+            id: 'findEdges-strength',
             name: 'strength',
             label: 'Strength',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -86,9 +98,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'findEdges-threshold',
             name: 'threshold',
             label: 'Threshold',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 0,
             max: 255,
             step: 1,
@@ -96,16 +110,20 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: ''
           },
           {
+            id: 'findEdges-invert',
             name: 'invert',
             label: 'Invert',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['On', 'Off'],
             value: 'On'
           },
           {
+            id: 'findEdges-preserveColor',
             name: 'preserveColor',
             label: 'Preserve Color',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['On', 'Off'],
             value: 'Off'
           }
@@ -121,9 +139,11 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'noise',
         params: [
           {
+            id: 'noise-amount',
             name: 'amount',
             label: 'Amount',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
@@ -131,9 +151,11 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '%'
           },
           {
+            id: 'noise-type',
             name: 'type',
             label: 'Type',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Gaussian', 'Uniform', 'Salt & Pepper'],
             value: 'Uniform'
           }
@@ -411,46 +433,56 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'halftone',
         params: [
           {
+            id: 'halftone-gridSize',
             name: 'gridSize',
             label: 'Grid Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'integer',
             min: 2,
             max: 30,
             step: 1,
-            value: 8,
+            value: 14,
             unit: 'px'
           },
           {
+            id: 'halftone-minDotSize',
             name: 'minDotSize',
             label: 'Min Dot Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
-            value: 0,
+            value: 22,
             unit: '%'
           },
           {
+            id: 'halftone-maxDotSize',
             name: 'maxDotSize',
             label: 'Max Dot Size',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 100,
             step: 1,
-            value: 90,
+            value: 25,
             unit: '%'
           },
           {
+            id: 'halftone-shape',
             name: 'shape',
             label: 'Dot Shape',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Circle', 'Square', 'Line', 'Cross', 'Diamond'],
             value: 'Circle'
           },
           {
+            id: 'halftone-angle',
             name: 'angle',
             label: 'Rotation Angle',
-            type: 'range',
+            controlType: 'range',
+            paramType: 'float',
             min: 0,
             max: 90,
             step: 1,
@@ -458,16 +490,20 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: '°'
           },
           {
+            id: 'halftone-dotColor',
             name: 'dotColor',
             label: 'Dot Color',
-            type: 'select',
-            options: ['Original', 'Black', 'White', 'Custom'],
+            controlType: 'select',
+            paramType: 'color',
+            options: ['Black', 'White', 'Custom'],
             value: 'Black'
           },
           {
+            id: 'halftone-channelMode',
             name: 'channelMode',
             label: 'Channel Mode',
-            type: 'select',
+            controlType: 'select',
+            paramType: 'option',
             options: ['Grayscale', 'RGB', 'CMYK'],
             value: 'Grayscale'
           }

@@ -11,7 +11,7 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
+import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
 
