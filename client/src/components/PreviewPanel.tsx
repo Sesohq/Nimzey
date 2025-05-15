@@ -206,7 +206,7 @@ export default function PreviewPanel({
     // Show loading spinner when processing is in progress
     if (isProcessing) {
       return (
-        <div className={`w-full flex flex-col items-center justify-center gap-3 ${isFullscreen ? 'h-[80vh]' : 'h-[200px]'}`}>
+        <div className={`w-full flex flex-col items-center justify-center gap-3 ${isFullscreen ? 'h-[80vh]' : 'h-[300px]'}`}>
           <LoadingSpinner size="lg" />
           <div className="text-sm text-gray-300">Processing filters...</div>
         </div>
@@ -219,7 +219,7 @@ export default function PreviewPanel({
         <img 
           src={nodePreview} 
           alt="Preview" 
-          className={`w-full h-auto ${isFullscreen ? 'max-h-[80vh]' : ''}`}
+          className={`w-full h-full object-contain ${isFullscreen ? 'max-h-[80vh]' : 'min-h-[300px]'}`}
         />
       );
     }
@@ -230,14 +230,14 @@ export default function PreviewPanel({
         <img 
           src={processedImage} 
           alt="Final Output" 
-          className={`w-full h-auto ${isFullscreen ? 'max-h-[80vh]' : ''}`}
+          className={`w-full h-full object-contain ${isFullscreen ? 'max-h-[80vh]' : 'min-h-[300px]'}`}
         />
       );
     }
     
     // Otherwise show a placeholder
     return (
-      <div className={`w-full flex items-center justify-center text-gray-400 ${isFullscreen ? 'h-[80vh]' : 'h-[200px]'}`}>
+      <div className={`w-full flex items-center justify-center text-gray-400 ${isFullscreen ? 'h-[80vh]' : 'h-[300px]'}`}>
         No image available
       </div>
     );
@@ -263,7 +263,7 @@ export default function PreviewPanel({
             </div>
           </div>
           <div className="p-3">
-            <div className="bg-black border border-gray-800 rounded-md overflow-hidden">
+            <div className="bg-black border border-gray-800 rounded-md overflow-hidden h-[80vh] flex items-center justify-center">
               {getDisplayImage()}
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function PreviewPanel({
               (selectedNode.type === 'imageNode' ? 'Source Image' : (selectedNode.data as FilterNodeData).label) 
               : 'None'}</span>
           </div>
-          <div className="bg-black border border-gray-800 rounded-md overflow-hidden">
+          <div className="bg-black border border-gray-800 rounded-md overflow-hidden h-[300px] flex items-center justify-center">
             {getDisplayImage()}
           </div>
         </div>
