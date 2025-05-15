@@ -57,6 +57,20 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!isMinimized && (
         <div className="p-3">
+          {/* Image Preview */}
+          {data.preview && (
+            <div className="mb-3">
+              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '80px' }}>
+                <img 
+                  src={data.preview} 
+                  alt={`${data.label} preview`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Parameters */}
           {data.params.map((param) => (
             <div key={param.name} className="mb-2">
               <Label className="block text-xs text-gray-500 mb-1">{param.label}</Label>

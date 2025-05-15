@@ -41,7 +41,27 @@ export function useFilterGraph() {
     if (!sourceImageRef.current) return null;
     
     const canvas = getCanvas();
-    return applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
+    const previewUrl = applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
+    
+    // If this is a filter node, update its preview property
+    if (targetNode.type === 'filterNode' && previewUrl) {
+      setNodes(currentNodes => 
+        currentNodes.map(node => {
+          if (node.id === targetNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                preview: previewUrl
+              }
+            };
+          }
+          return node;
+        })
+      );
+    }
+    
+    return previewUrl;
   }, [nodes, edges, getCanvas]);
 
   // Process the image through the filter chain
@@ -56,7 +76,13 @@ export function useFilterGraph() {
       // Always update the processed image with the complete chain result
       setProcessedImage(result);
       
-      // If a node is selected, update its node-specific preview
+      // Update previews for all filter nodes in the chain
+      const filterNodes = nodes.filter(node => node.type === 'filterNode');
+      for (const node of filterNodes) {
+        generateNodePreview(node);
+      }
+      
+      // If a node is selected, update its node-specific preview in the preview panel
       if (selectedNodeId) {
         const selectedNode = nodes.find(n => n.id === selectedNodeId);
         if (selectedNode) {
@@ -194,33 +220,38 @@ export function useFilterGraph() {
 
     const newNodeId = `${filterType}-${uuidv4().substring(0, 8)}`;
     
-    // Create the node data with default params
+    // Create the node data with default params and empty preview
     const nodeData: FilterNodeData = {
       label: `${filterDef.name}`,
       filterType,
       params: filterDef.params.map(param => ({ ...param })),
       enabled: true,
+      preview: null,
       onParamChange: handleParamChange,
       onToggleEnabled: handleToggleEnabled,
     };
 
-    // Add the new node
-    setNodes(nds => [
-      ...nds,
-      {
-        id: newNodeId,
-        type: 'filterNode',
-        position: { 
-          x: Math.random() * 300 + 250, 
-          y: Math.random() * 200 + 100
-        },
-        data: nodeData,
+    const newNode = {
+      id: newNodeId,
+      type: 'filterNode',
+      position: { 
+        x: Math.random() * 300 + 250, 
+        y: Math.random() * 200 + 100
       },
-    ]);
+      data: nodeData,
+    };
+
+    // Add the new node
+    setNodes(nds => [...nds, newNode]);
 
     // Select the new node
     setSelectedNodeId(newNodeId);
-  }, [findFilterByType, handleParamChange, handleToggleEnabled]);
+    
+    // Generate preview for the new node if we have a source image
+    if (sourceImageRef.current) {
+      setTimeout(() => generateNodePreview(newNode), 10);
+    }
+  }, [findFilterByType, handleParamChange, handleToggleEnabled, generateNodePreview, sourceImageRef]);
 
   // Handle nodes changes
   const onNodesChange = useCallback((changes: NodeChange[]) => {

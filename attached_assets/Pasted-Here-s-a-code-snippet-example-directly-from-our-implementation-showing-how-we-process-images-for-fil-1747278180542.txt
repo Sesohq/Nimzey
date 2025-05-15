@@ -1,0 +1,141 @@
+Here's a code snippet example directly from our implementation showing how we process images for filter nodes and update their previews:
+
+// From client/src/components/FilterForge.tsx
+// This is part of the processConnectedNodes function that handles filter processing
+// Get the source image
+const sourceImage = new Image();
+sourceImage.src = sourceImageUrl;
+// Process when image is loaded
+sourceImage.onload = () => {
+  try {
+    // Get the canvas ready for processing
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Draw the source image onto the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(sourceImage, 0, 0);
+    
+    // Get the image data for processing
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Process according to node type
+    const nodeType = targetNode.type;
+    
+    switch (nodeType) {
+      case FilterType.Blur:
+        applyBlurFilter(imageData.data, canvas.width, canvas.height, 
+          targetNode.data.parameters.radius.value);
+        break;
+        
+      case FilterType.Noise:
+        applyNoiseFilter(imageData.data, canvas.width, canvas.height, 
+          targetNode.data.parameters.amount.value);
+        break;
+        
+      case FilterType.Pixelate:
+        applyPixelateFilter(imageData.data, canvas.width, canvas.height, 
+          targetNode.data.parameters.pixelSize.value);
+        break;
+      
+      // other filter cases...
+    }
+    
+    // Put the processed data back
+    ctx.putImageData(imageData, 0, 0);
+    
+    // Get the processed image URL
+    const processedImageUrl = canvas.toDataURL();
+    
+    // Update the processed images map
+    setProcessedImages(prev => ({
+      ...prev,
+      [targetNodeId]: processedImageUrl
+    }));
+    
+    // Update the node preview
+    setNodes(nodes.map(node => {
+      if (node.id === targetNodeId) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            preview: processedImageUrl
+          }
+        };
+      }
+      return node;
+    }));
+    
+    // Find any nodes connected to this one and add to processing queue
+    const nextEdges = edges.filter(e => e.source === targetNodeId);
+    nextEdges.forEach(e => {
+      if (!processedNodesRef.current.has(e.target)) {
+        nodesToProcess.push(e);
+      }
+    });
+    
+    // Process next node in the queue with delay to prevent UI freezing
+    setTimeout(processNextNode, 100);
+  } catch (error) {
+    console.error(`Error processing node ${targetNodeId}:`, error);
+    processNextNode();
+  }
+};
+And here's an example of one of our filter algorithms:
+
+// From client/src/components/FilterForge.tsx
+// Implementation of the noise filter algorithm
+const applyNoiseFilter = (data: Uint8ClampedArray, width: number, height: number, amount: number) => {
+  const intensity = amount * 255;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    // Skip transparent pixels
+    if (data[i + 3] === 0) continue;
+    
+    // Generate random noise value
+    const noise = (Math.random() - 0.5) * intensity;
+    
+    // Apply noise to RGB channels
+    data[i] = Math.min(255, Math.max(0, data[i] + noise));
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
+  }
+};
+We also have an event listener for edge connections that triggers the processing:
+
+// From client/src/components/FilterForge.tsx
+// Event listener for edge connections
+useEffect(() => {
+  const handleEdgeConnected = (event: CustomEvent) => {
+    const { source, target } = event.detail;
+    console.log(`Edge connected event received: ${source} -> ${target}`);
+    
+    // Get source node
+    const sourceNode = nodes.find(n => n.id === source);
+    const targetNode = nodes.find(n => n.id === target);
+    
+    if (sourceNode && targetNode && processedImages[source]) {
+      console.log(`Processing connected node ${target} with image from ${source}`);
+      
+      // Prevent recursive processing
+      isProcessingRef.current = true;
+      
+      // Process the connected nodes
+      setTimeout(() => {
+        processConnectedNodes(source, processedImages[source]);
+        setTimeout(() => {
+          isProcessingRef.current = false;
+        }, 300);
+      }, 100);
+    }
+  };
+  
+  // Add listener for the custom event
+  window.addEventListener('edge-connected', handleEdgeConnected as EventListener);
+  
+  return () => {
+    window.removeEventListener('edge-connected', handleEdgeConnected as EventListener);
+  };
+}, [nodes, processedImages]);
+This code shows how we've implemented a complete system for processing images through the filter chain and displaying the results in each node's preview.

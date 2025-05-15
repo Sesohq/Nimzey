@@ -45,6 +45,7 @@ export type FilterNodeData = {
   filterType: FilterType;
   params: FilterParam[];
   enabled: boolean;
+  preview?: string | null; // Preview image data URL
   onParamChange?: (nodeId: string, paramName: string, value: number | string) => void;
   onToggleEnabled?: (nodeId: string, enabled: boolean) => void;
 };
