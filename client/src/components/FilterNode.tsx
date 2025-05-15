@@ -2,7 +2,6 @@ import { memo, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { ContainerSlider } from '@/components/ui/container-slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ChevronDown, ChevronUp, MinusIcon, TagIcon, Layers, Paintbrush } from 'lucide-react';
@@ -191,14 +190,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           </div>
           
           <div className="mt-2">
-            <Label className="block text-xs text-gray-500 mb-1">Opacity</Label>
-            <ContainerSlider
-              value={data.opacity || 100}
+            <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
+            <Slider
+              value={[data.opacity || 100]}
               min={0}
               max={100}
               step={1}
-              unit="%"
-              onValueChange={(value) => handleChangeOpacity(value)}
+              onValueChange={(values) => handleChangeOpacity(values[0])}
               disabled={!data.enabled}
             />
           </div>
@@ -278,17 +276,19 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               </div>
               
               {param.controlType === 'range' && (
-                <div className="mt-1 mb-2">
-                  <ContainerSlider
-                    value={param.value as number}
+                <div className="flex items-center mt-1">
+                  <Slider
+                    value={[param.value as number]}
                     min={param.min}
                     max={param.max}
                     step={param.step}
-                    unit={param.unit || ''}
-                    onValueChange={(value) => handleParamChange(param.id || param.name, value)}
+                    className="flex-1 mr-2"
+                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
-                    className={param.isConnected ? "opacity-60" : ""}
                   />
+                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
+                    {param.value}{param.unit || ''}
+                  </span>
                 </div>
               )}
               
