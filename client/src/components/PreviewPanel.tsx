@@ -45,8 +45,12 @@ export default function PreviewPanel({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
+  const [dockArea, setDockArea] = useState(false); // Track if panel is in docking area
   const detachedWindowRef = useRef<Window | null>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
+  
+  // Reference to the docked panel container
+  const mainPanelRef = useRef<HTMLDivElement>(null);
 
   // Get all downstream nodes from a given node
   const getDownstreamNodes = (nodeId: string): Node[] => {
@@ -93,7 +97,7 @@ export default function PreviewPanel({
                       ? 'bg-accent' 
                       : 'bg-gray-600'
                 } mr-2`}
-              ></div>
+              />
               <span className={`${!isEnabled ? 'line-through text-gray-500' : ''}`}>
                 {nodeLabel}
               </span>
@@ -148,10 +152,29 @@ export default function PreviewPanel({
     if (isDragging && isDetached) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
-      setDetachedPosition({
-        x: detachedPosition.x + deltaX,
-        y: detachedPosition.y + deltaY
-      });
+      const newX = detachedPosition.x + deltaX;
+      const newY = detachedPosition.y + deltaY;
+      
+      // Check if panel is near the right edge of screen (docking zone)
+      const dockZone = window.innerWidth - 100; // 100px from right edge
+      const isNearDockZone = newX > dockZone;
+      
+      // Visual indication for docking
+      setDockArea(isNearDockZone);
+      
+      // If released near the dock zone, dock it
+      if (isNearDockZone && e.type === 'mouseup') {
+        setIsDetached(false);
+        setWidth(initialWidth);
+        setDetachedPosition({ x: 100, y: 100 });
+        setDockArea(false);
+      } else {
+        setDetachedPosition({
+          x: newX,
+          y: newY
+        });
+      }
+      
       setDragStart({ x: e.clientX, y: e.clientY });
     }
   };
@@ -221,117 +244,155 @@ export default function PreviewPanel({
   }
 
   return (
-    <div 
-      className={`bg-darkBg text-white flex flex-col relative ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden' : ''}`}
-      style={{ 
-        width: `${width}px`,
-        ...(isDetached ? { 
-          top: `${detachedPosition.y}px`, 
-          left: `${detachedPosition.x}px`,
-          height: 'auto',
-          maxHeight: '80vh'
-        } : {})
-      }}
-      onMouseMove={handleDrag}
-      onMouseUp={() => setIsDragging(false)}
-    >
-      <div 
-        className="p-3 bg-secondary font-medium flex items-center justify-between cursor-move"
-        onMouseDown={handleMouseDown}
-      >
-        <span>Preview</span>
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="Fullscreen">
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsDetached(!isDetached)} 
-            title={isDetached ? "Dock" : "Detach"}
-          >
-            {isDetached ? <X className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-      
-      <div className="p-3">
-        <div className="text-xs text-gray-400 mb-1">
-          Selected Node: <span>{selectedNode ? 
-            (selectedNode.type === 'imageNode' ? 'Source Image' : (selectedNode.data as FilterNodeData).label) 
-            : 'None'}</span>
-        </div>
-        <div className="bg-gray-800 rounded-md overflow-hidden">
-          {getDisplayImage()}
-        </div>
-      </div>
-      
-      {/* Resize handle - only visible when not detached */}
-      {!isDetached && (
+    <>
+      {/* Dock indicator appears when dragging panel */}
+      {isDetached && isDragging && (
         <div 
-          ref={resizeHandleRef}
-          className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-transparent hover:bg-blue-500/30"
-          onMouseDown={() => setIsResizing(true)}
-          style={{ left: '-2px' }}
-        ></div>
-      )}
-      
-      <div className="p-3 border-t border-gray-700">
-        <div className="text-xs text-gray-400 mb-2">Filter Chain</div>
-        <ScrollArea className="h-[150px]">
-          {selectedNode ? (
-            getFilterChain(selectedNode)
-          ) : (
-            // If no node selected, find the source node and show the full chain from it
-            (() => {
-              const sourceNode = nodes.find(node => node.type === 'imageNode');
-              return sourceNode ? (
-                getFilterChain(sourceNode)
-              ) : (
-                <div className="text-sm text-gray-500">No node selected</div>
-              );
-            })()
-          )}
-        </ScrollArea>
-      </div>
-      
-      <div className="mt-auto p-3 border-t border-gray-700">
-        <div className="text-xs text-gray-400 mb-2">Export Settings</div>
-        <div className="mb-2">
-          <Label className="block text-xs text-gray-400 mb-1">Format</Label>
-          <Select value={exportFormat} onValueChange={setExportFormat}>
-            <SelectTrigger className="w-full bg-gray-700 border border-gray-600 rounded">
-              <SelectValue placeholder="PNG" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="png">PNG</SelectItem>
-              <SelectItem value="jpeg">JPEG</SelectItem>
-              <SelectItem value="webp">WEBP</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="mb-3">
-          <Label className="block text-xs text-gray-400 mb-1">Quality</Label>
-          <div className="flex items-center">
-            <Slider
-              value={[exportQuality]}
-              min={10}
-              max={100}
-              step={1}
-              className="flex-1 mr-2"
-              onValueChange={(values) => setExportQuality(values[0])}
-            />
-            <span className="text-xs font-mono bg-gray-600 px-2 py-1 rounded text-white font-medium">{exportQuality}%</span>
+          className="fixed right-0 top-0 h-full bg-blue-500/20 border-l-2 border-blue-500 z-30"
+          style={{ 
+            width: '100px', 
+            pointerEvents: 'none',
+            opacity: dockArea ? 0.8 : 0.4
+          }}
+        >
+          <div className="flex h-full items-center justify-center">
+            <div className="text-blue-500 text-xs font-medium rotate-90 transform">
+              DOCK HERE
+            </div>
           </div>
         </div>
-        <Button 
-          className="w-full py-2 bg-primary hover:bg-primary/90"
-          onClick={() => onExportImage(exportFormat, exportQuality)}
-          disabled={!processedImage}
+      )}
+
+      <div 
+        ref={mainPanelRef}
+        className={`bg-darkBg text-white flex flex-col relative 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden' : ''} 
+          ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
+        style={{ 
+          width: `${width}px`,
+          ...(isDetached ? { 
+            top: `${detachedPosition.y}px`, 
+            left: `${detachedPosition.x}px`,
+            height: 'auto',
+            maxHeight: '80vh',
+            transition: dockArea ? 'box-shadow 0.2s ease' : 'none',
+            boxShadow: dockArea ? '0 0 0 4px rgba(59, 130, 246, 0.3)' : '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+          } : {})
+        }}
+        onMouseMove={handleDrag}
+        onMouseUp={(e) => {
+          handleDrag(e); // Pass event to handleDrag to check if we're in dock zone
+          setIsDragging(false);
+        }}
+      >
+        <div 
+          className="p-3 bg-secondary font-medium flex items-center justify-between cursor-move"
+          onMouseDown={handleMouseDown}
         >
-          Export Final Image
-        </Button>
+          <span>Preview</span>
+          <div className="flex space-x-2">
+            <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="Fullscreen">
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => {
+                if (isDetached) {
+                  // Reset to initial state when docking
+                  setIsDetached(false);
+                  setWidth(initialWidth);
+                  setDetachedPosition({ x: 100, y: 100 });
+                } else {
+                  setIsDetached(true);
+                }
+              }} 
+              title={isDetached ? "Dock" : "Detach"}
+            >
+              {isDetached ? <X className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        <div className="p-3">
+          <div className="text-xs text-gray-400 mb-1">
+            Selected Node: <span>{selectedNode ? 
+              (selectedNode.type === 'imageNode' ? 'Source Image' : (selectedNode.data as FilterNodeData).label) 
+              : 'None'}</span>
+          </div>
+          <div className="bg-gray-800 rounded-md overflow-hidden">
+            {getDisplayImage()}
+          </div>
+        </div>
+        
+        {/* Resize handle - only visible when not detached */}
+        {!isDetached && (
+          <div 
+            ref={resizeHandleRef}
+            className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-transparent hover:bg-blue-500/30"
+            onMouseDown={() => setIsResizing(true)}
+            style={{ left: '-2px' }}
+          />
+        )}
+        
+        <div className="p-3 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-2">Filter Chain</div>
+          <ScrollArea className="h-[150px]">
+            {selectedNode ? (
+              getFilterChain(selectedNode)
+            ) : (
+              // If no node selected, find the source node and show the full chain from it
+              (() => {
+                const sourceNode = nodes.find(node => node.type === 'imageNode');
+                return sourceNode ? (
+                  getFilterChain(sourceNode)
+                ) : (
+                  <div className="text-sm text-gray-500">No node selected</div>
+                );
+              })()
+            )}
+          </ScrollArea>
+        </div>
+        
+        <div className="mt-auto p-3 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-2">Export Settings</div>
+          <div className="mb-2">
+            <Label className="block text-xs text-gray-400 mb-1">Format</Label>
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger className="w-full bg-gray-700 border border-gray-600 rounded">
+                <SelectValue placeholder="PNG" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="png">PNG</SelectItem>
+                <SelectItem value="jpeg">JPEG</SelectItem>
+                <SelectItem value="webp">WEBP</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="mb-3">
+            <Label className="block text-xs text-gray-400 mb-1">Quality</Label>
+            <div className="flex items-center">
+              <Slider
+                value={[exportQuality]}
+                min={10}
+                max={100}
+                step={1}
+                className="flex-1 mr-2"
+                onValueChange={(values) => setExportQuality(values[0])}
+              />
+              <span className="text-xs font-mono bg-gray-600 px-2 py-1 rounded text-white font-medium">{exportQuality}%</span>
+            </div>
+          </div>
+          <Button 
+            className="w-full py-2 bg-primary hover:bg-primary/90"
+            onClick={() => onExportImage(exportFormat, exportQuality)}
+            disabled={!processedImage}
+          >
+            Export Final Image
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
+}
 }
