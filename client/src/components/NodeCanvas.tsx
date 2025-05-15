@@ -13,7 +13,7 @@ import ReactFlow, {
   NodeTypes
 } from 'reactflow';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { ZoomIn, ZoomOut, MinusIcon } from 'lucide-react';
 import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import { Badge } from '@/components/ui/badge';
@@ -107,7 +107,8 @@ export default function NodeCanvas({
           
           {/* Small hint for users about connections */}
           <div className="absolute top-2 right-2 z-10 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm border border-gray-200">
-            Drag to connect nodes • Double-click to delete connections
+            <div className="mb-1">Drag between handles to connect • Double-click on connections to delete</div>
+            <div>Click <MinusIcon className="w-3 h-3 inline text-red-500" /> to disconnect parameter connections</div>
           </div>
         </ReactFlow>
       </div>

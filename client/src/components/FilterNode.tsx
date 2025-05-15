@@ -106,6 +106,9 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  
+  // Create handle references for connection lines to work properly
+  const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -372,15 +375,41 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               
               <div className="flex justify-between items-center">
                 <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
-                {param.isConnected && (
-                  <button 
-                    className="text-xs text-red-500 hover:text-red-700"
-                    onClick={() => handleDisconnectParam(param.id || param.name)}
+                <div className="flex items-center">
+                  {param.isConnected && (
+                    <button 
+                      className="text-xs text-red-500 hover:text-red-700 mr-1"
+                      onClick={() => handleDisconnectParam(param.id || param.name)}
+                      title="Disconnect parameter"
+                    >
+                      <MinusIcon className="w-3 h-3" />
+                    </button>
+                  )}
+                  <Badge 
+                    variant="outline" 
+                    className="text-[9px] px-1 py-0 h-4"
                   >
-                    Disconnect
-                  </button>
-                )}
+                    {param.paramType}
+                  </Badge>
+                </div>
               </div>
+              
+              {/* Parameter output handle */}
+              <Handle
+                id={`output-param-${param.id || param.name}`}
+                type="source"
+                position={Position.Right}
+                style={{ 
+                  right: -17, // 3px to the left
+                  top: 14, // 2px down
+                  width: 8, 
+                  height: 8, 
+                  background: '#777777',
+                  borderRadius: '50%',
+                  border: '2px solid #333',
+                  zIndex: 10
+                }}
+              />
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
