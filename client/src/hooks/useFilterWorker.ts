@@ -1,3 +1,7 @@
+// NOTE: This file is for future implementation of web workers
+// Currently, we are using the main thread for image processing
+// This file shows how we would implement worker-based processing
+
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { FilterType } from '@/types';
 

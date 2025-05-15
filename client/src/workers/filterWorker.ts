@@ -1,4 +1,6 @@
-// filterWorker.ts - This runs in a separate thread
+// NOTE: This file is for future implementation of web workers
+// Currently, we are using the main thread for image processing
+// This file shows how we would implement worker-based processing
 import { FilterType } from '../types';
 
 // Types for the worker messages
