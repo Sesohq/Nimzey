@@ -18,11 +18,8 @@ import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import { Badge } from '@/components/ui/badge';
 
-// Using a renderNode function instead of creating new nodeTypes object on each render
-const nodeTypes: NodeTypes = {
-  filterNode: FilterNode,
-  imageNode: ImageNode
-};
+// Creating nodeTypes - note that we need to define them inside the component 
+// to have access to the props we want to pass to our custom nodes
 
 interface NodeCanvasProps {
   nodes: Node[];
@@ -54,6 +51,15 @@ export default function NodeCanvas({
   // NodeCanvas component - renders the node-based editor
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
+
+  // Define node types inside component to pass props to custom nodes
+  const nodeTypes: NodeTypes = {
+    filterNode: FilterNode,
+    // Use a wrapper to pass onUploadImage to ImageNode
+    imageNode: (nodeProps: any) => (
+      <ImageNode {...nodeProps} onUploadImage={onUploadImage} />
+    )
+  };
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
