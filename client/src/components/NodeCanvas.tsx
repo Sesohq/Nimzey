@@ -68,6 +68,18 @@ export default function NodeCanvas({
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
   };
+  
+  // Handle double-click on edges to delete them
+  const handleEdgeDoubleClick = (_: React.MouseEvent, edge: Edge) => {
+    // Create a remove change for this edge
+    const removeChange: EdgeChange = {
+      id: edge.id,
+      type: 'remove',
+    };
+    
+    // Apply the change
+    onEdgesChange([removeChange]);
+  };
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -80,6 +92,7 @@ export default function NodeCanvas({
           onConnect={onConnect}
           onPaneClick={handlePaneClick}
           onNodeClick={handleNodeClick}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
           nodeTypes={nodeTypes}
           fitView
           minZoom={0.1}

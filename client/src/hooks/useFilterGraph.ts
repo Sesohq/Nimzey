@@ -786,8 +786,33 @@ export function useFilterGraph() {
 
   // Handle edges changes
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    // Check for removed edges to also disconnect parameters
+    changes.forEach(change => {
+      if (change.type === 'remove') {
+        // Find the removed edge
+        const removedEdge = edges.find(edge => edge.id === change.id);
+        if (removedEdge) {
+          // If this is a parameter connection, we need to update the node data
+          const { source, target, sourceHandle, targetHandle } = removedEdge;
+          
+          if (targetHandle && targetHandle.startsWith('param-') && 
+              sourceHandle && sourceHandle.startsWith('output-param-')) {
+            
+            // Get parameter ID from the handle
+            const paramId = targetHandle.replace('param-', '');
+            
+            // Call the parameter disconnect function
+            if (paramId !== 'sourceImage') { // Don't disconnect main node connections
+              handleDisconnectParam(target, paramId);
+            }
+          }
+        }
+      }
+    });
+    
+    // Apply the changes to the edges state
     setEdges(eds => applyEdgeChanges(changes, eds));
-  }, []);
+  }, [edges, handleDisconnectParam]);
 
   // Handle new connections
   const onConnect = useCallback((connection: Connection) => {
