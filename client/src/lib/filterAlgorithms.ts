@@ -271,106 +271,6 @@ const getSourceNode = (targetNodeId: string, nodes: Node[], edges: Edge[], targe
   return nodes.find(node => node.id === connectedEdge.source) || null;
 };
 
-// Find source image by traversing the filter chain upstream
-// This function is used to find the image data to use when a node doesn't have a direct connection
-// to an image source but is part of a filter chain
-const findSourceImage = (
-  startNode: Node, 
-  nodes: Node[], 
-  edges: Edge[], 
-  originalImage: HTMLCanvasElement,
-  visitedNodes: Set<string> = new Set()
-): HTMLCanvasElement | null => {
-  // Prevent infinite loops
-  if (visitedNodes.has(startNode.id)) {
-    return null;
-  }
-  visitedNodes.add(startNode.id);
-  
-  console.log(`Searching for source image for node ${startNode.id} (${startNode.type})`);
-  
-  // Check if the current node is already processed
-  if (nodeResultCache.has(startNode.id)) {
-    console.log(`Node ${startNode.id} already has processed data, using it`);
-    return nodeResultCache.get(startNode.id)!;
-  }
-  
-  // If this is an image node, return its processed canvas or the original image
-  if (startNode.type === 'imageNode') {
-    console.log(`Found image node ${startNode.id} directly`);
-    return originalImage;
-  }
-  
-  // Get all input nodes for this node
-  const inputNodes = getSourceNodesForNode(startNode.id, nodes, edges);
-  const inputNodesList = Object.values(inputNodes).filter(Boolean) as Node[];
-  
-  // If no inputs through direct edges, try to find an image node elsewhere in the graph
-  if (inputNodesList.length === 0) {
-    console.log(`Node ${startNode.id} has no direct input nodes, looking for any source image`);
-    
-    // Find a source image node as a fallback
-    const sourceNode = nodes.find(node => node.type === 'imageNode');
-    if (sourceNode) {
-      console.log(`Using source image node ${sourceNode.id} as fallback for ${startNode.id}`);
-      
-      // If this source is already processed, use its result
-      if (nodeResultCache.has(sourceNode.id)) {
-        return nodeResultCache.get(sourceNode.id)!;
-      } else {
-        // Otherwise use the original image
-        return originalImage;
-      }
-    }
-    
-    // No source image found anywhere
-    console.log(`No source image found anywhere in graph for ${startNode.id}`);
-    return null;
-  }
-  
-  // First, check for any direct image node inputs
-  for (const inputNode of inputNodesList) {
-    if (inputNode.type === 'imageNode') {
-      console.log(`Found direct image node input for ${startNode.id}`);
-      
-      if (nodeResultCache.has(inputNode.id)) {
-        return nodeResultCache.get(inputNode.id)!;
-      } else {
-        // Image node exists but isn't processed yet, use the original image
-        return originalImage;
-      }
-    }
-  }
-  
-  // Next, check if any input node has already been processed
-  for (const inputNode of inputNodesList) {
-    if (nodeResultCache.has(inputNode.id)) {
-      console.log(`Found processed input ${inputNode.id} for ${startNode.id}`);
-      return nodeResultCache.get(inputNode.id)!;
-    }
-  }
-  
-  // Finally, try to recursively traverse upstream to find any source
-  for (const inputNode of inputNodesList) {
-    console.log(`Traversing upstream from ${startNode.id} to ${inputNode.id}`);
-    const upstreamImage = findSourceImage(inputNode, nodes, edges, originalImage, new Set(visitedNodes));
-    if (upstreamImage) {
-      return upstreamImage;
-    }
-  }
-  
-  // Last resort: find any image node in the entire graph
-  const anySourceNode = nodes.find(node => node.type === 'imageNode');
-  if (anySourceNode) {
-    console.log(`Found fallback source image node ${anySourceNode.id} for ${startNode.id}`);
-    return originalImage;
-  }
-  
-  // No source image found anywhere
-  console.log(`No source image found for ${startNode.id}`);
-  return null;
-};
-
 // Helper function to find all source nodes for a node with multiple inputs
 const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Record<string, Node | null> => {
   const result: Record<string, Node | null> = {};
@@ -378,39 +278,10 @@ const getSourceNodesForNode = (nodeId: string, nodes: Node[], edges: Edge[]): Re
   // Find all edges targeting this node
   const incomingEdges = edges.filter(edge => edge.target === nodeId);
   
-  console.log(`Node ${nodeId} has ${incomingEdges.length} incoming edges`);
-  
-  // For debugging - check all edges
-  console.log('All edges:', edges.map(e => `${e.source} -> ${e.target} (${e.targetHandle || 'default'})`));
-  
   // Create an entry for each incoming edge based on target handle
   incomingEdges.forEach(edge => {
-    // Map the targetHandle to a consistent ID for easier access
-    let handleId: string;
-    
-    // Extract any dynamic input handle IDs
-    // The dynamic inputs get assigned unique IDs during connection, like "input-timestamp-random"
-    if (!edge.targetHandle) {
-      handleId = 'input-default';
-    } else if (edge.targetHandle === 'dynamic-input' || edge.targetHandle.startsWith('input-')) {
-      // For both "dynamic-input" and generated input-* handles, create a consistent ID 
-      // based on the source node that's connecting
-      handleId = `input-${edge.source}`;
-    } else {
-      // For specialized handles like blend node's inputA, inputB, use as-is
-      handleId = edge.targetHandle;
-    }
-    
-    // Add this source node to our result
-    const sourceNode = nodes.find(node => node.id === edge.source);
-    
-    if (sourceNode) {
-      console.log(`Found source node ${sourceNode.id} (${sourceNode.type}) for target ${nodeId} on handle ${handleId}`);
-      result[handleId] = sourceNode;
-    } else {
-      console.log(`No source node found for edge from ${edge.source} to ${nodeId}`);
-      result[handleId] = null;
-    }
+    const handleId = edge.targetHandle || 'input-default';
+    result[handleId] = nodes.find(node => node.id === edge.source) || null;
   });
   
   return result;
@@ -431,47 +302,38 @@ const getSourceNodesForBlendNode = (blendNodeId: string, nodes: Node[], edges: E
 
 // Helper to get a path from source to a given node
 const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[], targetHandle?: string): Node[] => {
-  console.log(`Getting path to node ${nodeId} with targetHandle=${targetHandle || 'none'}`);
+  const path: Node[] = [];
+  let currentNodeId = nodeId;
   
-  // Find the given node
-  const targetNode = nodes.find(n => n.id === nodeId);
-  if (!targetNode) {
-    console.warn(`Target node ${nodeId} not found`);
-    return [];
+  // Prevent infinite loops
+  const maxIterations = nodes.length;
+  let iterations = 0;
+  
+  while (currentNodeId && iterations < maxIterations) {
+    const node = nodes.find(n => n.id === currentNodeId);
+    if (!node) break;
+    
+    path.unshift(node);
+    
+    // For blend nodes, we need to choose the correct input path based on target handle
+    if (node.type === 'blendNode' && iterations === 0 && targetHandle) {
+      // If we're starting with a blend node and a specific handle is specified,
+      // follow only that input path
+      const sourceNode = getSourceNode(currentNodeId, nodes, edges, targetHandle);
+      if (!sourceNode) break;
+      currentNodeId = sourceNode.id;
+    } else {
+      // For other nodes or when no specific handle is specified,
+      // just follow the first available input
+      const sourceNode = getSourceNode(currentNodeId, nodes, edges);
+      if (!sourceNode) break;
+      currentNodeId = sourceNode.id;
+    }
+    
+    iterations++;
   }
   
-  // Find the source image node (entry point for processing)
-  const sourceNode = nodes.find(node => node.type === 'imageNode');
-  if (!sourceNode) {
-    console.warn('No source image node found');
-    return [];
-  }
-  
-  console.log(`Building processing chain from source node ${sourceNode.id} to target node ${nodeId}`);
-  
-  // Use the improved buildProcessingChain function, which does a proper topological sort
-  // to ensure correct processing order
-  const fullChain = buildProcessingChain(sourceNode.id, nodes, edges);
-  
-  // We only want nodes in the chain that lead to the target node
-  // For now, just include all nodes processed before the target node
-  const targetIndex = fullChain.findIndex(node => node.id === nodeId);
-  
-  if (targetIndex === -1) {
-    console.warn(`Target node ${nodeId} not found in processing chain`);
-    return [];
-  }
-  
-  // Include all nodes up to and including the target
-  const relevantNodes = fullChain.slice(0, targetIndex + 1);
-  console.log(`Found ${relevantNodes.length} nodes in path to ${nodeId}`);
-  
-  // Log the nodes in the path
-  relevantNodes.forEach(node => {
-    console.log(`- ${node.id} (${node.type})`);
-  });
-  
-  return relevantNodes;
+  return path;
 };
 
 // Cache for storing intermediate node results
@@ -488,40 +350,16 @@ export const applyFilters = (
   // Clear the cache before each processing run
   nodeResultCache.clear();
   
-  console.log('=== Starting filter processing ===');
-  console.log(`Processing with ${nodes.length} nodes and ${edges.length} edges`);
-  if (targetNodeId) {
-    console.log(`Target node: ${targetNodeId}`);
-  }
-  
-  // Dump the edges for debugging
-  edges.forEach(edge => {
-    console.log(`Edge: ${edge.source} -> ${edge.target} (${edge.targetHandle || 'default'})`);
-  });
-  
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
-  if (!sourceNode) {
-    console.warn('No source image node found!');
-    return null;
-  }
-  
-  console.log(`Found source node: ${sourceNode.id}`);
+  if (!sourceNode) return null;
   
   // If a target node is specified, get the path to it
   const nodesToProcess = targetNodeId 
     ? getPathToNode(targetNodeId, nodes, edges)
     : buildProcessingChain(sourceNode.id, nodes, edges);
 
-  console.log(`Processing chain contains ${nodesToProcess.length} nodes:`);
-  nodesToProcess.forEach(node => {
-    console.log(`- ${node.id} (${node.type})`);
-  });
-
-  if (nodesToProcess.length === 0) {
-    console.warn('No nodes to process!');
-    return null;
-  }
+  if (nodesToProcess.length === 0) return null;
   
   // Set up the canvas
   const ctx = canvas.getContext('2d');
@@ -664,37 +502,12 @@ const processFilterNode = (
   tempCanvas: HTMLCanvasElement, 
   tempCtx: CanvasRenderingContext2D
 ) => {
-  console.log(`Processing filter node ${node.id} (${node.type}) - ${(node.data as FilterNodeData).filterType}`);
-  
   // Get the filter data
   const filterData = node.data as FilterNodeData;
   
   // Get all incoming connections to this node
   const inputNodes = getSourceNodesForNode(node.id, nodes, edges);
   const inputKeys = Object.keys(inputNodes);
-  
-  // Check if this is a texture generator that doesn't require input
-  if (filterData.filterType === 'textureGenerator') {
-    // Create a new canvas for this node's result
-    const resultCanvas = document.createElement('canvas');
-    resultCanvas.width = tempCanvas.width;
-    resultCanvas.height = tempCanvas.height;
-    const resultCtx = resultCanvas.getContext('2d')!;
-    
-    // Process using the texture generator filter
-    processTextureGeneratorFilter(
-      {}, // Empty inputs since texture generator creates its own content
-      resultCtx,
-      resultCanvas,
-      filterData,
-      tempCanvas,
-      tempCtx
-    );
-    
-    // Store the result
-    nodeResultCache.set(node.id, resultCanvas);
-    return;
-  }
   
   // Check if this is a compositing filter that should use specialized multiple input processing
   const compositingTypes = ['mask', 'multiply', 'screen', 'mix', 'transform', 'setAlpha'];
@@ -777,24 +590,11 @@ const processFilterNode = (
   
   // Skip disabled filters
   if (!filterData.enabled) {
-    // For disabled filters, we still need to pass through the input to the output
-    console.log(`Filter ${node.id} is disabled, passing through input`);
-    
-    // Try to find an appropriate source image for this node
-    let inputCanvas = null;
-    
-    // First check direct connections
+    // Just pass through the input to the output without processing
     const sourceNode = getSourceNode(node.id, nodes, edges);
     if (sourceNode && nodeResultCache.has(sourceNode.id)) {
-      inputCanvas = nodeResultCache.get(sourceNode.id)!;
-      console.log(`Using direct source node ${sourceNode.id} for disabled filter ${node.id}`);
-    } else {
-      // Try using our findSourceImage helper
-      inputCanvas = findSourceImage(node, nodes, edges, tempCanvas);
-      console.log(`Using upstream source image for disabled filter ${node.id}`);
-    }
-    
-    if (inputCanvas) {
+      const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
+      
       // Create a new canvas for this node's result
       const resultCanvas = document.createElement('canvas');
       resultCanvas.width = tempCanvas.width;
@@ -802,13 +602,10 @@ const processFilterNode = (
       const resultCtx = resultCanvas.getContext('2d')!;
       
       // Just copy the source to the result
-      resultCtx.drawImage(inputCanvas, 0, 0);
+      resultCtx.drawImage(sourceCanvas, 0, 0);
       
-      // Store the result for downstream nodes to use
+      // Store the result
       nodeResultCache.set(node.id, resultCanvas);
-      console.log(`Stored pass-through result for disabled filter ${node.id}`);
-    } else {
-      console.warn(`Cannot find any source image for disabled filter ${node.id}`);
     }
     return;
   }
@@ -816,10 +613,6 @@ const processFilterNode = (
   // Handle multiple inputs similar to blend node
   // If there are multiple inputs, we'll treat the first one as the main input
   // and blend the others on top
-
-  // Debug what input handles we're receiving
-  console.log(`Filter node ${node.id} has input keys:`, inputKeys);
-  
   if (inputKeys.length > 0) {
     // Create a new canvas for this node's result
     const resultCanvas = document.createElement('canvas');
@@ -828,52 +621,15 @@ const processFilterNode = (
     const resultCtx = resultCanvas.getContext('2d')!;
     
     // Get the main input
-    let primaryInputHandle = inputKeys[0];
-    let primaryInputNode = null;
-    let primaryInputCanvas = null;
+    const primaryInputHandle = inputKeys[0];
+    const primaryInputNode = inputNodes[primaryInputHandle];
     
-    // Try multiple strategies to find the primary input
-    
-    // 1. First check if we have a direct connection from an image node
-    for (const key of inputKeys) {
-      const inputNode = inputNodes[key];
-      if (inputNode && inputNode.type === 'imageNode' && nodeResultCache.has(inputNode.id)) {
-        primaryInputHandle = key;
-        primaryInputNode = inputNode;
-        primaryInputCanvas = nodeResultCache.get(inputNode.id)!;
-        break;
-      }
-    }
-    
-    // 2. If no image node, check for any valid processed node
-    if (!primaryInputNode) {
-      for (const key of inputKeys) {
-        const inputNode = inputNodes[key];
-        if (inputNode && nodeResultCache.has(inputNode.id)) {
-          primaryInputHandle = key;
-          primaryInputNode = inputNode;
-          primaryInputCanvas = nodeResultCache.get(inputNode.id)!;
-          break;
-        }
-      }
-    }
-    
-    // 3. If still no valid input, look upstream through the filter chain
-    // using our findSourceImage helper
-    if (!primaryInputNode) {
-      // Create a source image canvas by searching upstream
-      const sourceImageCanvas = findSourceImage(node, nodes, edges, tempCanvas);
-      if (sourceImageCanvas) {
-        // Create a temporary node to act as our source
-        primaryInputCanvas = sourceImageCanvas;
-      }
-    }
-    
-    // If we still don't have a valid input, report error
-    if (!primaryInputCanvas) {
+    if (!primaryInputNode || !nodeResultCache.has(primaryInputNode.id)) {
       console.warn(`Filter node ${node.id} has no valid primary input`);
       return;
     }
+    
+    const primaryInputCanvas = nodeResultCache.get(primaryInputNode.id)!;
     
     // Clear the temp canvas and copy the primary input to it for processing
     tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
@@ -908,21 +664,10 @@ const processFilterNode = (
     for (let i = 1; i < inputKeys.length; i++) {
       const inputHandle = inputKeys[i];
       const inputNode = inputNodes[inputHandle];
-      let additionalInputCanvas = null;
       
-      // Try to get the canvas for this input
       if (inputNode && nodeResultCache.has(inputNode.id)) {
-        additionalInputCanvas = nodeResultCache.get(inputNode.id)!;
-      } else if (inputNode) {
-        // If this node exists but hasn't been processed yet, 
-        // try to recursively process it or find its source image
-        const sourceCanvas = findSourceImage(inputNode, nodes, edges, tempCanvas);
-        if (sourceCanvas) {
-          additionalInputCanvas = sourceCanvas;
-        }
-      }
-      
-      if (additionalInputCanvas) {
+        const inputCanvas = nodeResultCache.get(inputNode.id)!;
+        
         // Create a temp canvas for this input
         const inputTempCanvas = document.createElement('canvas');
         inputTempCanvas.width = tempCanvas.width;
@@ -931,7 +676,7 @@ const processFilterNode = (
         
         // Draw the input to the temp canvas
         inputTempCtx.clearRect(0, 0, inputTempCanvas.width, inputTempCanvas.height);
-        inputTempCtx.drawImage(additionalInputCanvas, 0, 0);
+        inputTempCtx.drawImage(inputCanvas, 0, 0);
         
         // Apply the filter to this input as well
         if (shouldUseGPU) {
@@ -970,24 +715,12 @@ const processFilterNode = (
   }
   
   // Fall back to single input processing if no inputs were found
-  // Try multiple methods to find a valid input
-  let sourceCanvas: HTMLCanvasElement | null = null;
-  
-  // Method 1: Use the direct input node
+  // Get the input node
   const sourceNode = getSourceNode(node.id, nodes, edges);
-  if (sourceNode && nodeResultCache.has(sourceNode.id)) {
-    sourceCanvas = nodeResultCache.get(sourceNode.id)!;
-  } 
-  // Method 2: Try to find the source image by traversing upstream
-  else {
-    sourceCanvas = findSourceImage(node, nodes, edges, tempCanvas);
-  }
+  if (!sourceNode || !nodeResultCache.has(sourceNode.id)) return;
   
-  // If we still don't have a source, give up
-  if (!sourceCanvas) {
-    console.warn(`Filter node ${node.id} has no valid input (single input mode)`);
-    return;
-  }
+  // Get the source image from the cache
+  const sourceCanvas = nodeResultCache.get(sourceNode.id)!;
   
   // Clear the temp canvas and copy the source image to it
   tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
@@ -1175,84 +908,45 @@ const processBlendNode = (
 };
 
 // Build a processing chain from source to all connected nodes
-// This function builds a chain of nodes to process starting from the source
-// and following all connections in a topologically sorted order
 const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[], visited: Set<string> = new Set()): Node[] => {
-  // We need to use a topological sort to ensure that nodes are processed in the correct order
-  console.log(`=== Building processing chain starting from ${sourceNodeId} ===`);
-  
-  // Initialize structures
   const sourceNode = nodes.find(node => node.id === sourceNodeId);
-  if (!sourceNode) {
-    console.warn(`Source node ${sourceNodeId} not found`);
-    return [];
-  }
+  if (!sourceNode || visited.has(sourceNodeId)) return [];
   
-  // Create a copy of visited to avoid modifying the original
-  const localVisited = new Set(visited);
+  // Mark this node as visited to avoid cycles
+  visited.add(sourceNodeId);
   
-  // If we've visited this node already, return empty to avoid cycles
-  if (localVisited.has(sourceNodeId)) {
-    console.log(`Node ${sourceNodeId} already visited, skipping`);
-    return [];
-  }
+  const chain = [sourceNode];
+  const targetNodes = getTargetNodes(sourceNodeId, nodes, edges);
   
-  // Mark source node as visited
-  localVisited.add(sourceNodeId);
+  if (targetNodes.length === 0) return chain;
   
-  // First get all inputs to this node and process them first
-  // This ensures dependencies are processed before the current node
-  const incomingNodes: Node[] = [];
-  const incomingEdges = edges.filter(edge => edge.target === sourceNodeId);
+  // Process all branches from this node
+  let allConnectedNodes: Node[] = [];
   
-  console.log(`Node ${sourceNodeId} has ${incomingEdges.length} incoming edges`);
-  
-  // Process all incoming nodes first (dependencies)
-  for (const edge of incomingEdges) {
-    const sourceId = edge.source;
-    if (!localVisited.has(sourceId)) {
-      console.log(`Processing dependency: ${sourceId} -> ${sourceNodeId}`);
-      const upstreamNodes = buildProcessingChain(sourceId, nodes, edges, localVisited);
-      incomingNodes.push(...upstreamNodes);
+  for (const targetNode of targetNodes) {
+    // For blend nodes, we need special handling
+    if (targetNode.type === 'blendNode') {
+      // Each blend node needs to process both of its inputs to produce the correct result
+      // First, mark the blend node itself as visited to avoid cycles
+      visited.add(targetNode.id);
       
-      // Mark all dependency nodes as visited
-      upstreamNodes.forEach(node => localVisited.add(node.id));
+      // We'll include the blend node in the chain
+      allConnectedNodes.push(targetNode);
+      
+      // Then continue with any nodes after the blend node
+      const nodesAfterBlend = getTargetNodes(targetNode.id, nodes, edges);
+      for (const nextNode of nodesAfterBlend) {
+        const nextNodeChain = buildProcessingChain(nextNode.id, nodes, edges, visited);
+        allConnectedNodes = [...allConnectedNodes, ...nextNodeChain];
+      }
+    } else {
+      // For regular nodes, just continue building the chain normally
+      const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
+      allConnectedNodes = [...allConnectedNodes, ...nextNodes];
     }
   }
   
-  // Add the current node
-  let result = [...incomingNodes];
-  
-  // Only add the source node if it's not already included
-  if (!result.some(node => node.id === sourceNodeId)) {
-    result.push(sourceNode);
-    console.log(`Added node ${sourceNodeId} to processing chain`);
-  }
-  
-  // Now process all outgoing connections from this node
-  const outgoingEdges = edges.filter(edge => edge.source === sourceNodeId);
-  
-  console.log(`Node ${sourceNodeId} has ${outgoingEdges.length} outgoing edges`);
-  
-  // Process all target nodes
-  for (const edge of outgoingEdges) {
-    const targetId = edge.target;
-    if (!localVisited.has(targetId)) {
-      console.log(`Following outgoing connection: ${sourceNodeId} -> ${targetId}`);
-      const downstreamNodes = buildProcessingChain(targetId, nodes, edges, localVisited);
-      
-      // Add all new nodes to the result
-      downstreamNodes.forEach(node => {
-        if (!result.some(n => n.id === node.id)) {
-          result.push(node);
-          console.log(`Added downstream node ${node.id} to processing chain`);
-        }
-      });
-    }
-  }
-  
-  console.log(`Chain from ${sourceNodeId} contains ${result.length} nodes`);
-  return result;
+  return [...chain, ...allConnectedNodes];
 };
 
 // Highlight Glow filter implementation
@@ -1958,444 +1652,6 @@ function applyInvertFilter(data: Uint8ClampedArray): void {
     data[i + 1] = 255 - data[i + 1];
     data[i + 2] = 255 - data[i + 2];
   }
-}
-
-// SimplexNoise implementation - needed for texture generation
-class SimplexNoise {
-  private perm: number[] = [];
-  private gradP: number[][] = [];
-  
-  constructor(seed: string | number = Math.random()) {
-    this.seed(seed);
-  }
-  
-  private seed(seed: string | number) {
-    if (typeof seed === 'string') {
-      // Convert string to number seed
-      let hash = 0;
-      for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-        hash = hash & hash; // Convert to 32bit integer
-      }
-      seed = Math.abs(hash);
-    }
-    
-    const p = Array.from({length: 256}, (_, i) => i);
-    
-    // Shuffle array using Fisher-Yates algorithm with the provided seed
-    let n = p.length;
-    let seedRandom = this.createSeededRandom(seed);
-    
-    while (n > 0) {
-      const j = Math.floor(seedRandom() * n--);
-      [p[n], p[j]] = [p[j], p[n]]; // Swap elements
-    }
-    
-    // Duplicate for faster lookups
-    this.perm = [...p, ...p];
-    
-    // Pre-compute gradients
-    this.gradP = new Array(512);
-    for (let i = 0; i < 512; i++) {
-      const value = this.perm[i & 255] % 12;
-      this.gradP[i] = this.grad3[value];
-    }
-  }
-  
-  private createSeededRandom(seed: number) {
-    return function() {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
-  }
-  
-  private grad3 = [
-    [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
-    [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
-    [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]
-  ];
-  
-  private dot2(g: number[], x: number, y: number): number {
-    return g[0] * x + g[1] * y;
-  }
-  
-  private fade(t: number): number {
-    return t * t * t * (t * (t * 6 - 15) + 10);
-  }
-  
-  public noise2D(x: number, y: number): number {
-    // Find unit grid cell containing point
-    let X = Math.floor(x);
-    let Y = Math.floor(y);
-    // Get relative coordinates of point within cell
-    x = x - X;
-    y = y - Y;
-    // Wrap the integer cells at 255
-    X = X & 255;
-    Y = Y & 255;
-    
-    // Calculate noise contributions from each corner
-    const n00 = this.dot2(this.gradP[(X + this.perm[Y]) & 511], x, y);
-    const n01 = this.dot2(this.gradP[(X + this.perm[Y + 1]) & 511], x, y - 1);
-    const n10 = this.dot2(this.gradP[(X + 1 + this.perm[Y]) & 511], x - 1, y);
-    const n11 = this.dot2(this.gradP[(X + 1 + this.perm[Y + 1]) & 511], x - 1, y - 1);
-    
-    // Compute the fade curve
-    const u = this.fade(x);
-    const v = this.fade(y);
-    
-    // Interpolate the four results
-    return this.lerp(
-      this.lerp(n00, n10, u),
-      this.lerp(n01, n11, u),
-      v
-    );
-  }
-  
-  private lerp(a: number, b: number, t: number): number {
-    return (1 - t) * a + t * b;
-  }
-}
-
-// Function to generate a texture without requiring an input image
-// This is for the standalone texture generator that creates its own content
-function generateTextureImage(
-  width: number, 
-  height: number, 
-  params: any[] = []
-): Uint8ClampedArray {
-  const imageData = new Uint8ClampedArray(width * height * 4);
-  
-  // Extract parameters
-  const paramsObj: Record<string, any> = {};
-  params.forEach(param => {
-    paramsObj[param.name] = param.value;
-  });
-  
-  // Parse parameters
-  const noiseType = paramsObj.noiseType || 'Perlin';
-  const scale = parseFloat(String(paramsObj.scale || 0.1));
-  const octaves = parseInt(String(paramsObj.octaves || 4));
-  const persistence = parseFloat(String(paramsObj.persistence || 0.5));
-  const lacunarity = parseFloat(String(paramsObj.lacunarity || 2.0));
-  const seed = parseInt(String(paramsObj.seed || 42));
-  const colorize = paramsObj.colorize || 'Grayscale';
-  
-  // Set up noise generator with the seed
-  const simplex = new SimplexNoise(seed);
-  
-  // Generate the texture based on noise type
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      
-      // Calculate noise value based on the selected noise type
-      let noiseValue = 0;
-      
-      switch (noiseType) {
-        case 'Perlin':
-        case 'Simplex':
-          noiseValue = (simplex.noise2D(x * scale, y * scale) + 1) / 2;
-          break;
-        case 'Fractal Perlin':
-        case 'Fractal Simplex':
-          // Fractal Brownian Motion (FBM) implementation
-          let amplitude = 1;
-          let frequency = 1;
-          let noiseSum = 0;
-          let amplitudeSum = 0;
-          
-          for (let o = 0; o < octaves; o++) {
-            const nx = x * scale * frequency;
-            const ny = y * scale * frequency;
-            noiseSum += amplitude * ((simplex.noise2D(nx, ny) + 1) / 2);
-            amplitudeSum += amplitude;
-            amplitude *= persistence;
-            frequency *= lacunarity;
-          }
-          
-          noiseValue = noiseSum / amplitudeSum;
-          break;
-        case 'Cellular':
-          // Simple cellular/Worley noise
-          const points = [];
-          const numPoints = 20;
-          
-          // Generate fixed points based on seed
-          const rng = seededRandom(seed);
-          for (let i = 0; i < numPoints; i++) {
-            points.push({
-              x: Math.floor(rng() * width),
-              y: Math.floor(rng() * height)
-            });
-          }
-          
-          // Find distance to closest point
-          let minDist = Number.MAX_VALUE;
-          for (const point of points) {
-            const dx = x - point.x;
-            const dy = y - point.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            minDist = Math.min(minDist, dist);
-          }
-          
-          // Normalize
-          noiseValue = Math.min(1, minDist / (width / 4));
-          break;
-        case 'Voronoi':
-          // Voronoi diagram
-          const cellPoints = [];
-          const cellCount = 30;
-          
-          // Generate fixed cell points based on seed
-          const cellRng = seededRandom(seed);
-          for (let i = 0; i < cellCount; i++) {
-            cellPoints.push({
-              x: Math.floor(cellRng() * width),
-              y: Math.floor(cellRng() * height)
-            });
-          }
-          
-          // Find closest cell
-          let closestDist = Number.MAX_VALUE;
-          let secondClosestDist = Number.MAX_VALUE;
-          
-          for (const point of cellPoints) {
-            const dx = x - point.x;
-            const dy = y - point.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist < closestDist) {
-              secondClosestDist = closestDist;
-              closestDist = dist;
-            } else if (dist < secondClosestDist) {
-              secondClosestDist = dist;
-            }
-          }
-          
-          // Edge detection
-          const edgeWidth = 3;
-          noiseValue = secondClosestDist - closestDist < edgeWidth ? 0 : 1;
-          break;
-        case 'Flow Field':
-          // Flow field using Perlin noise for direction
-          const angle = simplex.noise2D(x * scale, y * scale) * Math.PI * 2;
-          const flowX = Math.cos(angle);
-          const flowY = Math.sin(angle);
-          
-          // Sample noise in the flow direction
-          const sampleX = (x + flowX * 10) * scale;
-          const sampleY = (y + flowY * 10) * scale;
-          noiseValue = (simplex.noise2D(sampleX, sampleY) + 1) / 2;
-          break;
-        case 'Gradient':
-          // Simple gradient
-          noiseValue = y / height;
-          break;
-        default:
-          // Default to simple noise
-          noiseValue = Math.random();
-      }
-      
-      // Apply colorization
-      let r, g, b;
-      
-      switch (colorize) {
-        case 'Rainbow':
-          // Rainbow gradient based on noise value
-          const hue = noiseValue * 360;
-          [r, g, b] = hsvToRgb(hue, 0.8, 0.9);
-          break;
-        case 'Fire':
-          // Fire-like gradient (black to red to yellow)
-          if (noiseValue < 0.3) {
-            // Black to dark red
-            const t = noiseValue / 0.3;
-            r = Math.floor(t * 128);
-            g = 0;
-            b = 0;
-          } else if (noiseValue < 0.6) {
-            // Dark red to bright red
-            const t = (noiseValue - 0.3) / 0.3;
-            r = Math.floor(128 + t * 127);
-            g = Math.floor(t * 80);
-            b = 0;
-          } else {
-            // Bright red to yellow
-            const t = (noiseValue - 0.6) / 0.4;
-            r = 255;
-            g = Math.floor(80 + t * 175);
-            b = Math.floor(t * 100);
-          }
-          break;
-        case 'Electric':
-          // Electric blues and purples
-          r = Math.floor(noiseValue * 100);
-          g = Math.floor(50 + noiseValue * 150);
-          b = 255;
-          break;
-        case 'Earth':
-          // Earth tones
-          if (noiseValue < 0.4) {
-            // Dark brown
-            r = 101;
-            g = 67;
-            b = 33;
-          } else if (noiseValue < 0.7) {
-            // Green
-            r = Math.floor(34 + (noiseValue - 0.4) * 100);
-            g = Math.floor(139 + (noiseValue - 0.4) * 50);
-            b = Math.floor(34 + (noiseValue - 0.4) * 30);
-          } else {
-            // Tan/white
-            const t = (noiseValue - 0.7) / 0.3;
-            r = Math.floor(134 + t * 121);
-            g = Math.floor(189 + t * 66);
-            b = Math.floor(64 + t * 191);
-          }
-          break;
-        case 'Ocean':
-          // Ocean blues
-          r = Math.floor(noiseValue * 30);
-          g = Math.floor(noiseValue * 100 + 50);
-          b = Math.floor(150 + noiseValue * 105);
-          break;
-        case 'Grayscale':
-        default:
-          // Grayscale based on noise value
-          r = g = b = Math.floor(noiseValue * 255);
-      }
-      
-      // Set pixel color
-      imageData[i] = r;
-      imageData[i + 1] = g;
-      imageData[i + 2] = b;
-      imageData[i + 3] = 255; // full alpha
-    }
-  }
-  
-  return imageData;
-}
-
-// Helper function for seeded random number generation
-function seededRandom(seed: number) {
-  let currentSeed = seed;
-  return function() {
-      currentSeed = (currentSeed * 9301 + 49297) % 233280;
-      return currentSeed / 233280;
-  };
-}
-
-// Helper function to convert HSV to RGB
-function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
-  const c = v * s;
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-  const m = v - c;
-  
-  let r, g, b;
-  if (h < 60) {
-    [r, g, b] = [c, x, 0];
-  } else if (h < 120) {
-    [r, g, b] = [x, c, 0];
-  } else if (h < 180) {
-    [r, g, b] = [0, c, x];
-  } else if (h < 240) {
-    [r, g, b] = [0, x, c];
-  } else if (h < 300) {
-    [r, g, b] = [x, 0, c];
-  } else {
-    [r, g, b] = [c, 0, x];
-  }
-  
-  return [
-    Math.floor((r + m) * 255), 
-    Math.floor((g + m) * 255), 
-    Math.floor((b + m) * 255)
-  ];
-}
-
-// Processor function for the texture generator node
-// This function is called when a textureGenerator node is being processed
-function processTextureGeneratorFilter(
-  inputs: Record<string, HTMLCanvasElement | null>,
-  resultCtx: CanvasRenderingContext2D,
-  resultCanvas: HTMLCanvasElement,
-  nodeData: FilterNodeData,
-  tempCanvas: HTMLCanvasElement,
-  tempCtx: CanvasRenderingContext2D
-): void {
-  // This filter doesn't require an input - it generates its own
-  console.log(`Processing texture generator with params:`, nodeData.params);
-  
-  // Get specified dimensions or default to canvas size
-  const width = parseInt(String(nodeData.params.find(p => p.name === 'width')?.value || resultCanvas.width));
-  const height = parseInt(String(nodeData.params.find(p => p.name === 'height')?.value || resultCanvas.height));
-  
-  // Ensure canvas has the right dimensions
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  resultCanvas.width = width;
-  resultCanvas.height = height;
-  
-  // Clear the canvas
-  tempCtx.clearRect(0, 0, width, height);
-  
-  // Generate the texture data
-  const textureData = generateTextureImage(width, height, nodeData.params);
-  
-  // Create an ImageData object and put the texture data into it
-  const imageData = new ImageData(textureData, width, height);
-  
-  // Put the generated image data onto the canvas
-  tempCtx.putImageData(imageData, 0, 0);
-  
-  // Copy to result canvas with blend mode if specified
-  resultCtx.clearRect(0, 0, width, height);
-  
-  if (nodeData.blendMode === 'normal' || nodeData.blendMode === 'source-over') {
-    resultCtx.globalAlpha = nodeData.opacity / 100;
-    resultCtx.drawImage(tempCanvas, 0, 0);
-    resultCtx.globalAlpha = 1.0;
-  } else {
-    // Apply the specified blend mode
-    resultCtx.globalCompositeOperation = getCompositeOperation(nodeData.blendMode);
-    resultCtx.globalAlpha = nodeData.opacity / 100;
-    resultCtx.drawImage(tempCanvas, 0, 0);
-    resultCtx.globalCompositeOperation = 'source-over';
-    resultCtx.globalAlpha = 1.0;
-  }
-}
-
-// Helper function to convert blend mode to canvas globalCompositeOperation
-function getCompositeOperation(blendMode: string): GlobalCompositeOperation {
-  // Map our blend modes to Canvas composite operations
-  const blendModeMap: Record<string, GlobalCompositeOperation> = {
-    'normal': 'source-over',
-    'multiply': 'multiply',
-    'screen': 'screen',
-    'overlay': 'overlay',
-    'darken': 'darken',
-    'lighten': 'lighten',
-    'color-dodge': 'color-dodge',
-    'color-burn': 'color-burn',
-    'hard-light': 'hard-light',
-    'soft-light': 'soft-light',
-    'difference': 'difference',
-    'exclusion': 'exclusion',
-    'hue': 'hue',
-    'saturation': 'saturation',
-    'color': 'color',
-    'luminosity': 'luminosity',
-    'add': 'lighter',
-    'subtract': 'difference',  // Canvas doesn't have subtract
-    'divide': 'color-dodge',   // Approximation
-    'linear-dodge': 'lighter',
-    'linear-burn': 'darken',
-    'vivid-light': 'hard-light', // Approximation
-    'linear-light': 'overlay'    // Approximation
-  };
-  
-  return (blendModeMap[blendMode] || 'source-over') as GlobalCompositeOperation;
 }
 
 // Noise filter with Perlin and Simplex noise support

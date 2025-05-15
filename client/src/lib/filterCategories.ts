@@ -14,12 +14,6 @@ export const categoryColors = {
     textColor: 'text-white',
     borderColor: 'border-blue-700'
   },
-  createTexture: {
-    name: 'Create Texture',
-    color: 'bg-purple-600',
-    textColor: 'text-white',
-    borderColor: 'border-purple-700'
-  },
   distortion: {
     name: 'Distortion Filters',
     color: 'bg-red-600',
@@ -62,9 +56,6 @@ export function getFilterCategory(filterType: FilterType): string {
     'dither': 'texture',
     'texture': 'texture',
     
-    // Create Texture generators
-    'textureGenerator': 'createTexture',
-    
     // Distortion filters
     'extrude': 'distortion',
     'wave': 'distortion',
@@ -93,133 +84,6 @@ export function getFilterCategory(filterType: FilterType): string {
 }
 
 export const filterCategories: Record<string, FilterCategory> = {
-  createTexture: {
-    name: 'Create Texture',
-    filters: [
-      {
-        name: 'Noise Generator',
-        type: 'textureGenerator',
-        params: [
-          {
-            name: 'noiseType',
-            label: 'Noise Type',
-            type: 'select',
-            options: [
-              'Perlin', 
-              'Simplex',
-              'Fractal Perlin', 
-              'Fractal Simplex',
-              'Cellular',
-              'Voronoi',
-              'Flow Field',
-              'Gradient'
-            ],
-            value: 'Perlin'
-          },
-          {
-            name: 'colorMap',
-            label: 'Color Map',
-            type: 'select',
-            options: [
-              'Grayscale',
-              'Rainbow',
-              'Fire',
-              'Electric',
-              'Earth',
-              'Ocean'
-            ],
-            value: 'Grayscale'
-          },
-          {
-            name: 'seed',
-            label: 'Seed',
-            type: 'range',
-            min: 1,
-            max: 10000,
-            step: 1,
-            value: 42
-          },
-          {
-            name: 'width',
-            label: 'Width',
-            type: 'range',
-            min: 100,
-            max: 1000,
-            step: 50,
-            value: 500,
-            unit: 'px'
-          },
-          {
-            name: 'height',
-            label: 'Height',
-            type: 'range',
-            min: 100,
-            max: 1000,
-            step: 50,
-            value: 500,
-            unit: 'px'
-          },
-          {
-            name: 'scale',
-            label: 'Scale',
-            type: 'range',
-            min: 0.01,
-            max: 1,
-            step: 0.01,
-            value: 0.1,
-            unit: ''
-          },
-          {
-            name: 'octaves',
-            label: 'Octaves',
-            type: 'range',
-            min: 1,
-            max: 8,
-            step: 1,
-            value: 4,
-            unit: ''
-          },
-          {
-            name: 'persistence',
-            label: 'Persistence',
-            type: 'range',
-            min: 0.1,
-            max: 1.0,
-            step: 0.05,
-            value: 0.5,
-            unit: ''
-          },
-          {
-            name: 'lacunarity',
-            label: 'Lacunarity',
-            type: 'range',
-            min: 1.0,
-            max: 3.0,
-            step: 0.1,
-            value: 2.0,
-            unit: ''
-          },
-          {
-            name: 'seed',
-            label: 'Seed',
-            type: 'range',
-            min: 1,
-            max: 1000,
-            step: 1,
-            value: 42,
-            unit: ''
-          },
-          {
-            name: 'colorize',
-            label: 'Colorize',
-            type: 'select',
-            options: ['Grayscale', 'Rainbow', 'Fire', 'Electric', 'Earth', 'Ocean'],
-            value: 'Grayscale'
-          }
-        ]
-      }
-    ]
-  },
   basic: {
     name: 'Basic Filters',
     filters: [

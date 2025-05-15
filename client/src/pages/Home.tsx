@@ -9,15 +9,13 @@ import CreateCustomNodeDialog from '@/components/CreateCustomNodeDialog';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
 
 export default function Home() {
-  const filterGraph = useFilterGraph();
-  
   const {
     nodes,
     edges,
     onNodesChange,
     onEdgesChange,
     onConnect,
-    onNodeClick,
+    onNodeSelect,
     addNode,
     addCustomNode,
     createCustomNode,
@@ -27,14 +25,13 @@ export default function Home() {
     uploadImage,
     exportImage,
     sourceImage,
-    resetGraph,
+    resetCanvas,
     zoomIn,
     zoomOut,
     zoomLevel,
     nodePreview,
-    loadPreset,
-    addResultNode
-  } = filterGraph;
+    loadPreset
+  } = useFilterGraph();
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
@@ -46,7 +43,7 @@ export default function Home() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
-      <Header onNewProject={resetGraph} onExportImage={exportImage} />
+      <Header onNewProject={resetCanvas} onExportImage={exportImage} />
       
       <div className="flex flex-1 overflow-hidden">
         <div className="h-full flex flex-col" style={{ width: `${filtersPanelWidth}px` }}>
@@ -109,7 +106,6 @@ export default function Home() {
                 width={filtersPanelWidth} 
                 onAddFilter={addNode}
                 onUploadImage={uploadImage}
-                onAddResultNode={addResultNode}
                 sourceImage={sourceImage}
               />
             ) : activeLeftTab === 'presets' ? (
@@ -137,7 +133,7 @@ export default function Home() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={onNodeClick}
+          onNodeClick={onNodeSelect}
           selectedNodeId={selectedNodeId}
           zoomIn={zoomIn}
           zoomOut={zoomOut}

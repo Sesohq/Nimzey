@@ -28,27 +28,20 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
   
   // State to track connected inputs
   const [connectedInputs, setConnectedInputs] = useState({
-    foreground: false,
-    background: false,
-    opacity: false
+    inputA: false,
+    inputB: false
   });
-  
-  // State for the node preview
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [showLargePreview, setShowLargePreview] = useState(false);
   
   // Check for connected edges when the component mounts or edges change
   useEffect(() => {
     const checkConnections = () => {
       const edges = getEdges();
-      const hasForeground = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'foreground');
-      const hasBackground = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'background');
-      const hasOpacity = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'opacity');
+      const hasInputA = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'inputA');
+      const hasInputB = edges.some(edge => edge.target === nodeId && edge.targetHandle === 'inputB');
       
       setConnectedInputs({
-        foreground: hasForeground,
-        background: hasBackground,
-        opacity: hasOpacity
+        inputA: hasInputA,
+        inputB: hasInputB
       });
     };
     
@@ -56,14 +49,6 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
     
     // We could add a subscription to edge changes here if needed
   }, [nodeId, getEdges]);
-  
-  // Update preview image when data changes
-  useEffect(() => {
-    // Use any available preview data from the node data
-    if (data.preview) {
-      setPreviewImage(data.preview);
-    }
-  }, [data.preview]);
   
   const handleParamChange = (paramName: string, value: number | string) => {
     if (data.onParamChange) {
@@ -104,63 +89,43 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
       'bg-white rounded-lg shadow-md border border-slate-200 w-72',
       selected ? 'ring-2 ring-blue-500' : ''
     )}>
-      {/* Background input (left side, bottom) */}
-      <div className="absolute left-0 top-[65%] flex items-center">
+      {/* Input Handle A - Base/Background Layer Input (left side) */}
+      <div className="absolute left-0 top-[50%] flex items-center">
         <Handle
           type="target"
           position={Position.Left}
-          id="background"
+          id="inputA"
           className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '65%', transform: 'translateY(-50%)' }}
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
         
-        {/* Small visual indicator for background input */}
-        <div className="absolute top-[65%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">B</div>
+        {/* Small visual indicator showing that this handle accepts connections */}
+        <div className="absolute top-[50%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
+          <div className="text-[8px] font-bold text-amber-600">A</div>
         </div>
         
         <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
-          Background
+          Base
         </Badge>
       </div>
       
-      {/* Foreground input (left side, top) */}
-      <div className="absolute left-0 top-[35%] flex items-center">
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="foreground"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
-          style={{ top: '35%', transform: 'translateY(-50%)' }}
-        />
-        
-        {/* Small visual indicator for foreground input */}
-        <div className="absolute top-[35%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">F</div>
-        </div>
-        
-        <Badge variant="outline" className="ml-6 text-[10px] bg-white shadow-sm">
-          Foreground
-        </Badge>
-      </div>
-      
-      {/* Opacity/Mask input (top) */}
+      {/* Input Handle B - Blend/Foreground Layer Input (top) */}
       <div className="absolute top-0 left-[50%] flex flex-col items-center">
         <Handle
           type="target"
           position={Position.Top}
-          id="opacity"
+          id="inputB"
           className="w-9 h-9 rounded-full -mt-4 bg-amber-400"
           style={{ left: '50%', transform: 'translateX(-50%)' }}
         />
         
-        {/* Small visual indicator for opacity input */}
+        {/* Small visual indicator showing that this handle accepts connections */}
         <div className="absolute top-[-10px] left-[50%] transform -translate-x-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">O</div>
+          <div className="text-[8px] font-bold text-amber-600">B</div>
         </div>
         
         <Badge variant="outline" className="mt-6 text-[10px] bg-white shadow-sm">
-          Opacity Mask
+          Blend
         </Badge>
       </div>
       
@@ -188,46 +153,6 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
             />
           </div>
         </div>
-        
-        {/* Node Preview Area */}
-        <div 
-          className="mb-3 bg-gray-100 rounded border border-gray-200 flex items-center justify-center cursor-pointer overflow-hidden"
-          style={{ height: '80px' }}
-          onClick={() => setShowLargePreview(!showLargePreview)}
-        >
-          {previewImage ? (
-            <img 
-              src={previewImage} 
-              alt="Node preview" 
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <div className="text-xs text-gray-500 p-2 text-center">
-              Preview will appear here
-            </div>
-          )}
-        </div>
-        
-        {/* Large preview modal */}
-        {showLargePreview && previewImage && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLargePreview(false)}>
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl max-h-[80vh] overflow-auto p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium">{data.label} Preview</h3>
-                <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowLargePreview(false)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              <img 
-                src={previewImage} 
-                alt="Node preview (large)" 
-                className="max-w-full" 
-              />
-            </div>
-          </div>
-        )}
         
         <div className="flex items-center justify-between mb-3">
           <Label htmlFor={`${nodeId}-enabled`} className="text-xs text-slate-500">
@@ -357,9 +282,9 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   <div className="flex items-center">
                     <div className={cn(
                       "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.foreground ? "bg-blue-500" : "bg-blue-200"
+                      connectedInputs.inputA ? "bg-green-500" : "bg-green-200"
                     )}></div>
-                    <span className="text-xs text-slate-500">Foreground</span>
+                    <span className="text-xs text-slate-500">Base Layer (Left)</span>
                   </div>
                   <MoveHorizontal className="w-3 h-3 text-slate-400" />
                 </div>
@@ -367,30 +292,20 @@ export default function BlendNode({ data, selected, id }: NodeProps<FilterNodeDa
                   <div className="flex items-center">
                     <div className={cn(
                       "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.background ? "bg-green-500" : "bg-green-200"
+                      connectedInputs.inputB ? "bg-blue-500" : "bg-blue-200"
                     )}></div>
-                    <span className="text-xs text-slate-500">Background</span>
-                  </div>
-                  <MoveHorizontal className="w-3 h-3 text-slate-400" />
-                </div>
-                <div className="flex items-center justify-between px-2 py-1 rounded bg-white shadow-sm border border-slate-100">
-                  <div className="flex items-center">
-                    <div className={cn(
-                      "w-3 h-3 rounded-full mr-2",
-                      connectedInputs.opacity ? "bg-amber-500" : "bg-amber-200"
-                    )}></div>
-                    <span className="text-xs text-slate-500">Opacity Mask</span>
+                    <span className="text-xs text-slate-500">Blend Layer (Top)</span>
                   </div>
                   <ArrowDown className="w-3 h-3 text-slate-400" />
                 </div>
-                {(!connectedInputs.foreground || !connectedInputs.background) && (
+                {(!connectedInputs.inputA || !connectedInputs.inputB) && (
                   <div className="text-xs text-amber-600 p-1 bg-amber-50 rounded border border-amber-100">
-                    {!connectedInputs.foreground && !connectedInputs.background ? (
-                      "Connect foreground and background inputs for blending"
-                    ) : !connectedInputs.foreground ? (
-                      "Missing foreground input"
+                    {!connectedInputs.inputA && !connectedInputs.inputB ? (
+                      "Connect both inputs to enable blending"
+                    ) : !connectedInputs.inputA ? (
+                      "Missing base layer input (left)"
                     ) : (
-                      "Missing background input"
+                      "Missing blend layer input (top)"
                     )}
                   </div>
                 )}

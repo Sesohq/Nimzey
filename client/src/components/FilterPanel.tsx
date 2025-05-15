@@ -10,11 +10,10 @@ interface FilterPanelProps {
   width: number;
   onAddFilter: (type: FilterType) => void;
   onUploadImage: (file: File) => void;
-  onAddResultNode?: () => void;
   sourceImage: string | null;
 }
 
-export default function FilterPanel({ width, onAddFilter, onUploadImage, onAddResultNode, sourceImage }: FilterPanelProps) {
+export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage }: FilterPanelProps) {
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
 
   const handleFilterDragStart = (e: React.DragEvent, filter: FilterType) => {
@@ -104,49 +103,8 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, onAddRe
               );
             })}
           </Accordion>
-          
-          {/* Utility Nodes Section */}
-          <div className="mt-4 mb-2">
-            <div className="px-2 py-1 text-sm text-gray-300 font-semibold">Utility Nodes</div>
-            <div className="bg-[#111827] p-3 rounded-lg shadow-inner">
-              {/* Result Node */}
-              <div 
-                className="group flex items-center mb-2 p-2 rounded-md bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 transition-colors cursor-pointer"
-                onClick={() => onAddResultNode && onAddResultNode()}
-              >
-                <div className="flex-shrink-0 w-8 h-8 rounded-md bg-black bg-opacity-20 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <div className="text-white font-medium">Result</div>
-                  <div className="text-xs text-gray-200">Displays final output</div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </ScrollArea>
-      
-      {/* Upload button always visible at the bottom */}
-      <div className="p-3 border-t border-gray-800">
-        <label
-          htmlFor="image-upload"
-          className="flex items-center justify-center p-2 rounded-md bg-gradient-to-r from-blue-600 to-indigo-700 hover:opacity-90 transition-opacity cursor-pointer text-white"
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          <span>Upload Image</span>
-        </label>
-        <input
-          id="image-upload"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageUpload}
-        />
-      </div>
     </div>
   );
 }

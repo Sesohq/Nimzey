@@ -18,8 +18,6 @@ import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import BlendNode from './BlendNode';
 import CustomNode from './CustomNode';
-import NoiseGeneratorNode from './NoiseGeneratorNode';
-import ResultNode from './ResultNode';
 import { Badge } from '@/components/ui/badge';
 
 // Using a renderNode function instead of creating new nodeTypes object on each render
@@ -27,9 +25,7 @@ const nodeTypes: NodeTypes = {
   filterNode: FilterNode,
   imageNode: ImageNode,
   blendNode: BlendNode,
-  customNode: CustomNode,
-  textureGenerator: NoiseGeneratorNode,
-  resultNode: ResultNode
+  customNode: CustomNode
 };
 
 interface NodeCanvasProps {
@@ -81,9 +77,7 @@ export default function NodeCanvas({
       });
       
       // Clear the focused node
-      if (typeof onNodeClick === 'function') {
-        onNodeClick('');
-      }
+      onNodeClick('');
     }
   };
 
@@ -103,13 +97,7 @@ export default function NodeCanvas({
       onNodesChange([{ type: 'select', id: node.id, selected: updatedNode.selected }]);
     } else {
       // Single select mode - normal behavior
-      if (typeof onNodeClick === 'function') {
-        onNodeClick(node.id);
-      } else {
-        console.warn('onNodeClick is not a function or is undefined');
-        // Fall back to just selecting the node
-        onNodesChange([{ type: 'select', id: node.id, selected: true }]);
-      }
+      onNodeClick(node.id);
     }
   };
 

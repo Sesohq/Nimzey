@@ -33,26 +33,10 @@ export function useFilterGraph() {
   // State for tracking zoom level
   const [zoomLevel, setZoomLevel] = useState(1);
   
-  // Define extended types for clipboard operations
-  type ClipboardNode = Node & {
-    originalId?: string;
-  };
-  
-  type ClipboardEdge = Edge & {
-    originalSource?: string;
-    originalTarget?: string;
-  };
-  
-  // State for clipboard operations
-  const [clipboardNodes, setClipboardNodes] = useState<ClipboardNode[]>([]);
-  const [clipboardEdges, setClipboardEdges] = useState<ClipboardEdge[]>([]);
-  
   // Refs for elements we need to track
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
-  // Reference to processImage function to avoid circular dependencies
-  const processImageRef = useRef<(() => void) | null>(null);
   
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -66,19 +50,7 @@ export function useFilterGraph() {
   
   // Handle node click
   const onNodeClick = useCallback((nodeId: string) => {
-    console.log('Node clicked:', nodeId);
-    setSelectedNodeId((currentSelectedId) => {
-      const newSelectedId = currentSelectedId === nodeId ? null : nodeId;
-      
-      // Schedule processing to update previews after state updates
-      setTimeout(() => {
-        if (processImageRef.current) {
-          processImageRef.current();
-        }
-      }, 10);
-      
-      return newSelectedId;
-    });
+    setSelectedNodeId((currentSelectedId) => (currentSelectedId === nodeId ? null : nodeId));
   }, []);
   
   // Handle parameter changes on filter nodes
@@ -322,7 +294,7 @@ export function useFilterGraph() {
       console.error('Failed to add custom node:', error);
       return null;
     }
-  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
+  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode, processImage]);
 
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
@@ -420,49 +392,9 @@ export function useFilterGraph() {
     return Array.from(resultNodes);
   };
   
-  // Helper function to update all Result nodes with the processed image
-  const updateResultNodePreviews = useCallback((imageUrl: string | null) => {
-    if (!imageUrl) {
-      console.log("Cannot update Result nodes - no image URL provided");
-      return;
-    }
-    
-    console.log(`Updating Result nodes with image (starts with: ${imageUrl.substring(0, 30)}...)`);
-    
-    // First, verify if any result nodes exist
-    const resultNodes = nodes.filter(node => node.type === 'resultNode');
-    console.log(`Found ${resultNodes.length} Result nodes:`, resultNodes);
-    
-    let resultNodesCount = 0;
-    
-    setNodes(prevNodes => {
-      const updatedNodes = prevNodes.map(node => {
-        // Check if this is a Result node
-        if (node.type === 'resultNode') {
-          resultNodesCount++;
-          console.log(`Updating Result node: ${node.id}`);
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              preview: imageUrl
-            }
-          };
-        }
-        return node;
-      });
-      
-      console.log(`Updated ${resultNodesCount} Result nodes`);
-      return updatedNodes;
-    });
-  }, [nodes]);
-  
   // Process the entire image with all filter nodes
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
-    
-    // Store reference to this function
-    processImageRef.current = processImage;
     
     // Create a canvas for the processed image
     if (!exportCanvasRef.current) {
@@ -470,8 +402,6 @@ export function useFilterGraph() {
     }
     
     try {
-      let finalResult: string | null = null;
-      
       // If a node is selected, only process nodes in that chain
       if (selectedNodeId) {
         const selectedNode = nodes.find(node => node.id === selectedNodeId);
@@ -488,64 +418,31 @@ export function useFilterGraph() {
           );
           
           // Process the image
-          finalResult = applyFilters(
+          const result = applyFilters(
             sourceImageRef.current,
             allNodesToProcess,
             relevantEdges,
             exportCanvasRef.current
           );
           
-          setProcessedImage(finalResult);
+          setProcessedImage(result);
         }
       } else {
         // Process the full graph
-        finalResult = applyFilters(
+        const result = applyFilters(
           sourceImageRef.current,
           nodes,
           edges,
           exportCanvasRef.current
         );
         
-        setProcessedImage(finalResult);
-      }
-
-      // Always update Result nodes with the final processed image
-      if (finalResult) {
-        console.log("Updating Result nodes with processed image");
-        
-        // Check if any result nodes exist
-        const resultNodes = nodes.filter(node => node.type === 'resultNode');
-        
-        if (resultNodes.length === 0) {
-          console.log("No Result nodes found, adding one now");
-          // Add a Result node if none exists - need to add now in this run
-          const resultId = addResultNode();
-          
-          // Manually update the node with the current image since it was just created
-          setNodes(prevNodes => {
-            return prevNodes.map(node => {
-              if (node.id === resultId) {
-                return {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    preview: finalResult
-                  }
-                };
-              }
-              return node;
-            });
-          });
-        } else {
-          // Update existing result nodes
-          updateResultNodePreviews(finalResult);
-        }
+        setProcessedImage(result);
       }
     } catch (error) {
       console.error('Error processing image:', error);
       setProcessedImage(null);
     }
-  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef, updateResultNodePreviews]);
+  }, [nodes, edges, selectedNodeId, sourceImageRef, exportCanvasRef]);
   
   // Effect to generate preview when a node is selected
   useEffect(() => {
@@ -602,12 +499,9 @@ export function useFilterGraph() {
       onRemoveNode: () => handleRemoveNode(id)
     };
     
-    // Determine the node type - texture generators use a different component
-    const nodeType = filterType === 'textureGenerator' ? 'textureGenerator' : 'filterNode';
-    
     const newNode: Node<FilterNodeData> = {
       id,
-      type: nodeType,
+      type: 'filterNode',
       position: { x: 250, y: 150 },
       data: nodeData,
     };
@@ -619,180 +513,28 @@ export function useFilterGraph() {
   
   // Connect two nodes
   const onConnect = useCallback((connection: Connection) => {
-    console.log(`Connecting: ${connection.source} -> ${connection.target} (handle: ${connection.targetHandle})`);
-    
-    // Special handling for input connections - we'll normalize dynamic input handles
-    let targetHandle = connection.targetHandle;
-    let sourceHandle = connection.sourceHandle;
-    
-    // Configure the edge appearance
     const newEdge = {
       ...connection,
-      // Keep the original handle IDs
-      targetHandle,
-      sourceHandle,
-      // Ensure the edge is uniquely identified
-      id: `edge-${connection.source}-${connection.target}-${Date.now()}`,
-      // Visual styling
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: '#888',
       },
-      animated: true,
-      // Add data to help with filter chain processing
-      data: {
-        // Store information about the nodes being connected
-        sourceNode: nodes.find(n => n.id === connection.source)?.type || 'unknown',
-        targetNode: nodes.find(n => n.id === connection.target)?.type || 'unknown'
-      }
+      animated: true
     };
     
-    console.log(`Created edge: ${JSON.stringify(newEdge)}`);
-    
-    // Add the edge to our graph
     setEdges(prevEdges => addEdge(newEdge, prevEdges));
-    
-    // Ensure the connected nodes get processed in the right order
-    processImage();
-  }, [nodes, processImage]);
-  
-  // Function for initializing a basic workflow with a source node and result node
-  // Defined early to avoid circular references
-  const initializeBasicWorkflow = useCallback(() => {
-    console.log("Initializing basic workflow");
-    
-    // Clear everything first
-    setNodes([]);
-    setEdges([]);
-    
-    // Add source node
-    const sourceId = 'source-1';
-    const sourceNodeData: ImageNodeData = {
-      src: sourceImage,
-      onUploadImage: (file: File) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setSourceImage(e.target.result as string);
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    
-    const sourceNode: Node<ImageNodeData> = {
-      id: sourceId,
-      type: 'imageNode',
-      position: { x: 100, y: 200 },
-      data: sourceNodeData,
-    };
-    
-    console.log("Created source node:", sourceNode);
-    
-    // Add result node
-    const resultId = `result-${uuidv4().substring(0, 8)}`;
-    console.log("Creating result node with ID:", resultId);
-    
-    const resultNodeData: FilterNodeData = {
-      label: 'Result',
-      filterType: 'result',
-      params: [],
-      enabled: true,
-      blendMode: 'normal',
-      opacity: 1,
-      onParamChange: handleParamChange,
-      onToggleEnabled: handleToggleEnabled,
-      onBlendModeChange: handleBlendModeChange,
-      onOpacityChange: handleOpacityChange,
-      onRemoveNode: () => handleRemoveNode(resultId)
-    };
-    
-    const resultNode: Node<FilterNodeData> = {
-      id: resultId,
-      type: 'resultNode',
-      position: { x: 600, y: 200 },
-      data: {
-        ...resultNodeData,
-        // If we have a source image, set it as the initial preview
-        preview: sourceImage
-      },
-    };
-    
-    // Force the result node to have a valid preview
-    if (!resultNode.data.preview && sourceImage) {
-      resultNode.data.preview = sourceImage;
-    }
-    
-    console.log("Created result node:", resultNode);
-    
-    // Create a default edge connecting source to result
-    const defaultEdge: Edge = {
-      id: `edge-${sourceId}-${resultId}`,
-      source: sourceId,
-      target: resultId,
-      sourceHandle: null, // Source node output
-      targetHandle: 'input', // Result node input
-      animated: true,
-      style: { stroke: '#888' },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: '#888',
-      },
-      data: {
-        label: 'Source → Result'
-      }
-    };
-    
-    // Add both nodes and the connecting edge to canvas
-    setNodes([sourceNode, resultNode]);
-    setEdges([defaultEdge]);
-    
-    // Force immediate processing to update the Result node preview
-    setTimeout(() => {
-      if (sourceImage) {
-        // Set the processed image to be the source image initially
-        setProcessedImage(sourceImage);
-        
-        // Update all Result nodes with the source image - use direct node update
-        setNodes(prevNodes => prevNodes.map(node => {
-          if (node.type === 'resultNode') {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                preview: sourceImage
-              }
-            };
-          }
-          return node;
-        }));
-      }
-    }, 100);
-  }, [sourceImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
+  }, []);
   
   // Upload an image
   const uploadImage = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
-        // First set the source image
         setSourceImage(e.target.result as string);
-        
-        // Force a workflow initialization if needed
-        setTimeout(() => {
-          // Check if we need to initialize the workflow
-          if (nodes.length === 0 || !nodes.some(n => n.type === 'resultNode')) {
-            console.log("No nodes or result node found - initializing workflow");
-            initializeBasicWorkflow();
-          } else {
-            // Just process the image with the existing nodes
-            processImage();
-          }
-        }, 100);
       }
     };
     reader.readAsDataURL(file);
-  }, [nodes, initializeBasicWorkflow, processImage]);
+  }, []);
   
   // Export the processed image
   const exportImage = useCallback((format = 'png', quality = 1) => {
@@ -805,7 +547,7 @@ export function useFilterGraph() {
   // Add a source image node if needed
   const addSourceNodeIfNeeded = useCallback(() => {
     if (!nodes.some(node => node.type === 'imageNode')) {
-      const id = 'source-1';
+      const id = 'source-image';
       const nodeData: ImageNodeData = {
         src: sourceImage,
         onUploadImage: uploadImage
@@ -822,116 +564,12 @@ export function useFilterGraph() {
     }
   }, [nodes, sourceImage, uploadImage]);
   
-  // Initialize a basic workflow with source image and result nodes
-  const initializeBasicWorkflow = useCallback(() => {
-    // Clear everything first
-    setNodes([]);
-    setEdges([]);
-    
-    // Add source node
-    const sourceId = 'source-1';
-    const sourceNodeData: ImageNodeData = {
-      src: sourceImage,
-      onUploadImage: uploadImage
-    };
-    
-    const sourceNode: Node<ImageNodeData> = {
-      id: sourceId,
-      type: 'imageNode',
-      position: { x: 100, y: 200 },
-      data: sourceNodeData,
-    };
-    
-    console.log("Created source node:", sourceNode);
-    
-    // Add result node
-    const resultId = `result-${uuidv4().substring(0, 8)}`;
-    console.log("Creating result node with ID:", resultId);
-    
-    const resultNodeData: FilterNodeData = {
-      label: 'Result',
-      filterType: 'result',
-      params: [],
-      enabled: true,
-      blendMode: 'normal',
-      opacity: 1,
-      onParamChange: handleParamChange,
-      onToggleEnabled: handleToggleEnabled,
-      onBlendModeChange: handleBlendModeChange,
-      onOpacityChange: handleOpacityChange,
-      onRemoveNode: () => handleRemoveNode(resultId)
-    };
-    
-    const resultNode: Node<FilterNodeData> = {
-      id: resultId,
-      type: 'resultNode',
-      position: { x: 600, y: 200 },
-      data: {
-        ...resultNodeData,
-        // If we have a source image, set it as the initial preview
-        preview: sourceImage
-      },
-    };
-    
-    // Force the result node to have a valid preview
-    if (!resultNode.data.preview && sourceImage) {
-      resultNode.data.preview = sourceImage;
-    }
-    
-    console.log("Created result node:", resultNode);
-    
-    // Create a default edge connecting source to result
-    const defaultEdge: Edge = {
-      id: `edge-${sourceId}-${resultId}`,
-      source: sourceId,
-      target: resultId,
-      sourceHandle: null, // Source node output
-      targetHandle: 'input', // Result node input
-      animated: true,
-      style: { stroke: '#888' },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: '#888',
-      },
-      data: {
-        label: 'Source → Result'
-      }
-    };
-    
-    // Add both nodes and the connecting edge to canvas
-    setNodes([sourceNode, resultNode]);
-    setEdges([defaultEdge]);
-    
-    // Force immediate processing to update the Result node preview
-    setTimeout(() => {
-      if (sourceImage) {
-        // Set the processed image to be the source image initially
-        setProcessedImage(sourceImage);
-        
-        // Update all Result nodes with the source image
-        const resultNodes = [resultNode].filter(node => node.type === 'resultNode');
-        console.log(`Updating ${resultNodes.length} result nodes with source image during initialization`);
-        
-        resultNodes.forEach(node => {
-          if (node.type === 'resultNode' && sourceImage) {
-            // Update the node directly
-            setNodes(prevNodes => prevNodes.map(n => 
-              n.id === node.id 
-                ? { ...n, data: { ...n.data, preview: sourceImage } } 
-                : n
-            ));
-          }
-        });
-      }
-    }, 100);
-  }, [sourceImage, uploadImage, handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
-  
-  // Initialize the graph with a source image node and result node
+  // Initialize the graph with a source image node
   useEffect(() => {
     if (sourceImage && nodes.length === 0) {
-      initializeBasicWorkflow();
+      addSourceNodeIfNeeded();
     }
-  }, [sourceImage, nodes.length, initializeBasicWorkflow]);
+  }, [sourceImage, nodes, addSourceNodeIfNeeded]);
   
   // Update source image node when source image changes
   useEffect(() => {
@@ -960,8 +598,8 @@ export function useFilterGraph() {
   const resetGraph = useCallback(() => {
     setNodes([]);
     setEdges([]);
-    initializeBasicWorkflow();
-  }, [initializeBasicWorkflow]);
+    addSourceNodeIfNeeded();
+  }, [addSourceNodeIfNeeded]);
   
   // Load a preset
   const loadPreset = useCallback((presetNodes: Node[], presetEdges: Edge[]) => {
@@ -1019,187 +657,6 @@ export function useFilterGraph() {
     uploadImage, processImage
   ]);
   
-  // Copy selected nodes to clipboard
-  const copySelectedNodes = useCallback(() => {
-    // Get all selected nodes
-    const selectedNodes = nodes.filter(node => node.selected);
-    
-    if (selectedNodes.length === 0) {
-      console.log("No nodes selected to copy");
-      return;
-    }
-    
-    console.log(`Copying ${selectedNodes.length} node(s) to clipboard`);
-    
-    // Deep clone the selected nodes to avoid reference issues
-    const nodesToCopy = selectedNodes.map(node => ({
-      ...node,
-      // Generate a mapping of original IDs to new IDs for when we paste
-      originalId: node.id
-    })) as ClipboardNode[];
-    
-    // Find edges between selected nodes
-    const relevantEdges = edges.filter(edge => {
-      const sourceSelected = selectedNodes.some(n => n.id === edge.source);
-      const targetSelected = selectedNodes.some(n => n.id === edge.target);
-      // Only include edges where both source and target are selected
-      return sourceSelected && targetSelected;
-    }).map(edge => ({
-      ...edge,
-      originalSource: edge.source,
-      originalTarget: edge.target
-    })) as ClipboardEdge[];
-    
-    // Store in clipboard state
-    setClipboardNodes(nodesToCopy);
-    setClipboardEdges(relevantEdges);
-    
-    console.log("Copied to clipboard:", {
-      nodes: nodesToCopy,
-      edges: relevantEdges
-    });
-  }, [nodes, edges]);
-  
-  // Paste nodes from clipboard
-  const pasteNodes = useCallback(() => {
-    if (clipboardNodes.length === 0) {
-      console.log("Nothing to paste");
-      return;
-    }
-    
-    console.log(`Pasting ${clipboardNodes.length} node(s) from clipboard`);
-    
-    // Generate new IDs for all nodes
-    const idMap = new Map<string, string>();
-    
-    // Create new nodes with new IDs at slightly offset positions
-    const newNodes = clipboardNodes.map(node => {
-      const originalId = node.originalId || node.id;
-      // Handle potential undefined type by using a default
-      const nodeType = node.type || 'filterNode';
-      const newId = `${nodeType.replace('Node', '')}-${uuidv4().substring(0, 8)}`;
-      
-      // Store the mapping of original to new ID
-      idMap.set(originalId, newId);
-      
-      // Create a new node with offset position
-      return {
-        ...node,
-        id: newId,
-        position: {
-          x: node.position.x + 50, // Offset to make it clear it's a copy
-          y: node.position.y + 50
-        },
-        selected: true, // Select the newly pasted nodes
-        originalId: undefined // Remove the temporary property
-      } as Node;
-    });
-    
-    // Create new edges with updated source/target IDs
-    const newEdges = clipboardEdges.map(edge => {
-      const originalSource = edge.originalSource || edge.source;
-      const originalTarget = edge.originalTarget || edge.target;
-      
-      // Get the new IDs for the source and target
-      const newSource = idMap.get(originalSource);
-      const newTarget = idMap.get(originalTarget);
-      
-      // Only create edge if both nodes exist in the paste operation
-      if (newSource && newTarget) {
-        // Create a clean edge object without the custom properties
-        const newEdge: Edge = {
-          id: `edge-${newSource}-${newTarget}-${Date.now()}`,
-          source: newSource,
-          target: newTarget,
-          // Copy any standard edge properties we need
-          type: edge.type,
-          animated: edge.animated,
-          style: edge.style,
-          label: edge.label,
-          markerEnd: edge.markerEnd,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle,
-          data: edge.data
-        };
-        return newEdge;
-      }
-      return null;
-    }).filter(Boolean) as Edge[];
-    
-    // Add the new nodes and edges to the graph
-    setNodes(prevNodes => [...prevNodes, ...newNodes]);
-    setEdges(prevEdges => [...prevEdges, ...newEdges]);
-    
-    // Process the image with the updated graph using the processImageRef
-    setTimeout(() => {
-      try {
-        if (processImageRef.current) {
-          processImageRef.current();
-        }
-      } catch (e) {
-        console.error("Error processing image after paste:", e);
-      }
-    }, 0);
-  }, [clipboardNodes, clipboardEdges]);
-  
-  // Handle keyboard shortcuts
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    // Check for Copy (Ctrl+C or Cmd+C)
-    if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
-      event.preventDefault();
-      copySelectedNodes();
-    }
-    
-    // Check for Paste (Ctrl+V or Cmd+V)
-    if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
-      event.preventDefault();
-      pasteNodes();
-    }
-  }, [copySelectedNodes, pasteNodes]);
-  
-  // Set up keyboard event listeners
-  useEffect(() => {
-    // Add event listener for keyboard shortcuts
-    document.addEventListener('keydown', handleKeyDown);
-    
-    // Clean up
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleKeyDown]);
-  
-  // Create a Result node to display the final output
-  const addResultNode = useCallback(() => {
-    const id = `result-${uuidv4().substring(0, 8)}`;
-    
-    // Create node data
-    const nodeData: FilterNodeData = {
-      label: 'Result',
-      filterType: 'result',
-      params: [],
-      enabled: true,
-      blendMode: 'normal',
-      opacity: 1,
-      onParamChange: handleParamChange,
-      onToggleEnabled: handleToggleEnabled,
-      onBlendModeChange: handleBlendModeChange,
-      onOpacityChange: handleOpacityChange,
-      onRemoveNode: () => handleRemoveNode(id)
-    };
-    
-    // Create the node
-    const newNode: Node<FilterNodeData> = {
-      id,
-      type: 'resultNode',
-      position: { x: 450, y: 150 },
-      data: nodeData,
-    };
-    
-    setNodes(prevNodes => [...prevNodes, newNode]);
-    
-    return id;
-  }, [handleParamChange, handleToggleEnabled, handleBlendModeChange, handleOpacityChange, handleRemoveNode]);
-
   return {
     nodes,
     edges,
@@ -1221,9 +678,6 @@ export function useFilterGraph() {
     zoomIn,
     zoomOut,
     createCustomNode,
-    addCustomNode,
-    copySelectedNodes,
-    pasteNodes,
-    addResultNode
+    addCustomNode
   };
 }
