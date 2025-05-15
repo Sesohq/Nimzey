@@ -214,9 +214,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               style={{ 
                 left: -8, 
                 top: 12, // Aligned with the center of the parameter name
-                width: 10, 
-                height: 10,
-                background: '#555555' 
+                width: 8, 
+                height: 8,
+                background: '#555555',
+                borderRadius: '50%' 
               }}
             />
             
@@ -255,9 +256,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 style={{ 
                   left: -8, 
                   top: 12, // Aligned with the center of the parameter name
-                  width: 10, 
-                  height: 10, 
-                  background: param.isConnected ? '#ff5555' : '#555555' 
+                  width: 8, 
+                  height: 8, 
+                  background: param.isConnected ? '#ff5555' : '#555555',
+                  borderRadius: '50%'  
                 }}
               />
               
@@ -346,7 +348,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           id="node-output"
           type="source"
           position={Position.Right}
-          className="w-6 h-6 rounded-full -mr-3 bg-green-600"
+          className="w-5 h-5 rounded-full -mr-3 bg-green-600"
           style={{ top: 16, transform: 'translateY(-50%)' }}
         />
 
@@ -363,6 +365,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               width: 8, 
               height: 8, 
               background: '#ff5555',
+              borderRadius: '50%',
               display: index < 3 ? 'block' : 'none' // Only show first few for demo
             }}
           />

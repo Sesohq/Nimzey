@@ -661,6 +661,9 @@ export function useFilterGraph() {
             },
           };
           setEdges(eds => addEdge(paramEdge, eds));
+          
+          // Update connected params to propagate values immediately
+          updateConnectedParams();
         }
       }
     } else {
