@@ -71,7 +71,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       
       <div className="p-4 bg-gray-900">
         <div 
-          className="styled-button"
+          className="orange-button"
           onClick={() => document.getElementById('imageUpload')?.click()}
         >
           <span>Upload Image</span>

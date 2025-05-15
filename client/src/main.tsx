@@ -4,6 +4,7 @@ import "./index.css";
 import { ReactFlowProvider } from "reactflow";
 import 'reactflow/dist/style.css';
 import '@/components/ui/styled-button.css';
+import '@/components/ui/orange-button.css';
 
 createRoot(document.getElementById("root")!).render(
   <ReactFlowProvider>

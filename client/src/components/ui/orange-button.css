@@ -1,0 +1,81 @@
+.orange-button {
+  position: relative;
+  padding: 0.7rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #ffffff;
+  background: linear-gradient(to bottom, #ff7e00, #e65c00);
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 20px rgba(230, 92, 0, 0.3);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ff8c1a;
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.orange-button::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  background: linear-gradient(to bottom, #ff8c1a, #cc5200);
+  z-index: -1;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  opacity: 1;
+}
+
+.orange-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 5px 10px rgba(230, 92, 0, 0.2);
+}
+
+.orange-button:hover {
+  filter: brightness(1.1);
+}
+
+.orange-button .inner-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom, #ff9933, #e65c00);
+  width: 32px;
+  height: 32px;
+  margin-left: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
+  border: 1px solid #ff8c1a;
+  transition: all 0.2s ease;
+}
+
+.orange-button .inner-button::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  background: linear-gradient(to bottom, #ffb366, #cc5200);
+  z-index: -1;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  opacity: 1;
+}
+
+.orange-button .inner-button .icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: all 0.4s ease-in-out;
+}
+
+.orange-button .inner-button .icon:hover {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+  transform: rotate(-35deg);
+}
