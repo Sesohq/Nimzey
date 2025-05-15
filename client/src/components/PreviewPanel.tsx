@@ -52,28 +52,28 @@ export default function PreviewPanel({
   // Reference to the docked panel container
   const mainPanelRef = useRef<HTMLDivElement>(null);
 
-  // Get all downstream nodes from a given node
-  const getDownstreamNodes = (nodeId: string): Node[] => {
+  // Get all upstream nodes from a given node
+  const getUpstreamNodes = (nodeId: string): Node[] => {
     const result: Node[] = [];
-    const targetEdges = edges.filter(edge => edge.source === nodeId);
+    const sourceEdges = edges.filter(edge => edge.target === nodeId);
     
-    for (const edge of targetEdges) {
-      const targetNode = nodes.find(n => n.id === edge.target);
-      if (targetNode) {
-        result.push(targetNode);
-        // Recursively get all downstream nodes
-        const downstreamNodes = getDownstreamNodes(targetNode.id);
-        result.push(...downstreamNodes);
+    for (const edge of sourceEdges) {
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      if (sourceNode) {
+        result.push(sourceNode);
+        // Recursively get all upstream nodes
+        const upstreamNodes = getUpstreamNodes(sourceNode.id);
+        result.push(...upstreamNodes);
       }
     }
     
     return result;
   };
 
-  // Get the filter chain (selected node and all downstream nodes)
+  // Get the filter chain (selected node and all upstream nodes)
   const getFilterChain = (node: Node<FilterNodeData | ImageNodeData>) => {
     const isSourceNode = node.type === 'imageNode';
-    const nodeChain = [node, ...getDownstreamNodes(node.id)];
+    const nodeChain = [...getUpstreamNodes(node.id), node];
     
     return (
       <div className="space-y-4">
@@ -403,14 +403,27 @@ export default function PreviewPanel({
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
-              // If no node selected, find the source node and show the full chain from it
+              // If no node selected, find the last nodes in the chain (with no outgoing edges)
               (() => {
-                const sourceNode = nodes.find(node => node.type === 'imageNode');
-                return sourceNode ? (
-                  getFilterChain(sourceNode)
-                ) : (
-                  <div className="text-sm text-gray-500">No node selected</div>
+                // Find nodes that don't have outgoing connections (end of the chain)
+                const nodeIds = nodes.map(node => node.id);
+                const nodesWithOutgoingEdges = new Set(edges.map(edge => edge.source));
+                const endNodes = nodes.filter(node => 
+                  nodeIds.includes(node.id) && !nodesWithOutgoingEdges.has(node.id) && node.type !== 'imageNode'
                 );
+                
+                if (endNodes.length > 0) {
+                  // Get the first end node and its entire chain
+                  return getFilterChain(endNodes[0]);
+                } else {
+                  // Fallback to using the source node
+                  const sourceNode = nodes.find(node => node.type === 'imageNode');
+                  return sourceNode ? (
+                    getFilterChain(sourceNode)
+                  ) : (
+                    <div className="text-sm text-gray-500">No filter chain available</div>
+                  );
+                }
               })()
             )}
           </div>
