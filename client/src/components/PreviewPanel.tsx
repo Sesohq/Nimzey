@@ -8,7 +8,6 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
@@ -316,8 +315,9 @@ export default function PreviewPanel({
           setIsDragging(false);
         }}
       >
+        {/* Header */}
         <div 
-          className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between cursor-move h-[40px]"
+          className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between cursor-move h-[40px] flex-shrink-0"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center">
@@ -364,6 +364,7 @@ export default function PreviewPanel({
           </div>
         </div>
         
+        {/* Main preview section */}
         <div className="p-3 flex-shrink-0">
           <div className="text-xs text-white font-mono mb-1 flex items-center">
             <span className="text-gray-400 mr-1">//</span> 
@@ -391,11 +392,14 @@ export default function PreviewPanel({
           </div>
         )}
         
-        <div className="p-3 border-t border-gray-700 flex-grow flex flex-col">
-          <div className="text-xs text-white font-mono mb-2 flex items-center">
-            <span className="text-gray-400 mr-1">//</span> Filter Chain
+        {/* Filter chain section - grows to fill space */}
+        <div className="flex-grow flex flex-col border-t border-gray-700 min-h-0">
+          <div className="p-3 pb-1 flex-shrink-0">
+            <div className="text-xs text-white font-mono mb-2 flex items-center">
+              <span className="text-gray-400 mr-1">//</span> Filter Chain
+            </div>
           </div>
-          <ScrollArea className="flex-1" style={{height: 'calc(100vh - 500px)'}}>
+          <div className="px-3 overflow-y-auto flex-grow" style={{maxHeight: 'calc(100vh - 500px)'}}>
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
@@ -409,9 +413,10 @@ export default function PreviewPanel({
                 );
               })()
             )}
-          </ScrollArea>
+          </div>
         </div>
         
+        {/* Export options section */}
         <div className="p-3 border-t border-gray-700 bg-black flex-shrink-0">
           <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -432,7 +437,6 @@ export default function PreviewPanel({
               </SelectContent>
             </Select>
           </div>
-
           <div className="space-y-2">
             <div 
               className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
