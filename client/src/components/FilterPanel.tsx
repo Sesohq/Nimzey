@@ -114,7 +114,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         </div>
       </ScrollArea>
       
-      <div className="p-4" style={{backgroundColor: '#1d2129'}}>
+      <div className="p-4" style={{backgroundColor: '#000'}}>
         <div 
           className="btn-glitch special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}

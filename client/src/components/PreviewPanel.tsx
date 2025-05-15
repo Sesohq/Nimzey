@@ -417,15 +417,15 @@ export default function PreviewPanel({
           </div>
         </div>
         
-        {/* Export options section */}
-        <div className="p-3 border-t border-gray-700 bg-black flex-shrink-0">
-          <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            EXPORT OPTIONS
-          </div>
-          <div className="mb-2">
+        {/* Format selector */}
+        <div className="border-t border-gray-700 bg-black flex-shrink-0">
+          <div className="p-3 mb-0">
+            <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              EXPORT OPTIONS
+            </div>
             <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
             <Select value={exportFormat} onValueChange={setExportFormat}>
               <SelectTrigger className="w-full bg-gray-900 border border-gray-700 rounded">
@@ -438,10 +438,13 @@ export default function PreviewPanel({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-center mb-2">
+          
+          {/* Export button - matching Upload Image button */}
+          <div className="p-4" style={{backgroundColor: '#000'}}>
             <div 
-              className={`btn-glitch special-filters w-[75%] ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={() => processedImage && onExportImage(exportFormat)}
+              style={{marginBottom: 0}}
             >
               <div className="text-container font-semibold">
                 // Export Image
