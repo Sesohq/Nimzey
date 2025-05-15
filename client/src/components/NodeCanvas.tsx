@@ -71,23 +71,6 @@ export default function NodeCanvas({
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
-      <div className="bg-gray-100 p-2 flex items-center border-b border-gray-300">
-        <div className="flex space-x-2">
-          <Button size="icon" variant="ghost" onClick={zoomIn}>
-            <ZoomIn className="h-5 w-5" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={zoomOut}>
-            <ZoomOut className="h-5 w-5" />
-          </Button>
-          <Badge variant="outline" className="text-sm px-2 py-1 bg-white border border-gray-300 rounded text-gray-800 font-medium">
-            {zoomLevel}%
-          </Badge>
-        </div>
-        <div className="ml-auto text-sm text-gray-500">
-          Drag to connect nodes • Double-click to delete connections
-        </div>
-      </div>
-      
       <div className="flex-1 h-full">
         <ReactFlow
           nodes={nodes}
@@ -108,6 +91,21 @@ export default function NodeCanvas({
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />
+          
+          {/* Zoom controls moved to overlay in bottom-left corner */}
+          <div className="absolute bottom-16 left-2 z-10 bg-white/80 backdrop-blur-sm p-1.5 rounded-md shadow-md border border-gray-200">
+            <div className="flex flex-col space-y-1">
+              <Button size="icon" variant="ghost" onClick={zoomIn} className="h-7 w-7">
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Badge variant="outline" className="text-xs px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-medium text-center">
+                {zoomLevel}%
+              </Badge>
+              <Button size="icon" variant="ghost" onClick={zoomOut} className="h-7 w-7">
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </ReactFlow>
       </div>
     </div>
