@@ -112,7 +112,10 @@ export default function PreviewPanel({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isResizing) {
-        const newWidth = Math.max(250, Math.min(600, e.clientX - 10));
+        // Use window width minus mouse position to calculate the new width
+        // This ensures proper resizing from right side
+        const windowWidth = window.innerWidth;
+        const newWidth = Math.max(250, Math.min(600, windowWidth - e.clientX));
         setWidth(newWidth);
       }
     };
@@ -266,7 +269,7 @@ export default function PreviewPanel({
       <div 
         ref={mainPanelRef}
         className={`bg-darkBg text-white flex flex-col relative 
-          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden' : ''} 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden' : 'fixed right-0 top-0 h-screen'} 
           ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
         style={{ 
           width: `${width}px`,
@@ -277,7 +280,9 @@ export default function PreviewPanel({
             maxHeight: '80vh',
             transition: dockArea ? 'box-shadow 0.2s ease' : 'none',
             boxShadow: dockArea ? '0 0 0 4px rgba(59, 130, 246, 0.3)' : '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
-          } : {})
+          } : {
+            boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.2)'
+          })
         }}
         onMouseMove={handleDrag}
         onMouseUp={(e) => {
@@ -329,10 +334,15 @@ export default function PreviewPanel({
         {!isDetached && (
           <div 
             ref={resizeHandleRef}
-            className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-transparent hover:bg-blue-500/30"
-            onMouseDown={() => setIsResizing(true)}
-            style={{ left: '-2px' }}
-          />
+            className="absolute left-[-8px] top-0 w-5 h-full cursor-ew-resize group flex items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsResizing(true);
+            }}
+          >
+            <div className="h-[50px] w-[3px] bg-gray-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"/>
+          </div>
         )}
         
         <div className="p-3 border-t border-gray-700">

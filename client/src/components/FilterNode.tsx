@@ -40,6 +40,66 @@ const blendModeLabels: Record<BlendMode, string> = {
   'exclusion': 'Exclusion'
 };
 
+// EditableValue component for consistent display and editing of parameter values
+const EditableValue = ({ 
+  value,
+  unit,
+  paramId,
+  isEditing,
+  editValue,
+  onStartEdit,
+  onChangeEdit,
+  onFinishEdit,
+  onCancelEdit,
+  disabled
+}: {
+  value: number | string,
+  unit?: string,
+  paramId: string,
+  isEditing: boolean,
+  editValue: string,
+  onStartEdit: (id: string, value: number | string) => void,
+  onChangeEdit: (value: string) => void,
+  onFinishEdit: () => void,
+  onCancelEdit: () => void,
+  disabled?: boolean
+}) => {
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        value={editValue}
+        onChange={(e) => onChangeEdit(e.target.value)}
+        onBlur={onFinishEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onFinishEdit();
+          } else if (e.key === 'Escape') {
+            onCancelEdit();
+          }
+        }}
+        className="text-xs w-14 h-6 px-1 py-0"
+        autoFocus
+      />
+    );
+  }
+  
+  return (
+    <span 
+      className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'}`}
+      onClick={() => {
+        if (!disabled && typeof value !== 'boolean') {
+          onStartEdit(paramId, value);
+        }
+      }}
+      title={disabled ? "Parameter is disabled or connected" : "Click to edit value"}
+    >
+      {value}{unit || ''}
+    </span>
+  );
+};
+
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
@@ -90,6 +150,41 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     if (data.onDisconnectParam) {
       data.onDisconnectParam(id, paramId);
     }
+  };
+  
+  // Handle starting to edit a parameter value
+  const handleStartEditing = (paramId: string, value: number | string) => {
+    if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    setEditingParam(paramId);
+    setEditingValue(String(value));
+  };
+  
+  // Handle finishing the edit and updating the value
+  const handleFinishEditing = () => {
+    if (editingParam && editingValue !== '') {
+      const param = data.params.find(p => p.id === editingParam);
+      if (param) {
+        // Convert value based on parameter type
+        let parsedValue: number | string | boolean;
+        
+        if (param.paramType === 'float') {
+          parsedValue = parseFloat(editingValue);
+        } else if (param.paramType === 'integer') {
+          parsedValue = parseInt(editingValue, 10);
+        } else {
+          parsedValue = editingValue;
+        }
+        
+        // Clamp the value if min/max are defined
+        if (typeof parsedValue === 'number' && !isNaN(parsedValue)) {
+          if (param.min !== undefined) parsedValue = Math.max(param.min, parsedValue);
+          if (param.max !== undefined) parsedValue = Math.min(param.max, parsedValue);
+        }
+        
+        handleParamChange(editingParam, parsedValue);
+      }
+    }
+    setEditingParam(null);
   };
 
   return (
@@ -293,9 +388,30 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
                   />
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
-                    {param.value}{param.unit || ''}
-                  </span>
+                  {editingParam === (param.id || param.name) ? (
+                    <Input
+                      type="text"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={handleFinishEditing}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleFinishEditing();
+                        } else if (e.key === 'Escape') {
+                          setEditingParam(null);
+                        }
+                      }}
+                      className="text-xs w-14 h-6 px-1 py-0"
+                      autoFocus
+                    />
+                  ) : (
+                    <span 
+                      className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
+                      onClick={() => handleStartEditing(param.id || param.name, param.value)}
+                    >
+                      {param.value}{param.unit || ''}
+                    </span>
+                  )}
                 </div>
               )}
               
