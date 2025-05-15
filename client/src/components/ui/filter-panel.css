@@ -1,0 +1,27 @@
+.filter-panel {
+  background-color: #000 !important;
+  color: #fff;
+  border-right: 1px solid #333;
+}
+
+.filter-panel-header {
+  background-color: #000;
+  color: #fff;
+  border-bottom: 1px solid #333;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+.filter-category-header {
+  background-color: #000 !important;
+}
+
+.accordion-content {
+  background-color: #000;
+}
+
+.btn-glitch {
+  background-color: #000;
+}

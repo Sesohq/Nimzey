@@ -100,7 +100,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
                       onClick={() => onAddFilter(filter.type)}
                     >
                       <div className="text-container">
-                        {filter.name}
+                        // {filter.name}
                       </div>
                       <div className="icon-container">
                         <Plus size={16} />
@@ -121,7 +121,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
           style={{marginBottom: 0}}
         >
           <div className="text-container font-semibold">
-            Upload Image
+            // Upload Image
           </div>
           <div className="icon-container" style={{backgroundColor: '#FF7D00'}}>
             <Upload size={16} />
