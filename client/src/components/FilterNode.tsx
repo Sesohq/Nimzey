@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import { CustomSlider } from '@/components/ui/custom-slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ChevronDown, ChevronUp, MinusIcon, TagIcon, Layers, Paintbrush } from 'lucide-react';
@@ -383,11 +384,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
-                  <Slider
+                  <CustomSlider
                     value={[param.value as number]}
                     min={param.min}
                     max={param.max}
                     step={param.step}
+                    color="success"
+                    size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
