@@ -12,18 +12,23 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
   // Use the uploadImage function from either props or data
   const uploadFunc = onUploadImage || data.onUploadImage;
   
-  // Simply trigger the file input click
+  // Open file picker directly
   const handleClick = () => {
-    document.getElementById('imageNodeUpload')?.click();
-  };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0 && uploadFunc) {
-      uploadFunc(files[0]);
-      // Reset the input value so the same file can be selected again
-      e.target.value = '';
-    }
+    // Create a temporary file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    
+    // Set up the file change handler
+    fileInput.onchange = (e: any) => {
+      const files = e.target.files;
+      if (files && files.length > 0 && uploadFunc) {
+        uploadFunc(files[0]);
+      }
+    };
+    
+    // Trigger the file selection dialog
+    fileInput.click();
   };
 
   return (
@@ -58,15 +63,6 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
             <span>Click to upload image</span>
           </div>
         )}
-        
-        {/* Hidden file input */}
-        <input 
-          type="file" 
-          id="imageNodeUpload"
-          className="hidden" 
-          accept="image/*"
-          onChange={handleFileChange}
-        />
       </div>
       
       <div className="px-3 pb-2 flex justify-end relative h-6">
