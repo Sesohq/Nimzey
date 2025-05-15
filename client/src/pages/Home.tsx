@@ -3,7 +3,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@/components/ui/resizable';
+} from '../components/ui/resizable';
 import { 
   NodeStore,
   NodeConnection,
@@ -61,12 +61,13 @@ const Home = () => {
     // React Flow changes like position
     setNodes(prevNodes => {
       return prevNodes.map(node => {
-        const change = changes.find(c => c.id === node.id);
-        if (change && change.type === 'position' && change.position) {
-          return {
-            ...node,
-            position: change.position
-          };
+        for (const change of changes) {
+          if (change.type === 'position' && change.id === node.id && change.position) {
+            return {
+              ...node,
+              position: change.position
+            };
+          }
         }
         return node;
       });
@@ -160,45 +161,39 @@ const Home = () => {
         </div>
       </div>
       
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={20} minSize={15}>
-            <FilterPanel 
-              onAddNode={handleNodeAdd}
-              className="h-full"
-            />
-          </ResizablePanel>
-          
-          <ResizableHandle />
-          
-          <ResizablePanel defaultSize={55}>
-            <NodeCanvas 
-              nodes={nodes}
-              connections={connections}
-              onNodesChange={handleNodesChange}
-              onNodeAdd={handleNodeAdd}
-              onNodeDelete={handleNodeDelete}
-              onConnectionAdd={handleConnectionAdd}
-              onConnectionDelete={handleConnectionDelete}
-              onNodeToggle={handleNodeToggle}
-              onNodeCollapse={handleNodeCollapse}
-              onNodeColorTagChange={handleNodeColorTagChange}
-              onNodeParameterChange={handleNodeParameterChange}
-              onSelectionChange={handleSelectionChange}
-            />
-          </ResizablePanel>
-          
-          <ResizableHandle />
-          
-          <ResizablePanel defaultSize={25} minSize={20}>
-            <PreviewPanel 
-              previewImage={finalOutput || undefined}
-              selectedNodeId={selectedNodeIds[0]}
-              nodePreviews={nodePreviews}
-              className="h-full"
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+      <div className="flex-1 overflow-hidden flex">
+        <div className="w-1/5 min-w-[200px] border-r">
+          <FilterPanel 
+            onAddNode={handleNodeAdd}
+            className="h-full"
+          />
+        </div>
+        
+        <div className="flex-1">
+          <NodeCanvas 
+            nodes={nodes}
+            connections={connections}
+            onNodesChange={handleNodesChange}
+            onNodeAdd={handleNodeAdd}
+            onNodeDelete={handleNodeDelete}
+            onConnectionAdd={handleConnectionAdd}
+            onConnectionDelete={handleConnectionDelete}
+            onNodeToggle={handleNodeToggle}
+            onNodeCollapse={handleNodeCollapse}
+            onNodeColorTagChange={handleNodeColorTagChange}
+            onNodeParameterChange={handleNodeParameterChange}
+            onSelectionChange={handleSelectionChange}
+          />
+        </div>
+        
+        <div className="w-1/4 min-w-[250px] border-l">
+          <PreviewPanel 
+            previewImage={finalOutput || undefined}
+            selectedNodeId={selectedNodeIds[0]}
+            nodePreviews={nodePreviews}
+            className="h-full"
+          />
+        </div>
       </div>
       
       <div className="bg-gray-100 border-t border-gray-300 px-4 py-2 flex items-center justify-between">
