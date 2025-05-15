@@ -1,16 +1,4 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
 import {
   DownloadIcon,
   ExpandIcon,
@@ -21,9 +9,6 @@ import {
   SlidersIcon,
   LayersIcon
 } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 
 interface PreviewPanelProps {
   previewImage?: string;
@@ -43,7 +28,6 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
   nodePreviews = {}
 }) => {
   const [fullscreen, setFullscreen] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(true);
   const [activeTab, setActiveTab] = useState('preview');
   
   const toggleFullscreen = () => {
@@ -66,31 +50,28 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
   
   return (
     <div 
-      className={`preview-panel flex flex-col bg-white border-l ${fullscreen ? 'fixed inset-0 z-50' : ''} ${className || ''}`}
+      className={`flex flex-col bg-white ${fullscreen ? 'fixed inset-0 z-50' : ''} ${className || ''}`}
     >
       <div className="p-3 border-b flex items-center justify-between">
         <h2 className="text-lg font-semibold">Preview</h2>
         
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <button 
+            className="p-1.5 hover:bg-gray-100 rounded" 
             onClick={onRefresh}
           >
             <RefreshCwIcon className="h-4 w-4" />
-          </Button>
+          </button>
           
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <button 
+            className="p-1.5 hover:bg-gray-100 rounded" 
             onClick={handleDownload}
           >
             <DownloadIcon className="h-4 w-4" />
-          </Button>
+          </button>
           
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <button 
+            className="p-1.5 hover:bg-gray-100 rounded" 
             onClick={toggleFullscreen}
           >
             {fullscreen ? (
@@ -98,43 +79,51 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
             ) : (
               <ExpandIcon className="h-4 w-4" />
             )}
-          </Button>
+          </button>
         </div>
       </div>
       
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab}
-        className="flex-1 flex flex-col"
-      >
-        <TabsList className="mx-3 mt-2">
-          <TabsTrigger value="preview" className="flex items-center">
-            <EyeIcon className="h-4 w-4 mr-2" />
+      <div className="tabs flex border-b">
+        <button
+          className={`px-4 py-2 text-sm ${activeTab === 'preview' 
+            ? 'border-b-2 border-blue-500 text-blue-600' 
+            : 'text-gray-600'}`}
+          onClick={() => setActiveTab('preview')}
+        >
+          <span className="flex items-center">
+            <EyeIcon className="h-4 w-4 mr-1" />
             Preview
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center">
-            <SlidersIcon className="h-4 w-4 mr-2" />
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="layers" className="flex items-center">
-            <LayersIcon className="h-4 w-4 mr-2" />
-            Layer Stack
-          </TabsTrigger>
-        </TabsList>
+          </span>
+        </button>
         
-        <TabsContent value="preview" className="flex-1 p-0 m-0 flex flex-col">
-          <div className="p-3 border-b">
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id="show-overlay" 
-                checked={showOverlay}
-                onCheckedChange={setShowOverlay}
-              />
-              <Label htmlFor="show-overlay">Show Node Overlay</Label>
-            </div>
-          </div>
-          
-          <div className="flex-1 relative overflow-auto p-3 bg-gray-100">
+        <button
+          className={`px-4 py-2 text-sm ${activeTab === 'settings' 
+            ? 'border-b-2 border-blue-500 text-blue-600' 
+            : 'text-gray-600'}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          <span className="flex items-center">
+            <SlidersIcon className="h-4 w-4 mr-1" />
+            Settings
+          </span>
+        </button>
+        
+        <button
+          className={`px-4 py-2 text-sm ${activeTab === 'layers' 
+            ? 'border-b-2 border-blue-500 text-blue-600' 
+            : 'text-gray-600'}`}
+          onClick={() => setActiveTab('layers')}
+        >
+          <span className="flex items-center">
+            <LayersIcon className="h-4 w-4 mr-1" />
+            Layers
+          </span>
+        </button>
+      </div>
+      
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'preview' && (
+          <div className="flex-1 relative overflow-auto p-3 bg-gray-100 h-full">
             {previewImage ? (
               <div className="w-full h-full flex items-center justify-center">
                 <img 
@@ -145,38 +134,58 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
               </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
-                No preview available
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="mt-2">No preview available</p>
+                </div>
               </div>
             )}
           </div>
-        </TabsContent>
+        )}
         
-        <TabsContent value="settings" className="flex-1 p-3 m-0">
-          <div className="text-sm">
-            <h3 className="font-medium mb-2">Preview Settings</h3>
+        {activeTab === 'settings' && (
+          <div className="p-4">
+            <h3 className="font-medium mb-3 text-sm">Preview Settings</h3>
             
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Switch id="live-preview" defaultChecked />
-                <Label htmlFor="live-preview">Live Preview</Label>
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center mb-1">
+                  <input type="checkbox" defaultChecked className="mr-2" />
+                  <span className="text-sm">Live Preview</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Automatically updates the preview when nodes or connections change
+                </p>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Switch id="show-grid" />
-                <Label htmlFor="show-grid">Show Grid</Label>
+              <div>
+                <label className="flex items-center mb-1">
+                  <input type="checkbox" className="mr-2" />
+                  <span className="text-sm">Show Grid</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Display a grid in the preview background
+                </p>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Switch id="high-quality" />
-                <Label htmlFor="high-quality">High Quality</Label>
+              <div>
+                <label className="flex items-center mb-1">
+                  <input type="checkbox" className="mr-2" />
+                  <span className="text-sm">High Quality</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Generate previews at higher quality (slower)
+                </p>
               </div>
             </div>
           </div>
-        </TabsContent>
+        )}
         
-        <TabsContent value="layers" className="flex-1 p-0 m-0">
+        {activeTab === 'layers' && (
           <div className="h-full overflow-auto p-3">
-            <h3 className="font-medium mb-2 text-sm">Processing Stack</h3>
+            <h3 className="font-medium mb-3 text-sm">Processing Stack</h3>
             
             {Object.keys(nodePreviews).length > 0 ? (
               <div className="space-y-3">
@@ -184,7 +193,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
                   <div 
                     key={nodeId} 
                     className={`border rounded-md overflow-hidden ${
-                      selectedNodeId === nodeId ? 'ring-2 ring-primary' : ''
+                      selectedNodeId === nodeId ? 'ring-2 ring-blue-500' : ''
                     }`}
                   >
                     <div className="p-2 bg-gray-50 border-b text-xs font-medium">
@@ -206,8 +215,8 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
               </div>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 };

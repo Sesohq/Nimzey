@@ -1,10 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
   useNodesState,
   useEdgesState,
-  addEdge,
   Connection,
   Edge,
   Node,
@@ -15,6 +14,7 @@ import ReactFlow, {
   NodeChange,
   EdgeChange,
   OnEdgesChange,
+  Panel
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -27,7 +27,7 @@ import {
   isConnectionValid, 
   wouldCreateCycle, 
   getTypeColor 
-} from '@/lib/nodeEngine';
+} from '../lib/nodeEngine';
 import BaseNode from './BaseNode';
 
 // Define custom node types
@@ -110,7 +110,7 @@ interface NodeCanvasProps {
   nodes: NodeStore[];
   connections: NodeConnection[];
   onNodesChange?: (changes: NodeChange[]) => void;
-  onConnectionsChange?: (connections: EdgeChange[]) => void;
+  onConnectionsChange?: (changes: EdgeChange[]) => void;
   onNodeAdd?: (node: NodeStore) => void;
   onNodeDelete?: (nodeId: string) => void;
   onConnectionAdd?: (connection: NodeConnection) => void;
@@ -181,7 +181,6 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
   // State for ReactFlow
   const [reactflowNodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
   const [reactflowEdges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges);
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   
   // Update nodes when the props change
   React.useEffect(() => {
@@ -198,7 +197,6 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
   // Handle node selection
   const handleSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
     const selectedIds = selectedNodes.map((node: Node) => node.id);
-    setSelectedNodeIds(selectedIds);
     
     if (onSelectionChange) {
       onSelectionChange(selectedIds);
@@ -239,6 +237,17 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
       onNodeParameterChange(nodeId, parameterId, value);
     }
   }, [onNodeParameterChange]);
+  
+  // Handle ReactFlow node changes
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    // Apply the changes internally to ReactFlow
+    onNodesChangeInternal(changes);
+    
+    // Also notify parent component
+    if (propOnNodesChange) {
+      propOnNodesChange(changes);
+    }
+  }, [propOnNodesChange, onNodesChangeInternal]);
   
   // Handle connection changes
   const handleConnect = useCallback((connection: Connection) => {
@@ -290,26 +299,12 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
     }
   }, [nodes, connections, onConnectionAdd]);
   
-  // Handle ReactFlow node changes
-  const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    if (propOnNodesChange) {
-      propOnNodesChange(changes);
-    }
-  }, [propOnNodesChange]);
-  
-  // Handle ReactFlow edge changes
-  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    if (onConnectionsChange) {
-      onConnectionsChange(changes);
-    }
-  }, [onConnectionsChange]);
-  
   return (
-    <div className="w-full h-full flex">
+    <div className="w-full h-full">
       <ReactFlow
         nodes={reactflowNodes}
         edges={reactflowEdges}
-        onNodesChange={onNodesChangeInternal}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChangeInternal}
         onConnect={handleConnect}
         onSelectionChange={handleSelectionChange}
@@ -327,6 +322,9 @@ const NodeCanvas: React.FC<NodeCanvasProps> = ({
       >
         <Background color="#aaa" gap={16} />
         <Controls />
+        <Panel position="top-right" className="bg-white p-2 rounded shadow-md text-xs">
+          {nodes.length} nodes | {connections.length} connections
+        </Panel>
       </ReactFlow>
     </div>
   );

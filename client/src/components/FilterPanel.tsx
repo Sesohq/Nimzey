@@ -1,53 +1,32 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  NodeDefinition, 
+  NodeStore, 
   NodeCategory,
-  NodeStore
+  NodeDefinition
 } from '@shared/nodeTypes';
 import { 
-  getNodesByCategory, 
-  createNodeInstance 
-} from '@/lib/nodeDefinitions';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+  getNodesByCategory
+} from '../lib/nodeDefinitions';
+
+// Icons for the panel
 import { 
-  SearchIcon, 
-  FilterIcon, 
-  LayersIcon, 
-  SlidersIcon, 
-  ImageIcon,
-  WandIcon,
-  SettingsIcon
+  Search as SearchIcon,
+  Filter as FilterIcon,
+  Layers as LayersIcon,
+  Sliders as SlidersIcon,
+  Image as ImageIcon,
+  Wand2 as WandIcon,
+  Settings as SettingsIcon,
+  Plus as PlusIcon
 } from 'lucide-react';
 
+// Interface for component props
 interface FilterPanelProps {
-  onAddNode?: (node: NodeStore) => void;
+  onAddNode: (node: NodeDefinition) => void;
   className?: string;
 }
 
-// Get the icon for a category
+// Helper to get the correct icon for a category
 const getCategoryIcon = (category: NodeCategory) => {
   switch (category) {
     case NodeCategory.Generator:
@@ -65,12 +44,14 @@ const getCategoryIcon = (category: NodeCategory) => {
   }
 };
 
+// Main FilterPanel component
 const FilterPanel: React.FC<FilterPanelProps> = ({ onAddNode, className }) => {
+  // State for search and active category
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<string>(NodeCategory.Filter);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   
-  // Get all available node definitions by category
-  const nodeCategories = useMemo(() => {
+  // Get all node categories and their nodes
+  const categories = useMemo(() => {
     return Object.values(NodeCategory).map(category => ({
       id: category,
       name: category.charAt(0).toUpperCase() + category.slice(1),
@@ -80,117 +61,129 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onAddNode, className }) => {
   
   // Filter nodes based on search term
   const filteredNodes = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return nodeCategories;
+    if (!searchTerm.trim() && !activeCategory) {
+      return categories;
     }
     
-    const term = searchTerm.toLowerCase();
+    const filtered = categories.map(category => {
+      let nodes = category.nodes;
+      
+      // Apply search filter if there's a search term
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        nodes = nodes.filter(node => 
+          node.name.toLowerCase().includes(term) || 
+          node.description?.toLowerCase().includes(term)
+        );
+      }
+      
+      // Filter by active category if selected
+      if (activeCategory && category.id !== activeCategory) {
+        return { ...category, nodes: [] };
+      }
+      
+      return { ...category, nodes };
+    });
     
-    return nodeCategories.map(category => ({
-      ...category,
-      nodes: category.nodes.filter(node => 
-        node.name.toLowerCase().includes(term) || 
-        node.description?.toLowerCase().includes(term)
-      )
-    })).filter(category => category.nodes.length > 0);
-  }, [nodeCategories, searchTerm]);
-  
-  // Handle adding a node
-  const handleAddNode = (definition: NodeDefinition) => {
-    if (!onAddNode) return;
-    
-    // Create a new node instance
-    const newNode = createNodeInstance(definition, { x: 100, y: 100 });
-    onAddNode(newNode);
-  };
+    return filtered.filter(category => category.nodes.length > 0);
+  }, [categories, searchTerm, activeCategory]);
   
   return (
-    <div className={`filter-panel flex flex-col h-full bg-gray-50 border-r ${className || ''}`}>
+    <div className={`flex flex-col h-full bg-gray-50 ${className || ''}`}>
+      {/* Header */}
       <div className="p-3 border-b">
-        <h2 className="text-lg font-semibold mb-3">Filters</h2>
+        <h2 className="text-lg font-semibold mb-3">Filter Nodes</h2>
         
-        <div className="relative">
+        {/* Search input */}
+        <div className="relative mb-3">
           <SearchIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
+          <input
             type="text"
             placeholder="Search filters..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 h-9"
+            className="w-full pl-8 pr-3 py-1.5 rounded-md border border-gray-300 text-sm"
           />
+        </div>
+        
+        {/* Category buttons */}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {categories.map(category => (
+            <button
+              key={category.id}
+              onClick={() => setActiveCategory(activeCategory === category.id ? null : category.id)}
+              className={`px-2 py-1 text-xs rounded-md flex items-center ${
+                activeCategory === category.id 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                  : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <span className="mr-1">{getCategoryIcon(category.id as NodeCategory)}</span>
+              {category.name}
+            </button>
+          ))}
         </div>
       </div>
       
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab}
-        className="flex-1 flex flex-col"
-      >
-        <TabsList className="grid grid-cols-5">
-          {nodeCategories.map(category => (
-            <TabsTrigger
-              key={category.id}
-              value={category.id}
-              className="flex flex-col items-center p-1"
-            >
-              {getCategoryIcon(category.id as NodeCategory)}
-              <span className="text-xs mt-1">{category.name}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
-        <div className="flex-1 overflow-y-auto p-2">
-          {filteredNodes.map(category => (
-            <TabsContent key={category.id} value={category.id} className="mt-0">
-              {category.nodes.length === 0 ? (
-                <div className="text-sm text-gray-500 p-4 text-center">
-                  No filters found in this category.
-                </div>
-              ) : (
-                <Accordion type="multiple" defaultValue={[category.id]}>
-                  <AccordionItem value={category.id}>
-                    <AccordionTrigger className="py-2 text-sm font-medium">
-                      {category.name} Filters ({category.nodes.length})
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid grid-cols-1 gap-2">
-                        {category.nodes.map(node => (
-                          <Card key={node.id} className="filter-card hover:shadow-md transition-shadow">
-                            <CardHeader className="p-3 pb-2">
-                              <CardTitle className="text-sm font-medium">{node.name}</CardTitle>
-                              {node.description && (
-                                <CardDescription className="text-xs">{node.description}</CardDescription>
-                              )}
-                            </CardHeader>
-                            <CardFooter className="p-3 pt-0 flex justify-end">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleAddNode(node)}
-                              >
-                                Add
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                        ))}
+      {/* Node list */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredNodes.length === 0 ? (
+          <div className="p-4 text-center text-gray-500 text-sm">
+            No nodes match your search
+          </div>
+        ) : (
+          <div className="p-3">
+            {filteredNodes.map(category => (
+              <div key={category.id} className="mb-4">
+                <h3 className="text-sm font-medium mb-2 text-gray-700 flex items-center">
+                  {getCategoryIcon(category.id as NodeCategory)}
+                  <span className="ml-1">{category.name}</span>
+                </h3>
+                
+                <div className="space-y-2">
+                  {category.nodes.map(node => (
+                    <div
+                      key={node.id}
+                      className="p-2 bg-white border rounded-md hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="text-sm font-medium">{node.name}</h4>
+                          {node.description && (
+                            <p className="text-xs text-gray-500 mt-0.5">{node.description}</p>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => onAddNode(node)}
+                          className="p-1 bg-gray-100 hover:bg-gray-200 rounded-md"
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        </button>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
-            </TabsContent>
-          ))}
-        </div>
-      </Tabs>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       
+      {/* Upload new image button */}
       <div className="p-3 border-t mt-auto">
-        <Button 
-          className="w-full"
-          onClick={() => handleAddNode(getNodesByCategory(NodeCategory.Generator)[0])}
+        <button 
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+          onClick={() => {
+            const generators = getNodesByCategory(NodeCategory.Generator);
+            if (generators.length > 0) {
+              onAddNode(generators[0]);
+            }
+          }}
         >
           <ImageIcon className="h-4 w-4 mr-2" />
           Upload Image
-        </Button>
+        </button>
       </div>
     </div>
   );
