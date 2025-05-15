@@ -39,7 +39,6 @@ export default function PreviewPanel({
   isProcessing = false
 }: PreviewPanelProps) {
   const [exportFormat, setExportFormat] = useState('png');
-  const [exportQuality, setExportQuality] = useState(90);
   const [width, setWidth] = useState(initialWidth);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDetached, setIsDetached] = useState(false);
@@ -335,7 +334,7 @@ export default function PreviewPanel({
                 variant="ghost" 
                 size="sm"
                 className="flex items-center space-x-1 text-white bg-black border-[1px] border-yellow-500 hover:bg-gray-900 px-2 py-1 h-7 rounded font-mono"
-                onClick={() => onExportImage(exportFormat, exportQuality)} 
+                onClick={() => onExportImage(exportFormat)} 
                 title="Quick Export"
               >
                 <span>//</span>
@@ -431,24 +430,11 @@ export default function PreviewPanel({
               </SelectContent>
             </Select>
           </div>
-          <div className="mb-3">
-            <Label className="block text-xs text-gray-300 mb-1 font-mono">Quality</Label>
-            <div className="flex items-center">
-              <Slider
-                value={[exportQuality]}
-                min={10}
-                max={100}
-                step={1}
-                className="flex-1 mr-2"
-                onValueChange={(values) => setExportQuality(values[0])}
-              />
-              <span className="text-xs font-mono bg-gray-800 px-2 py-1 rounded text-white font-medium">{exportQuality}%</span>
-            </div>
-          </div>
+
           <div className="space-y-2">
             <div 
               className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => processedImage && onExportImage(exportFormat, exportQuality)}
+              onClick={() => processedImage && onExportImage(exportFormat)}
             >
               <div className="text-container font-semibold">
                 // Export Image
