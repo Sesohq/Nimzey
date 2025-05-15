@@ -205,6 +205,37 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {!collapsed && (
         <div className="p-3">
+          {/* Source Image parameter */}
+          <div className="mb-4 relative border-b border-gray-200 pb-3">
+            <Handle
+              id="param-sourceImage"
+              type="target"
+              position={Position.Left}
+              style={{ 
+                left: -8, 
+                top: 20, 
+                width: 10, 
+                height: 10,
+                background: '#555555' 
+              }}
+            />
+            
+            <div className="flex justify-between items-center">
+              <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
+            </div>
+            
+            <div className="mt-1 text-xs text-gray-500">
+              Main input for this filter
+            </div>
+            
+            <Badge 
+              variant="outline" 
+              className="absolute right-0 -top-1 text-[9px] px-1 py-0 h-4"
+            >
+              image
+            </Badge>
+          </div>
+          
           {/* Image Preview */}
           {data.preview && (
             <div className="mb-3">
@@ -306,12 +337,12 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
 
       {/* Main node connection handles */}
       <div className="px-3 pb-2 flex justify-between relative h-8">
-        {/* Input handle */}
+        {/* Input handle (hidden, as we use the Source Image parameter input instead) */}
         <Handle
           id="node-input"
           type="target"
           position={Position.Left}
-          className="w-6 h-6 rounded-full -ml-3 bg-blue-600"
+          className="w-6 h-6 rounded-full -ml-3 bg-blue-600 opacity-0" /* Made invisible */
           style={{ top: 16, transform: 'translateY(-50%)' }}
         />
         
@@ -327,7 +358,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         {/* Parameter output handles - only for nodes that produce values that can be used by other nodes */}
         {data.params.map((param, index) => (
           <Handle
-            key={param.id || param.name}
+            key={`output-${param.id || param.name}`} /* Fixed duplicate key warning */
             id={`output-param-${param.id || param.name}`}
             type="source"
             position={Position.Right}
