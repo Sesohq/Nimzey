@@ -23,6 +23,7 @@ export function useFilterGraph() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [nodePreview, setNodePreview] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
@@ -68,38 +69,51 @@ export function useFilterGraph() {
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
     
-    // Process image on the main thread for now
-    // In the future, we'll implement web workers for better performance
-    const canvas = getCanvas();
+    // Set processing state to true to show loading spinner
+    setIsProcessing(true);
     
-    // Process with the existing applyFilters function
-    // We know sourceImageRef.current is not null from the check above
-    const result = applyFilters(
-      sourceImageRef.current as HTMLImageElement, 
-      nodes, 
-      edges, 
-      canvas
-    );
-    
-    if (result) {
-      // Update the processed image
-      setProcessedImage(result);
-      
-      // Update previews for filter nodes
-      const filterNodes = nodes.filter(node => node.type === 'filterNode');
-      for (const node of filterNodes) {
-        generateNodePreview(node);
-      }
-      
-      // If a node is selected, update its preview in the panel
-      if (selectedNodeId) {
-        const selectedNode = nodes.find(n => n.id === selectedNodeId);
-        if (selectedNode) {
-          const preview = generateNodePreview(selectedNode);
-          setNodePreview(preview);
+    // Use setTimeout to make processing non-blocking for UI
+    setTimeout(() => {
+      try {
+        // Process image on the main thread for now
+        // In the future, we'll fully implement web workers for better performance
+        const canvas = getCanvas();
+        
+        // Process with the existing applyFilters function
+        // We know sourceImageRef.current is not null from the check above
+        const result = applyFilters(
+          sourceImageRef.current as HTMLImageElement, 
+          nodes, 
+          edges, 
+          canvas
+        );
+        
+        if (result) {
+          // Update the processed image
+          setProcessedImage(result);
+          
+          // Update previews for filter nodes
+          const filterNodes = nodes.filter(node => node.type === 'filterNode');
+          for (const node of filterNodes) {
+            generateNodePreview(node);
+          }
+          
+          // If a node is selected, update its preview in the panel
+          if (selectedNodeId) {
+            const selectedNode = nodes.find(n => n.id === selectedNodeId);
+            if (selectedNode) {
+              const preview = generateNodePreview(selectedNode);
+              setNodePreview(preview);
+            }
+          }
         }
+      } catch (error) {
+        console.error('Error processing image:', error);
+      } finally {
+        // Clear processing state
+        setIsProcessing(false);
       }
-    }
+    }, 0); // Use 0ms timeout to defer execution until after UI updates
   }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview]);
   
   /* 
@@ -418,6 +432,7 @@ export function useFilterGraph() {
     zoomIn,
     zoomOut,
     zoomLevel,
-    nodePreview
+    nodePreview,
+    isProcessing
   };
 }

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
 import { Maximize2, Minimize2, ExternalLink, X } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface PreviewPanelProps {
   width: number;
@@ -22,6 +23,7 @@ interface PreviewPanelProps {
   onExportImage: (format?: string, quality?: number) => void;
   nodes: Node[];
   edges: Edge[];
+  isProcessing?: boolean;
 }
 
 export default function PreviewPanel({ 
@@ -31,7 +33,8 @@ export default function PreviewPanel({
   processedImage,
   onExportImage,
   nodes,
-  edges 
+  edges,
+  isProcessing = false
 }: PreviewPanelProps) {
   const [exportFormat, setExportFormat] = useState('png');
   const [exportQuality, setExportQuality] = useState(90);
@@ -155,6 +158,16 @@ export default function PreviewPanel({
 
   // Get the display image based on selection state
   const getDisplayImage = () => {
+    // Show loading spinner when processing is in progress
+    if (isProcessing) {
+      return (
+        <div className={`w-full flex flex-col items-center justify-center gap-3 ${isFullscreen ? 'h-[80vh]' : 'h-[200px]'}`}>
+          <LoadingSpinner size="lg" />
+          <div className="text-sm text-gray-300">Processing filters...</div>
+        </div>
+      );
+    }
+    
     // If a node is selected, show its preview
     if (nodePreview) {
       return (

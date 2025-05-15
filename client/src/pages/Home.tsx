@@ -24,7 +24,8 @@ export default function Home() {
     zoomIn,
     zoomOut,
     zoomLevel,
-    nodePreview
+    nodePreview,
+    isProcessing
   } = useFilterGraph();
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
