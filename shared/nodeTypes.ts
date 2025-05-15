@@ -65,6 +65,8 @@ export interface NodeStore {
   inputs: NodePort[];    // Input connection ports
   outputs: NodePort[];   // Output connection ports
   data?: any;            // Extra node-specific data
+  inputConnections?: Record<string, boolean>; // Tracks which input ports are connected
+  outputConnections?: Record<string, boolean>; // Tracks which output ports are connected
 }
 
 // Connection between nodes
@@ -86,6 +88,11 @@ export enum NodeCategory {
   Output = 'output'
 }
 
+// Node parameter without runtime-specific fields
+export type NodeParameterTemplate = Omit<NodeParameter, 'sourceNodeId' | 'sourceParameterId'> & {
+  disabled?: boolean; // Make disabled optional for templates
+};
+
 // Node definition (template)
 export interface NodeDefinition {
   id: string;            // Type identifier
@@ -96,7 +103,7 @@ export interface NodeDefinition {
   defaultCollapsed: boolean; // Start collapsed?
   inputs: NodePort[];    // Default input ports
   outputs: NodePort[];   // Default output ports
-  parameters: Omit<NodeParameter, 'sourceNodeId' | 'sourceParameterId' | 'disabled'>[]; // Parameter templates
+  parameters: NodeParameterTemplate[]; // Parameter templates
   process?: (node: NodeStore, inputData: Record<string, any>) => Record<string, any>; // Processing function
   validate?: (node: NodeStore) => string | null; // Validation function
 }

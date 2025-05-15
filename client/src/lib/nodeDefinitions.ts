@@ -1,55 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { 
-  NodeDefinition, 
+  NodeStore, 
   NodeCategory, 
-  NodeDataType,
-  NodeParameter,
-  NodePort,
-  NodeStore
+  NodeDefinition,
+  NodeRegistry
 } from '@shared/nodeTypes';
 
-// Helper to create node port
-export const createPort = (
-  type: NodeDataType,
-  options: Partial<NodePort> = {}
-): NodePort => {
-  return {
-    id: options.id || uuidv4(),
-    type,
-    label: options.label,
-    multiple: options.multiple ?? false,
-    required: options.required ?? false,
-    connected: options.connected ?? false,
-    ...options
-  };
-};
-
-// Helper to create node parameter
-export const createParameter = (
-  name: string,
-  type: NodeDataType,
-  options: Partial<Omit<NodeParameter, 'name' | 'type'>> = {}
-): Omit<NodeParameter, 'sourceNodeId' | 'sourceParameterId' | 'disabled'> => {
-  return {
-    id: options.id || uuidv4(),
-    name,
-    type,
-    controlType: options.controlType || 'slider',
-    value: options.value !== undefined ? options.value : options.defaultValue,
-    defaultValue: options.defaultValue !== undefined ? options.defaultValue : 0,
-    min: options.min,
-    max: options.max,
-    step: options.step,
-    options: options.options,
-    unit: options.unit
-  };
-};
-
-// Create an instance of a node from a definition
-export const createNodeInstance = (
-  definition: NodeDefinition,
-  position: { x: number; y: number }
-): NodeStore => {
+// Helper function to create a new instance of a node from a definition
+export const createNodeInstance = (definition: NodeDefinition, position: { x: number, y: number }): NodeStore => {
   return {
     id: uuidv4(),
     type: definition.id,
@@ -62,300 +20,459 @@ export const createNodeInstance = (
       ...param,
       sourceNodeId: undefined,
       sourceParameterId: undefined,
-      disabled: false
+      disabled: false // Default to false (not disabled)
     })),
-    inputs: [...definition.inputs],
-    outputs: [...definition.outputs]
+    inputs: definition.inputs.map(input => ({
+      ...input,
+      connected: false
+    })),
+    outputs: definition.outputs.map(output => ({
+      ...output,
+      connected: false
+    }))
   };
 };
 
-// Image Source/Input Node Definition
-export const ImageSourceNode: NodeDefinition = {
-  id: 'imageSource',
+// Registry of all node types
+const nodeRegistry: NodeRegistry = {};
+
+// Helper to register a node type
+const registerNode = (definition: NodeDefinition) => {
+  nodeRegistry[definition.id] = definition;
+};
+
+// Source nodes
+registerNode({
+  id: 'generator-image',
   name: 'Image Source',
   category: NodeCategory.Generator,
-  description: 'Source image input',
-  defaultColorTag: '#4287f5',
+  description: 'Import an image from your device',
+  defaultColorTag: 'blue',
   defaultCollapsed: false,
   inputs: [],
   outputs: [
-    createPort('image', { id: 'output', label: 'Output', multiple: true })
+    { id: 'output', type: 'image', label: 'Image' }
   ],
   parameters: [
-    createParameter('source', 'image', {
+    {
+      id: 'image',
+      name: 'Image',
+      type: 'image',
       controlType: 'image',
-      defaultValue: null
-    })
-  ],
-  process: (node: NodeStore) => {
-    // Simply pass the image through
-    const sourceParam = node.parameters.find(p => p.id === 'source');
-    return {
-      output: sourceParam?.value || null
-    };
-  }
-};
+      value: undefined,
+      defaultValue: undefined
+    }
+  ]
+});
 
-// Blur Filter Node Definition
-export const BlurFilterNode: NodeDefinition = {
-  id: 'blurFilter',
+// Basic filter nodes
+registerNode({
+  id: 'filter-blur',
   name: 'Blur',
   category: NodeCategory.Filter,
-  description: 'Applies blur to the image',
-  defaultColorTag: '#42aaf5',
+  description: 'Apply a blur effect to the image',
+  defaultColorTag: 'green',
   defaultCollapsed: false,
   inputs: [
-    createPort('image', { id: 'input', label: 'Input', required: true })
+    { id: 'input', type: 'image', label: 'Image' }
   ],
   outputs: [
-    createPort('image', { id: 'output', label: 'Output', multiple: true })
+    { id: 'output', type: 'image', label: 'Result' }
   ],
   parameters: [
-    createParameter('radius', 'float', {
+    {
+      id: 'radius',
+      name: 'Radius',
+      type: 'float',
       controlType: 'slider',
+      value: 5,
       defaultValue: 5,
       min: 0,
-      max: 100,
+      max: 50,
       step: 0.1,
       unit: 'px'
-    }),
-    createParameter('iterations', 'float', {
-      controlType: 'slider',
-      defaultValue: 1,
-      min: 1,
-      max: 10,
-      step: 1
-    }),
-    createParameter('mode', 'string', {
+    },
+    {
+      id: 'mode',
+      name: 'Mode',
+      type: 'string',
       controlType: 'dropdown',
+      value: 'gaussian',
       defaultValue: 'gaussian',
-      options: ['gaussian', 'box', 'zoom', 'motion']
-    }),
-    createParameter('blendMode', 'string', {
-      controlType: 'dropdown',
-      defaultValue: 'normal',
-      options: [
-        'normal', 'multiply', 'screen', 'overlay', 
-        'darken', 'lighten', 'color-dodge', 'color-burn',
-        'hard-light', 'soft-light', 'difference', 'exclusion'
-      ]
-    }),
-    createParameter('opacity', 'float', {
-      controlType: 'slider',
-      defaultValue: 100,
-      min: 0,
-      max: 100,
-      step: 1,
-      unit: '%'
-    })
-  ],
-  process: (node: NodeStore, inputData: Record<string, any>) => {
-    // Get input image
-    const inputImage = inputData['input'];
-    if (!inputImage) return { output: null };
-    
-    // Get parameters
-    const radiusParam = node.parameters.find(p => p.id === 'radius');
-    const iterationsParam = node.parameters.find(p => p.id === 'iterations');
-    const modeParam = node.parameters.find(p => p.id === 'mode');
-    
-    // This would be where the actual image processing happens
-    // For now, we'll just pass the input through
-    return {
-      output: inputImage
-    };
-  }
-};
+      options: ['gaussian', 'box', 'motion']
+    },
+    {
+      id: 'highQuality',
+      name: 'High Quality',
+      type: 'boolean',
+      controlType: 'toggle',
+      value: false,
+      defaultValue: false
+    }
+  ]
+});
 
-// Noise Generator Node Definition
-export const NoiseGeneratorNode: NodeDefinition = {
-  id: 'noiseGenerator',
+registerNode({
+  id: 'filter-noise',
   name: 'Noise',
-  category: NodeCategory.Generator,
-  description: 'Generates noise texture',
-  defaultColorTag: '#f54242',
+  category: NodeCategory.Filter,
+  description: 'Add noise to the image',
+  defaultColorTag: 'green',
   defaultCollapsed: false,
-  inputs: [],
+  inputs: [
+    { id: 'input', type: 'image', label: 'Image' }
+  ],
   outputs: [
-    createPort('image', { id: 'output', label: 'Output', multiple: true })
+    { id: 'output', type: 'image', label: 'Result' }
   ],
   parameters: [
-    createParameter('type', 'string', {
+    {
+      id: 'amount',
+      name: 'Amount',
+      type: 'float',
+      controlType: 'slider',
+      value: 0.5,
+      defaultValue: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    {
+      id: 'type',
+      name: 'Noise Type',
+      type: 'string',
       controlType: 'dropdown',
-      defaultValue: 'perlin',
-      options: ['perlin', 'simplex', 'value', 'white', 'cellular']
-    }),
-    createParameter('scale', 'float', {
+      value: 'gaussian',
+      defaultValue: 'gaussian',
+      options: ['gaussian', 'uniform', 'salt-pepper', 'perlin', 'simplex']
+    },
+    {
+      id: 'seed',
+      name: 'Seed',
+      type: 'float',
       controlType: 'slider',
-      defaultValue: 50,
-      min: 1,
-      max: 500,
-      step: 1
-    }),
-    createParameter('seed', 'float', {
-      controlType: 'slider',
-      defaultValue: 1,
+      value: 42,
+      defaultValue: 42,
       min: 0,
       max: 1000,
       step: 1
-    }),
-    createParameter('octaves', 'float', {
-      controlType: 'slider',
-      defaultValue: 3,
-      min: 1,
-      max: 10,
-      step: 1
-    }),
-    createParameter('color', 'color', {
-      controlType: 'color',
-      defaultValue: '#ffffff'
-    })
-  ],
-  process: (node: NodeStore) => {
-    // Get parameters
-    const typeParam = node.parameters.find(p => p.id === 'type');
-    const scaleParam = node.parameters.find(p => p.id === 'scale');
-    const seedParam = node.parameters.find(p => p.id === 'seed');
-    
-    // This would generate a noise texture
-    // For now, return a placeholder
-    return {
-      output: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-    };
-  }
-};
+    },
+    {
+      id: 'monochrome',
+      name: 'Monochrome',
+      type: 'boolean',
+      controlType: 'toggle',
+      value: false,
+      defaultValue: false
+    }
+  ]
+});
 
-// Blend Node Definition
-export const BlendNode: NodeDefinition = {
-  id: 'blend',
-  name: 'Blend',
-  category: NodeCategory.Compositing,
-  description: 'Blends two images together',
-  defaultColorTag: '#a142f5',
+registerNode({
+  id: 'filter-dither',
+  name: 'Dither',
+  category: NodeCategory.Filter,
+  description: 'Apply dithering to reduce banding',
+  defaultColorTag: 'green',
   defaultCollapsed: false,
   inputs: [
-    createPort('image', { id: 'inputA', label: 'Input A', required: true }),
-    createPort('image', { id: 'inputB', label: 'Input B', required: true })
+    { id: 'input', type: 'image', label: 'Image' }
   ],
   outputs: [
-    createPort('image', { id: 'output', label: 'Output', multiple: true })
+    { id: 'output', type: 'image', label: 'Result' }
   ],
   parameters: [
-    createParameter('blendMode', 'string', {
+    {
+      id: 'algorithm',
+      name: 'Algorithm',
+      type: 'string',
       controlType: 'dropdown',
-      defaultValue: 'normal',
-      options: [
-        'normal', 'multiply', 'screen', 'overlay', 
-        'darken', 'lighten', 'color-dodge', 'color-burn',
-        'hard-light', 'soft-light', 'difference', 'exclusion'
-      ]
-    }),
-    createParameter('opacity', 'float', {
+      value: 'floyd-steinberg',
+      defaultValue: 'floyd-steinberg',
+      options: ['floyd-steinberg', 'bayer', 'ordered', 'atkinson', 'sierra', 'stucki']
+    },
+    {
+      id: 'threshold',
+      name: 'Threshold',
+      type: 'float',
       controlType: 'slider',
-      defaultValue: 100,
+      value: 0.5,
+      defaultValue: 0.5,
       min: 0,
-      max: 100,
-      step: 1,
-      unit: '%'
-    }),
-    createParameter('maskChannel', 'string', {
-      controlType: 'dropdown',
-      defaultValue: 'none',
-      options: ['none', 'alpha', 'red', 'green', 'blue', 'luminance']
-    })
-  ],
-  process: (node: NodeStore, inputData: Record<string, any>) => {
-    // Get input images
-    const inputImageA = inputData['inputA'];
-    const inputImageB = inputData['inputB'];
-    
-    if (!inputImageA || !inputImageB) {
-      return { output: null };
+      max: 1,
+      step: 0.01
+    },
+    {
+      id: 'matrix',
+      name: 'Matrix Size',
+      type: 'float',
+      controlType: 'slider',
+      value: 8,
+      defaultValue: 8,
+      min: 2,
+      max: 16,
+      step: 1
+    },
+    {
+      id: 'colors',
+      name: 'Colors',
+      type: 'float',
+      controlType: 'slider',
+      value: 2,
+      defaultValue: 2,
+      min: 2,
+      max: 256,
+      step: 1
     }
-    
-    // Get parameters
-    const blendModeParam = node.parameters.find(p => p.id === 'blendMode');
-    const opacityParam = node.parameters.find(p => p.id === 'opacity');
-    
-    // This would be where the actual blending happens
-    // For now, we'll just pass input A through
-    return {
-      output: inputImageA
-    };
-  }
-};
+  ]
+});
 
-// Output Node Definition
-export const OutputNode: NodeDefinition = {
-  id: 'output',
-  name: 'Output',
-  category: NodeCategory.Output,
-  description: 'Final output image',
-  defaultColorTag: '#42f578',
+registerNode({
+  id: 'filter-edge',
+  name: 'Find Edges',
+  category: NodeCategory.Filter,
+  description: 'Detect edges in the image',
+  defaultColorTag: 'green',
   defaultCollapsed: false,
   inputs: [
-    createPort('image', { id: 'input', label: 'Input', required: true })
+    { id: 'input', type: 'image', label: 'Image' }
+  ],
+  outputs: [
+    { id: 'output', type: 'image', label: 'Result' },
+    { id: 'mask', type: 'mask', label: 'Edge Mask' }
+  ],
+  parameters: [
+    {
+      id: 'mode',
+      name: 'Mode',
+      type: 'string',
+      controlType: 'dropdown',
+      value: 'sobel',
+      defaultValue: 'sobel',
+      options: ['sobel', 'prewitt', 'roberts', 'laplacian', 'canny']
+    },
+    {
+      id: 'threshold',
+      name: 'Threshold',
+      type: 'float',
+      controlType: 'slider',
+      value: 0.1,
+      defaultValue: 0.1,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    {
+      id: 'strength',
+      name: 'Strength',
+      type: 'float',
+      controlType: 'slider',
+      value: 1,
+      defaultValue: 1,
+      min: 0,
+      max: 5,
+      step: 0.1
+    }
+  ]
+});
+
+registerNode({
+  id: 'filter-halftone',
+  name: 'Halftone',
+  category: NodeCategory.Filter,
+  description: 'Create a halftone pattern effect',
+  defaultColorTag: 'green',
+  defaultCollapsed: false,
+  inputs: [
+    { id: 'input', type: 'image', label: 'Image' }
+  ],
+  outputs: [
+    { id: 'output', type: 'image', label: 'Result' }
+  ],
+  parameters: [
+    {
+      id: 'dotSize',
+      name: 'Dot Size',
+      type: 'float',
+      controlType: 'slider',
+      value: 4,
+      defaultValue: 4,
+      min: 1,
+      max: 20,
+      step: 0.5
+    },
+    {
+      id: 'spacing',
+      name: 'Spacing',
+      type: 'float',
+      controlType: 'slider',
+      value: 6,
+      defaultValue: 6,
+      min: 1,
+      max: 20,
+      step: 0.5
+    },
+    {
+      id: 'angle',
+      name: 'Angle',
+      type: 'float',
+      controlType: 'slider',
+      value: 45,
+      defaultValue: 45,
+      min: 0,
+      max: 360,
+      step: 1,
+      unit: '°'
+    },
+    {
+      id: 'shape',
+      name: 'Shape',
+      type: 'string',
+      controlType: 'dropdown',
+      value: 'circle',
+      defaultValue: 'circle',
+      options: ['circle', 'square', 'line', 'diamond', 'cross']
+    },
+    {
+      id: 'cmyk',
+      name: 'CMYK Mode',
+      type: 'boolean',
+      controlType: 'toggle',
+      value: false,
+      defaultValue: false
+    }
+  ]
+});
+
+// Compositing nodes
+registerNode({
+  id: 'compositing-blend',
+  name: 'Blend',
+  category: NodeCategory.Compositing,
+  description: 'Blend two images together',
+  defaultColorTag: 'orange',
+  defaultCollapsed: false,
+  inputs: [
+    { id: 'background', type: 'image', label: 'Background' },
+    { id: 'foreground', type: 'image', label: 'Foreground' },
+    { id: 'mask', type: 'mask', label: 'Mask', required: false }
+  ],
+  outputs: [
+    { id: 'output', type: 'image', label: 'Result' }
+  ],
+  parameters: [
+    {
+      id: 'blendMode',
+      name: 'Blend Mode',
+      type: 'string',
+      controlType: 'dropdown',
+      value: 'normal',
+      defaultValue: 'normal',
+      options: [
+        'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 
+        'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 
+        'exclusion', 'hue', 'saturation', 'color', 'luminosity'
+      ]
+    },
+    {
+      id: 'opacity',
+      name: 'Opacity',
+      type: 'float',
+      controlType: 'slider',
+      value: 1,
+      defaultValue: 1,
+      min: 0,
+      max: 1,
+      step: 0.01
+    }
+  ]
+});
+
+// Adjustment nodes
+registerNode({
+  id: 'adjustment-brightness',
+  name: 'Brightness & Contrast',
+  category: NodeCategory.Adjustment,
+  description: 'Adjust image brightness and contrast',
+  defaultColorTag: 'yellow',
+  defaultCollapsed: false,
+  inputs: [
+    { id: 'input', type: 'image', label: 'Image' }
+  ],
+  outputs: [
+    { id: 'output', type: 'image', label: 'Result' }
+  ],
+  parameters: [
+    {
+      id: 'brightness',
+      name: 'Brightness',
+      type: 'float',
+      controlType: 'slider',
+      value: 0,
+      defaultValue: 0,
+      min: -1,
+      max: 1,
+      step: 0.01
+    },
+    {
+      id: 'contrast',
+      name: 'Contrast',
+      type: 'float',
+      controlType: 'slider',
+      value: 0,
+      defaultValue: 0,
+      min: -1,
+      max: 1,
+      step: 0.01
+    }
+  ]
+});
+
+// Output nodes
+registerNode({
+  id: 'output-final',
+  name: 'Output',
+  category: NodeCategory.Output,
+  description: 'Final output of the node graph',
+  defaultColorTag: 'gray',
+  defaultCollapsed: false,
+  inputs: [
+    { id: 'input', type: 'image', label: 'Image' }
   ],
   outputs: [],
   parameters: [
-    createParameter('format', 'string', {
-      controlType: 'dropdown',
-      defaultValue: 'png',
-      options: ['png', 'jpeg', 'webp']
-    }),
-    createParameter('quality', 'float', {
+    {
+      id: 'quality',
+      name: 'Quality',
+      type: 'float',
       controlType: 'slider',
+      value: 90,
       defaultValue: 90,
       min: 1,
       max: 100,
-      step: 1,
-      unit: '%'
-    }),
-    createParameter('width', 'float', {
-      controlType: 'slider',
-      defaultValue: 1024,
-      min: 10,
-      max: 4096,
-      step: 1,
-      unit: 'px'
-    }),
-    createParameter('height', 'float', {
-      controlType: 'slider',
-      defaultValue: 1024,
-      min: 10,
-      max: 4096,
-      step: 1,
-      unit: 'px'
-    })
-  ],
-  process: (node: NodeStore, inputData: Record<string, any>) => {
-    // Get input image
-    const inputImage = inputData['input'];
-    
-    if (!inputImage) {
-      return {};
+      step: 1
+    },
+    {
+      id: 'format',
+      name: 'Format',
+      type: 'string',
+      controlType: 'dropdown',
+      value: 'png',
+      defaultValue: 'png',
+      options: ['png', 'jpeg', 'webp']
     }
-    
-    // Pass through the input to render the final result
-    return {};
-  }
+  ]
+});
+
+// Public API functions
+export const getNodeDefinition = (id: string): NodeDefinition | undefined => {
+  return nodeRegistry[id];
 };
 
-// Node registry that holds all available node types
-export const NodeRegistry: Record<string, NodeDefinition> = {
-  imageSource: ImageSourceNode,
-  blurFilter: BlurFilterNode,
-  noiseGenerator: NoiseGeneratorNode,
-  blend: BlendNode,
-  output: OutputNode
+export const getAllNodeDefinitions = (): NodeDefinition[] => {
+  return Object.values(nodeRegistry);
 };
 
-// Get a node definition by type
-export const getNodeDefinition = (type: string): NodeDefinition | undefined => {
-  return NodeRegistry[type];
-};
-
-// Get node definitions by category
 export const getNodesByCategory = (category: NodeCategory): NodeDefinition[] => {
-  return Object.values(NodeRegistry).filter(node => node.category === category);
+  return Object.values(nodeRegistry).filter(def => def.category === category);
 };
