@@ -108,14 +108,12 @@ export default function PreviewPanel({
                   {nodeLabel}
                 </span>
               </div>
-              
-              {/* Display thumbnail preview if available */}
               {nodePreviewImg && (
-                <div className="border border-gray-800 rounded overflow-hidden mt-1 h-20">
+                <div className="relative w-full h-24 bg-gray-900 rounded overflow-hidden">
                   <img 
                     src={nodePreviewImg} 
-                    alt={`Preview of ${nodeLabel}`}
-                    className="w-full h-full object-cover bg-black"
+                    alt={nodeLabel}
+                    className="w-full h-full object-cover"
                   />
                 </div>
               )}
@@ -126,23 +124,60 @@ export default function PreviewPanel({
     );
   };
 
-  // Handle resizing the panel
+  // Toggle fullscreen state
+  const toggleFullscreen = () => {
+    setIsFullscreen(prev => !prev);
+  };
+  
+  // Handle mouse down event on the detached panel header
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - detachedPosition.x,
+      y: e.clientY - detachedPosition.y
+    });
+  };
+  
+  // Handle mouse move event for dragging the detached panel
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isResizing) {
-        // Use window width minus mouse position to calculate the new width
-        // This ensures proper resizing from right side
-        const windowWidth = window.innerWidth;
-        const newWidth = Math.max(250, Math.min(600, windowWidth - e.clientX));
-        setWidth(newWidth);
+      if (isDragging && isDetached) {
+        const newX = e.clientX - dragStart.x;
+        const newY = e.clientY - dragStart.y;
+        
+        // Check if panel is near the right edge of the screen (docking area)
+        const isNearRightEdge = window.innerWidth - newX - width < 20;
+        setDockArea(isNearRightEdge);
+        
+        setDetachedPosition({
+          x: newX,
+          y: newY
+        });
+      }
+      
+      if (isResizing && !isDetached) {
+        const newWidth = window.innerWidth - e.clientX;
+        if (newWidth > 150 && newWidth < window.innerWidth * 0.5) {
+          setWidth(newWidth);
+        }
       }
     };
-    
+
     const handleMouseUp = () => {
+      setIsDragging(false);
       setIsResizing(false);
+      
+      // If panel is in docking area when released, dock it
+      if (dockArea) {
+        setIsDetached(false);
+        setWidth(initialWidth);
+      }
+      
+      setDockArea(false);
     };
     
-    if (isResizing) {
+    if (isDragging || isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
@@ -151,54 +186,7 @@ export default function PreviewPanel({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
-
-  // Toggle fullscreen mode
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-    if (isFullscreen) {
-      setWidth(initialWidth);
-    }
-  };
-
-  // Handle panel dragging when detached
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isDetached) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-  
-  const handleDrag = (e: React.MouseEvent) => {
-    if (isDragging && isDetached) {
-      const deltaX = e.clientX - dragStart.x;
-      const deltaY = e.clientY - dragStart.y;
-      const newX = detachedPosition.x + deltaX;
-      const newY = detachedPosition.y + deltaY;
-      
-      // Check if panel is near the right edge of screen (docking zone)
-      const dockZone = window.innerWidth - 100; // 100px from right edge
-      const isNearDockZone = newX > dockZone;
-      
-      // Visual indication for docking
-      setDockArea(isNearDockZone);
-      
-      // If released near the dock zone, dock it
-      if (isNearDockZone && e.type === 'mouseup') {
-        setIsDetached(false);
-        setWidth(initialWidth);
-        setDetachedPosition({ x: 100, y: 100 });
-        setDockArea(false);
-      } else {
-        setDetachedPosition({
-          x: newX,
-          y: newY
-        });
-      }
-      
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
+  }, [isDragging, isResizing, isDetached, dragStart, detachedPosition, initialWidth, dockArea, width]);
 
   // Get the display image based on selection state
   const getDisplayImage = () => {
@@ -218,54 +206,39 @@ export default function PreviewPanel({
         <img 
           src={nodePreview} 
           alt="Preview" 
-          className={`w-full h-full object-contain ${isFullscreen ? 'max-h-[80vh]' : 'min-h-[300px]'}`}
+          className={`${isFullscreen ? 'max-h-[80vh] max-w-full' : 'w-full h-full'} object-cover`} 
         />
       );
     }
     
-    // If no node is selected but we have a processed image, show that
+    // If no node is selected but final image is processed, show that
     if (processedImage) {
       return (
         <img 
           src={processedImage} 
-          alt="Final Output" 
-          className={`w-full h-full object-contain ${isFullscreen ? 'max-h-[80vh]' : 'min-h-[300px]'}`}
+          alt="Final result" 
+          className={`${isFullscreen ? 'max-h-[80vh] max-w-full' : 'w-full h-full'} object-cover`} 
         />
       );
     }
     
     // Otherwise show a placeholder
-    return (
-      <div className={`w-full flex items-center justify-center text-gray-400 ${isFullscreen ? 'h-[80vh]' : 'h-[300px]'}`}>
-        No image available
-      </div>
-    );
+    return <div className="text-gray-500 text-center">No image available</div>;
   };
-  
+
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setIsFullscreen(false)}>
-        <div className="bg-black border border-gray-700 rounded-lg overflow-hidden max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between h-[40px]">
-            <div className="flex items-center">
-              <div className="icon-container effect-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
-                </svg>
-              </div>
-              <span className="text-lg">Preview (Fullscreen)</span>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
-                <Minimize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-3">
-            <div className="bg-black border border-gray-800 rounded-md overflow-hidden h-[80vh] flex items-center justify-center">
-              {getDisplayImage()}
-            </div>
-          </div>
+      <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-8">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="absolute top-4 right-4" 
+          onClick={toggleFullscreen}
+        >
+          <Minimize2 className="h-4 w-4" />
+        </Button>
+        <div className="max-w-6xl max-h-full">
+          {getDisplayImage()}
         </div>
       </div>
     );
@@ -273,10 +246,17 @@ export default function PreviewPanel({
 
   return (
     <>
-      {/* Dock indicator appears when dragging panel */}
-      {isDetached && isDragging && (
+      {/* Docking indicator - only shown when dragging near edge */}
+      {isDetached && dockArea && (
         <div 
-          className="fixed right-0 top-0 h-full bg-blue-500/20 border-l-2 border-blue-500 z-30"
+          className="fixed right-0 top-0 w-[3px] h-screen bg-blue-500 z-50 pointer-events-none opacity-50" 
+        />
+      )}
+      
+      {/* Semi-transparent overlay over the docking area */}
+      {isDetached && dockArea && (
+        <div 
+          className="fixed right-0 top-0 h-screen z-30 border-l-2 border-blue-500 bg-blue-500 bg-opacity-10"
           style={{ 
             width: '100px', 
             pointerEvents: 'none',
@@ -309,21 +289,17 @@ export default function PreviewPanel({
             boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.2)'
           })
         }}
-        onMouseMove={handleDrag}
-        onMouseUp={(e) => {
-          handleDrag(e); // Pass event to handleDrag to check if we're in dock zone
-          setIsDragging(false);
-        }}
       >
-        {/* Header */}
+        {/* Draggable header for the detached window */}
         <div 
-          className="bg-black text-white border-b border-gray-700 px-4 py-2 flex items-center justify-between cursor-move h-[40px] flex-shrink-0"
-          onMouseDown={handleMouseDown}
+          className={`p-3 flex justify-between items-center border-b border-gray-700 ${isDetached ? 'cursor-move' : ''}`}
+          onMouseDown={isDetached ? handleMouseDown : undefined}
         >
           <div className="flex items-center">
-            <div className="icon-container effect-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+            <div className="w-6 h-6 flex items-center justify-center mr-2 bg-black rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
               </svg>
             </div>
             <span className="text-lg">Preview</span>
@@ -438,8 +414,10 @@ export default function PreviewPanel({
               </SelectContent>
             </Select>
           </div>
-          
-          {/* Export button - matching Upload Image button */}
+        </div>
+        
+        {/* Export button - fixed at bottom like Upload Image button */}
+        <div className="mt-auto border-t border-gray-700">
           <div className="p-4 overflow-visible" style={{backgroundColor: '#000'}}>
             <div 
               className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
