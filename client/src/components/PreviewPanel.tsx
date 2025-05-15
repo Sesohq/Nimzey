@@ -295,7 +295,7 @@ export default function PreviewPanel({
       <div 
         ref={mainPanelRef}
         className={`bg-black text-white flex flex-col relative 
-          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-y-auto border-l border-gray-700'} 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-hidden border-l border-gray-700'} 
           ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
         style={{ 
           width: `${width}px`,
@@ -364,7 +364,7 @@ export default function PreviewPanel({
           </div>
         </div>
         
-        <div className="p-3">
+        <div className="p-3 flex-shrink-0">
           <div className="text-xs text-white font-mono mb-1 flex items-center">
             <span className="text-gray-400 mr-1">//</span> 
             Selected Node: <span className="ml-1 text-yellow-400">{selectedNode ? 
@@ -391,11 +391,11 @@ export default function PreviewPanel({
           </div>
         )}
         
-        <div className="p-3 border-t border-gray-700">
+        <div className="p-3 border-t border-gray-700 flex-grow flex flex-col">
           <div className="text-xs text-white font-mono mb-2 flex items-center">
             <span className="text-gray-400 mr-1">//</span> Filter Chain
           </div>
-          <ScrollArea className="h-[250px]">
+          <ScrollArea className="flex-1" style={{height: 'calc(100vh - 500px)'}}>
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
@@ -412,7 +412,7 @@ export default function PreviewPanel({
           </ScrollArea>
         </div>
         
-        <div className="mt-auto p-3 border-t border-gray-700 bg-black">
+        <div className="p-3 border-t border-gray-700 bg-black flex-shrink-0">
           <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
