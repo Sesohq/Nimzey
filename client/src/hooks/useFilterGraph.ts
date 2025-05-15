@@ -468,8 +468,12 @@ export function useFilterGraph() {
       })
     );
     
+    // Update any remaining connected parameters
+    updateConnectedParams();
+
+    // Then process the image
     processImage();
-  }, [processImage]);
+  }, [processImage, updateConnectedParams]);
 
   // Upload an image function
   const uploadImage = useCallback((file: File) => {
