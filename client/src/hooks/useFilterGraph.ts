@@ -684,7 +684,7 @@ export function useFilterGraph() {
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage, handleConnectParam]);
+  }, [processImage, handleConnectParam, updateConnectedParams]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {
