@@ -1,0 +1,194 @@
+The filter chain preview system works by tracking processed image data through the connected nodes and displaying it in both the nodes themselves and the preview panel. Here's how the preview functionality is implemented:
+
+Core Components for Preview Processing
+Image Processing and Data Flow:
+// From FilterForge.tsx - Process nodes connected to the specified source node recursively
+const processConnectedNodes = useCallback((sourceNodeId: string, sourceImageUrl: string) => {
+  // Skip if we're already processing or no source image
+  if (!sourceImageRef.current) {
+    console.error("Source image reference not available");
+    return;
+  }
+  
+  // Create or update the canvas for processing
+  if (!canvasRef.current) {
+    const canvas = hiddenCanvas;
+    canvas.width = sourceImageRef.current.width;
+    canvas.height = sourceImageRef.current.height;
+    canvasRef.current = canvas;
+  }
+  
+  // Find all edges coming from this node
+  const outgoingEdges = edges.filter(edge => edge.source === sourceNodeId);
+  if (outgoingEdges.length === 0) {
+    console.log(`No outgoing edges from node ${sourceNodeId}`);
+    return;
+  }
+  
+  // Create a queue for processing to avoid deep recursion
+  const nodesToProcess = [...outgoingEdges];
+  
+  // Process one node at a time to avoid UI jank
+  const processNextNode = () => {
+    // Get the next node from the queue
+    const edge = nodesToProcess.shift();
+    const targetNodeId = edge.target;
+    
+    // Get the target node
+    const targetNode = nodes.find(node => node.id === targetNodeId);
+    
+    // Load the source image
+    const sourceImage = new Image();
+    sourceImage.src = sourceImageUrl;
+    
+    // Process when image is loaded
+    sourceImage.onload = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
+      // Draw source image to canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(sourceImage, 0, 0);
+      
+      // Get pixel data for processing
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Apply filter effect based on node type
+      switch (targetNode.type) {
+        case FilterType.Blur:
+          applyBlurFilter(imageData.data, canvas.width, canvas.height, 
+            targetNode.data.parameters.radius.value);
+          break;
+        
+        // Other filter cases...
+      }
+      
+      // Put the processed data back
+      ctx.putImageData(imageData, 0, 0);
+      
+      // Get the processed image URL
+      const processedImageUrl = canvas.toDataURL();
+      
+      // Update the processed images map
+      setProcessedImages(prev => ({
+        ...prev,
+        [targetNodeId]: processedImageUrl
+      }));
+      
+      // Update the node preview
+      setNodes(nodes.map(node => {
+        if (node.id === targetNodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              preview: processedImageUrl
+            }
+          };
+        }
+        return node;
+      }));
+      
+      // Add connected nodes to processing queue
+      const nextEdges = edges.filter(e => e.source === targetNodeId);
+      nextEdges.forEach(e => {
+        nodesToProcess.push(e);
+      });
+      
+      // Process next node
+      setTimeout(processNextNode, 100);
+    };
+  };
+  
+  // Start processing the queue
+  processNextNode();
+}, [edges, nodes, setNodes]);
+Preview Panel Rendering:
+// From PreviewPanel.tsx
+const PreviewPanel = ({ 
+  sourceImage, 
+  processedImages, 
+  selectedNode 
+}) => {
+  // Find the image to display based on selected node
+  const getImageToDisplay = () => {
+    if (!selectedNode) {
+      // If no node is selected, show source image
+      return sourceImage;
+    }
+    
+    // If the selected node has a processed image, show it
+    if (processedImages[selectedNode.id]) {
+      return processedImages[selectedNode.id];
+    }
+    
+    // Fall back to source image
+    return sourceImage;
+  };
+  
+  return (
+    <div className="preview-panel">
+      <div className="preview-image-container">
+        {getImageToDisplay() && (
+          <img 
+            src={getImageToDisplay()} 
+            alt="Preview" 
+            className="preview-image" 
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+Node Preview Rendering:
+// Example from a filter node component (e.g., BlurNode.tsx)
+const BlurNode = ({ data }) => {
+  const { preview, parameters } = data;
+  
+  return (
+    <div className="filter-node">
+      <div className="node-header">Blur Filter</div>
+      
+      {/* Preview image in the node */}
+      <div className="node-preview">
+        {preview && (
+          <img src={preview} alt="Node preview" className="node-preview-image" />
+        )}
+      </div>
+      
+      {/* Filter parameters */}
+      <div className="node-parameters">
+        <NodeParameter 
+          parameter={parameters.radius}
+          onChange={(value) => data.updateNodeParameter(data.id, 'radius', value)}
+        />
+      </div>
+      
+      {/* Input/Output handles for connections */}
+      <Handle type="target" position={Position.Left} id="input" />
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+};
+Key Technical Concepts
+Canvas-Based Processing Chain:
+
+We use a hidden canvas element to perform the image processing
+Each filter algorithm manipulates the pixel data in canvas's imageData
+The processed image is converted to a data URL via canvas.toDataURL()
+Flow Tracking and Node Dependencies:
+
+The system tracks connections between nodes using ReactFlow's edges
+When a node's parameters change, we process the chain from that node forward
+Each node can have multiple inputs but we prioritize the main input for preview
+Recursive Processing with Queue:
+
+We use a queue-based approach instead of deep recursion to process nodes
+This prevents stack overflow and allows better UI responsiveness
+Each node in the chain gets processed only after its input nodes are processed
+Memory and State Management:
+
+We maintain a map of processed images by node ID in processedImages
+When parameters change, we only update nodes affected in the chain
+The preview panel shows the selected node's output or falls back to source image
+This system allows for real-time preview of the filter chain as users adjust parameters or connect nodes, providing immediate visual feedback about how the filters are affecting the image.

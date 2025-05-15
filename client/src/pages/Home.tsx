@@ -17,6 +17,7 @@ export default function Home() {
     selectedNode,
     selectedNodeId,
     processedImage,
+    processedImages,
     uploadImage,
     exportImage,
     sourceImage,

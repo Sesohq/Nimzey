@@ -24,10 +24,12 @@ export function useFilterGraph() {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [nodePreview, setNodePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processedImages, setProcessedImages] = useState<Record<string, string>>({});
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
+  const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Initialize canvas when needed
   const getCanvas = useCallback(() => {
@@ -37,15 +39,40 @@ export function useFilterGraph() {
     return canvasRef.current;
   }, []);
 
+  // Initialize hidden canvas for filter processing
+  const getHiddenCanvas = useCallback(() => {
+    if (!hiddenCanvasRef.current) {
+      hiddenCanvasRef.current = document.createElement('canvas');
+      if (sourceImageRef.current) {
+        hiddenCanvasRef.current.width = sourceImageRef.current.width;
+        hiddenCanvasRef.current.height = sourceImageRef.current.height;
+      }
+    }
+    return hiddenCanvasRef.current;
+  }, []);
+
   // Generate a preview for a specific node
   const generateNodePreview = useCallback((targetNode: Node) => {
     if (!sourceImageRef.current) return null;
     
+    // If we already have a processed image for this node, use it
+    if (processedImages[targetNode.id]) {
+      return processedImages[targetNode.id];
+    }
+    
+    // Otherwise, generate a new preview
     const canvas = getCanvas();
     const previewUrl = applyFilters(sourceImageRef.current, nodes, edges, canvas, targetNode.id);
     
     // If this is a filter node, update its preview property
     if (targetNode.type === 'filterNode' && previewUrl) {
+      // Update the processed images map
+      setProcessedImages(prev => ({
+        ...prev,
+        [targetNode.id]: previewUrl
+      }));
+      
+      // Update the node's preview property
       setNodes(currentNodes => 
         currentNodes.map(node => {
           if (node.id === targetNode.id) {
@@ -63,7 +90,7 @@ export function useFilterGraph() {
     }
     
     return previewUrl;
-  }, [nodes, edges, getCanvas]);
+  }, [nodes, edges, getCanvas, processedImages]);
 
   // Update connected parameter values
   const updateConnectedParams = useCallback(() => {
@@ -139,59 +166,204 @@ export function useFilterGraph() {
     });
   }, [nodes]);
 
-  // Process the image through the filter chain
-  const processImage = useCallback(() => {
-    if (!sourceImageRef.current) return;
+  // Process connected nodes from a source node
+  const processConnectedNodes = useCallback((sourceNodeId: string, sourceImageUrl: string) => {
+    // Skip if we're already processing or no source image
+    if (!sourceImageRef.current) {
+      console.error("Source image reference not available");
+      return;
+    }
     
     // Set processing state to true to show loading spinner
     setIsProcessing(true);
     
+    // Create or update the canvas for processing
+    const canvas = getHiddenCanvas();
+    if (sourceImageRef.current) {
+      canvas.width = sourceImageRef.current.width;
+      canvas.height = sourceImageRef.current.height;
+    }
+    
+    // Find all edges coming from this node
+    const outgoingEdges = edges.filter(edge => edge.source === sourceNodeId);
+    if (outgoingEdges.length === 0) {
+      console.log(`No outgoing edges from node ${sourceNodeId}`);
+      setIsProcessing(false);
+      return;
+    }
+    
+    // Create a queue for processing to avoid deep recursion
+    const nodesToProcess = [...outgoingEdges];
+    
+    // Process one node at a time to avoid UI jank
+    const processNextNode = () => {
+      if (nodesToProcess.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Get the next node from the queue
+      const edge = nodesToProcess.shift();
+      if (!edge) {
+        setIsProcessing(false);
+        return;
+      }
+      
+      const targetNodeId = edge.target;
+      
+      // Get the target node
+      const targetNode = nodes.find(node => node.id === targetNodeId);
+      if (!targetNode) {
+        console.error(`Target node ${targetNodeId} not found`);
+        setTimeout(processNextNode, 0);
+        return;
+      }
+      
+      // Load the source image
+      const sourceImage = new Image();
+      sourceImage.src = sourceImageUrl;
+      
+      // Process when image is loaded
+      sourceImage.onload = () => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error("Could not get canvas context");
+          setTimeout(processNextNode, 0);
+          return;
+        }
+        
+        // Draw source image to canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(sourceImage, 0, 0);
+        
+        // Get pixel data for processing
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // For now, use our existing applyFilters function to process this specific node
+        const processedImageUrl = applyFilters(
+          sourceImage,
+          nodes,
+          edges,
+          canvas,
+          targetNodeId
+        );
+        
+        if (processedImageUrl) {
+          // Update the processed images map
+          setProcessedImages(prev => ({
+            ...prev,
+            [targetNodeId]: processedImageUrl
+          }));
+          
+          // Update the node preview
+          setNodes(currentNodes =>
+            currentNodes.map(node => {
+              if (node.id === targetNodeId) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    preview: processedImageUrl
+                  }
+                };
+              }
+              return node;
+            })
+          );
+          
+          // Add connected nodes to processing queue
+          const nextEdges = edges.filter(e => e.source === targetNodeId);
+          nextEdges.forEach(e => {
+            nodesToProcess.push(e);
+          });
+        }
+        
+        // Process next node with slight delay to allow UI to update
+        setTimeout(processNextNode, 10);
+      };
+      
+      sourceImage.onerror = () => {
+        console.error(`Error loading image from ${sourceImageUrl}`);
+        setTimeout(processNextNode, 0);
+      };
+    };
+    
+    // Start processing the queue
+    processNextNode();
+  }, [edges, nodes, getHiddenCanvas]);
+
+  // Process the image through the filter chain
+  const processImage = useCallback(() => {
+    if (!sourceImageRef.current || !sourceImage) return;
+    
     // First, update any connected parameters
     updateConnectedParams();
     
-    // Use setTimeout to make processing non-blocking for UI
-    setTimeout(() => {
-      try {
-        // Process image on the main thread for now
-        // In the future, we'll fully implement web workers for better performance
-        const canvas = getCanvas();
+    // Find source nodes (nodes with no incoming edges, typically image nodes)
+    const nodeIncomingEdges = new Map<string, number>();
+    edges.forEach(edge => {
+      const count = nodeIncomingEdges.get(edge.target) || 0;
+      nodeIncomingEdges.set(edge.target, count + 1);
+    });
+    
+    const sourceNodes = nodes.filter(node => 
+      node.type === 'imageNode' && (!nodeIncomingEdges.has(node.id) || nodeIncomingEdges.get(node.id) === 0)
+    );
+    
+    if (sourceNodes.length === 0) {
+      setIsProcessing(false);
+      return;
+    }
+    
+    // Start processing from each source node
+    sourceNodes.forEach(sourceNode => {
+      processConnectedNodes(sourceNode.id, sourceImage);
+    });
+    
+    // For the final processed image, we still use the full chain process
+    // This ensures we have a complete result for export
+    try {
+      const canvas = getCanvas();
+      const result = applyFilters(
+        sourceImageRef.current as HTMLImageElement, 
+        nodes, 
+        edges, 
+        canvas
+      );
+      
+      if (result) {
+        // Update the processed image
+        setProcessedImage(result);
         
-        // Process with the existing applyFilters function
-        // We know sourceImageRef.current is not null from the check above
-        const result = applyFilters(
-          sourceImageRef.current as HTMLImageElement, 
-          nodes, 
-          edges, 
-          canvas
-        );
-        
-        if (result) {
-          // Update the processed image
-          setProcessedImage(result);
-          
-          // Update previews for filter nodes
-          const filterNodes = nodes.filter(node => node.type === 'filterNode');
-          for (const node of filterNodes) {
-            generateNodePreview(node);
-          }
-          
-          // If a node is selected, update its preview in the panel
-          if (selectedNodeId) {
-            const selectedNode = nodes.find(n => n.id === selectedNodeId);
-            if (selectedNode) {
+        // If a node is selected, update its preview in the panel
+        if (selectedNodeId) {
+          const selectedNode = nodes.find(n => n.id === selectedNodeId);
+          if (selectedNode) {
+            // Use cached preview if available, otherwise generate
+            if (processedImages[selectedNodeId]) {
+              setNodePreview(processedImages[selectedNodeId]);
+            } else {
               const preview = generateNodePreview(selectedNode);
               setNodePreview(preview);
             }
           }
         }
-      } catch (error) {
-        console.error('Error processing image:', error);
-      } finally {
-        // Clear processing state
-        setIsProcessing(false);
       }
-    }, 0); // Use 0ms timeout to defer execution until after UI updates
-  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview, updateConnectedParams]);
+    } catch (error) {
+      console.error('Error processing final image:', error);
+    }
+  }, [
+    nodes, 
+    edges, 
+    sourceImage, 
+    selectedNodeId, 
+    getCanvas, 
+    getHiddenCanvas, 
+    generateNodePreview, 
+    updateConnectedParams, 
+    processConnectedNodes,
+    processedImages
+  ]);
   
   /* 
   // These functions will be used when we implement Web Workers fully
