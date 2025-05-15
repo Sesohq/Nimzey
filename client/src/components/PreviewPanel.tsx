@@ -274,7 +274,7 @@ export default function PreviewPanel({
       <div 
         ref={mainPanelRef}
         className={`bg-black text-white flex flex-col relative 
-          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-visible border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-visible border-l border-gray-700'} 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-visible border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-visible border-l border-gray-700 flex'} 
           ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
         style={{ 
           width: `${width}px`,
@@ -286,7 +286,10 @@ export default function PreviewPanel({
             transition: dockArea ? 'box-shadow 0.2s ease' : 'none',
             boxShadow: dockArea ? '0 0 0 4px rgba(59, 130, 246, 0.3)' : '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
           } : {
-            boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.2)'
+            boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.2)',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column'
           })
         }}
       >
@@ -363,7 +366,7 @@ export default function PreviewPanel({
               <span className="text-gray-400 mr-1">//</span> Filter Chain
             </div>
           </div>
-          <div className="px-3 overflow-y-auto flex-grow" style={{maxHeight: 'calc(100vh - 500px)'}}>
+          <div className="px-3 overflow-y-auto flex-grow" style={{maxHeight: 'calc(100vh - 530px)'}}>
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
@@ -417,8 +420,8 @@ export default function PreviewPanel({
         </div>
         
         {/* Export button - fixed at bottom like Upload Image button */}
-        <div className="mt-auto border-t border-gray-700">
-          <div className="p-4 overflow-visible" style={{backgroundColor: '#000'}}>
+        <div className="flex-shrink-0 border-t border-gray-700" style={{minHeight: '90px'}}>
+          <div className="p-4" style={{backgroundColor: '#000'}}>
             <div 
               className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={() => processedImage && onExportImage(exportFormat)}
