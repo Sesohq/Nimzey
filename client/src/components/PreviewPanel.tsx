@@ -21,7 +21,7 @@ interface PreviewPanelProps {
   nodePreview: string | null;
   processedImage: string | null;
   processedImages?: Record<string, string>; // Add processedImages map
-  onExportImage: (format?: string, quality?: number) => void;
+  onExportImage: (format?: string) => void;
   nodes: Node[];
   edges: Edge[];
   isProcessing?: boolean;

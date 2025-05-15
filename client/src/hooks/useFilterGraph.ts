@@ -890,11 +890,10 @@ export function useFilterGraph() {
   }, [nodes, sourceImage, generateNodePreview, processImage]);
 
   // Export the processed image
-  const exportImage = useCallback((format = 'png', quality = 0.9) => {
+  const exportImage = useCallback((format = 'png') => {
     if (!processedImage) return;
     
-    // In a real application, we would generate a proper exported file
-    // For now, we'll just open the processed image in a new tab
+    // Create and trigger download for the processed image
     const a = document.createElement('a');
     a.href = processedImage;
     a.download = `filter-kit-export.${format}`;
