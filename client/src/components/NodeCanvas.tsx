@@ -92,19 +92,9 @@ export default function NodeCanvas({
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />
           
-          {/* Zoom controls moved to overlay in bottom-left corner */}
-          <div className="absolute bottom-16 left-2 z-10 bg-white/80 backdrop-blur-sm p-1.5 rounded-md shadow-md border border-gray-200">
-            <div className="flex flex-col space-y-1">
-              <Button size="icon" variant="ghost" onClick={zoomIn} className="h-7 w-7">
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Badge variant="outline" className="text-xs px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-medium text-center">
-                {zoomLevel}%
-              </Badge>
-              <Button size="icon" variant="ghost" onClick={zoomOut} className="h-7 w-7">
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-            </div>
+          {/* Small hint for users about connections */}
+          <div className="absolute top-2 right-2 z-10 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm border border-gray-200">
+            Drag to connect nodes • Double-click to delete connections
           </div>
         </ReactFlow>
       </div>
