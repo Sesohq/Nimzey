@@ -294,7 +294,7 @@ export default function PreviewPanel({
       <div 
         ref={mainPanelRef}
         className={`bg-black text-white flex flex-col relative 
-          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-hidden border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-hidden border-l border-gray-700'} 
+          ${isDetached ? 'fixed z-40 shadow-xl rounded-lg overflow-visible border border-gray-700' : 'fixed right-0 top-0 h-screen overflow-visible border-l border-gray-700'} 
           ${dockArea ? 'ring-2 ring-blue-500' : ''}`}
         style={{ 
           width: `${width}px`,
@@ -418,7 +418,7 @@ export default function PreviewPanel({
         </div>
         
         {/* Format selector */}
-        <div className="border-t border-gray-700 bg-black flex-shrink-0">
+        <div className="border-t border-gray-700 bg-black flex-shrink-0 overflow-visible">
           <div className="p-3 mb-0">
             <div className="text-sm font-bold text-white mb-2 flex items-center font-mono">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -440,7 +440,7 @@ export default function PreviewPanel({
           </div>
           
           {/* Export button - matching Upload Image button */}
-          <div className="p-4" style={{backgroundColor: '#000'}}>
+          <div className="p-4 overflow-visible" style={{backgroundColor: '#000'}}>
             <div 
               className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={() => processedImage && onExportImage(exportFormat)}
