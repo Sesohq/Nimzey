@@ -3,7 +3,19 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { filterCategories } from '@/lib/filterCategories';
-import { Upload, Plus, FilterIcon, Layers } from 'lucide-react';
+import { 
+  Upload, 
+  Plus, 
+  FilterIcon, 
+  Layers, 
+  Wand2, 
+  ImageIcon, 
+  Move3d, 
+  LucideIcon, 
+  Stars,
+  Sparkles,
+  Brush
+} from 'lucide-react';
 import { NodeType, FilterType } from '@/types';
 
 interface FilterPanelProps {
@@ -30,6 +42,28 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       onUploadImage(e.target.files[0]);
     }
   };
+  
+  // Function to get the appropriate icon based on category
+  const getCategoryIcon = (categoryId: string) => {
+    switch(categoryId) {
+      case 'basic':
+        return <Wand2 size={16} />;
+      case 'texture':
+        return <Brush size={16} />;
+      case 'distortion':
+        return <Move3d size={16} />;
+      case 'photo':
+        return <ImageIcon size={16} />;
+      case 'edge':
+        return <FilterIcon size={16} />;
+      case 'artistic':
+        return <Sparkles size={16} />;
+      case 'special':
+        return <Stars size={16} />;
+      default:
+        return <FilterIcon size={16} />;
+    }
+  };
 
   return (
     <div className="filter-panel flex flex-col" style={{ width: `${width}px` }}>
@@ -44,21 +78,28 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
             {Object.entries(filterCategories).map(([categoryId, category]) => (
               <AccordionItem value={categoryId} key={categoryId} className="filter-category border-0">
                 <AccordionTrigger className="filter-category-header py-2 px-3 no-underline">
-                  <span>{category.name}</span>
+                  <div className="flex items-center">
+                    <div className={`icon-container ${categoryId}-filters mr-3`} style={{width: '24px', height: '24px', minWidth: '24px'}}>
+                      {getCategoryIcon(categoryId)}
+                    </div>
+                    <span>{category.name}</span>
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent className="filter-list">
                   {category.filters.map(filter => (
                     <div
                       key={filter.type}
-                      className={`styled-button ${draggedFilter === filter.type ? 'dragging' : ''}`}
+                      className={`btn-container ${categoryId}-filters ${draggedFilter === filter.type ? 'dragging' : ''}`}
                       draggable
                       onDragStart={(e) => handleFilterDragStart(e, filter.type)}
                       onDragEnd={handleFilterDragEnd}
                       onClick={() => onAddFilter(filter.type)}
                     >
-                      <span>{filter.name}</span>
-                      <div className="inner-button ml-auto">
-                        <Plus className="h-4 w-4 icon" />
+                      <div className="text-container">
+                        {filter.name}
+                      </div>
+                      <div className="icon-container">
+                        <Plus size={16} />
                       </div>
                     </div>
                   ))}

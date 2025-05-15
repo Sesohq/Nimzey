@@ -1,0 +1,101 @@
+/* From Uiverse.io by vinodjangid07 - Modified with custom colors */
+.btn-container {
+  display: flex;
+  width: 100%;
+  height: fit-content;
+  background-color: #1d2129;
+  border-radius: 30px;
+  box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.5);
+  justify-content: space-between;
+  align-items: center;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  padding: 0;
+}
+
+.btn-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.6);
+}
+
+.btn-container:active {
+  transform: translateY(1px);
+  box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.icon-container {
+  min-width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #1d2129;
+}
+
+/* Category-specific colors */
+.basic-filters .icon-container {
+  background-color: #5B8FB9;
+}
+
+.texture-filters .icon-container {
+  background-color: #B983FF;
+}
+
+.distortion-filters .icon-container {
+  background-color: #FF7D7D;
+}
+
+.photo-filters .icon-container {
+  background-color: #52D3D8;
+}
+
+.special-filters .icon-container {
+  background-color: #FFC107;
+}
+
+.edge-filters .icon-container {
+  background-color: #4CAF50;
+}
+
+.effect-filters .icon-container {
+  background-color: #F59AFF;
+}
+
+.text-container {
+  width: calc(100% - 40px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 0 8px 14px;
+  color: white;
+  font-size: 0.85em;
+  letter-spacing: 0.5px;
+}
+
+.icon-container svg {
+  transition-duration: 0.5s;
+  color: #1d2129;
+}
+
+.btn-container:hover .icon-container svg {
+  transition-duration: 0.5s;
+  animation: pulse 1s ease infinite;
+  transform: scale(1.2);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
