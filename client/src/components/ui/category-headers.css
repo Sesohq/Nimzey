@@ -2,15 +2,32 @@
 .filter-category-header {
   box-shadow: none !important;
   transition: all 0.3s ease;
+  font-family: "VT323", monospace;
+  border: 1px solid rgb(255, 255, 255);
+  color: rgb(255, 255, 255);
+  border-radius: 15px;
+  margin-bottom: 8px;
 }
 
 .filter-category-header:hover {
   transform: none !important;
+  background-color: #222;
+  color: white;
+  border: 1px solid #0088ff;
+  animation: none !important;
 }
 
 /* Override button container shadow for headers */
 .filter-category-header .icon-container {
   box-shadow: none !important;
+}
+
+/* Override any animations for header */
+.filter-category-header:hover .text-container,
+.filter-category-header:hover .icon-container,
+.filter-category-header:focus .text-container,
+.filter-category-header:focus .icon-container {
+  animation: none !important;
 }
 .basic-header {
   border-left: 3px solid #5B8FB9;
