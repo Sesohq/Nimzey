@@ -1,25 +1,18 @@
-import { memo, useState, useMemo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MinusIcon, LayersIcon } from 'lucide-react';
+import { MinusIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FilterNodeData, BlendMode } from '@/types';
+import { FilterNodeData } from '@/types';
 import NodeControls from './NodeControls';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
-import { getFilterCategory, categoryColors } from '@/lib/filterCategories';
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [isMinimized, setIsMinimized] = useState(false);
-  
-  // Determine the filter category and get the appropriate color
-  const category = useMemo(() => getFilterCategory(data.filterType), [data.filterType]);
-  const categoryStyle = useMemo(() => categoryColors[category as keyof typeof categoryColors], [category]);
-  
+
   const handleToggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsMinimized(!isMinimized);
@@ -36,23 +29,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       data.onToggleEnabled(id, checked);
     }
   };
-  
-  const handleBlendModeChange = (value: string) => {
-    if (data.onBlendModeChange) {
-      data.onBlendModeChange(id, value as BlendMode);
-    }
-  };
-  
-  const handleOpacityChange = (values: number[]) => {
-    if (data.onOpacityChange) {
-      data.onOpacityChange(id, values[0] / 100); // Convert percentage to 0-1 scale
-    }
-  };
 
   return (
     <Card className={`shadow-md w-[220px] bg-white ${selected ? 'ring-2 ring-primary' : ''} ${!data.enabled ? 'opacity-60' : ''}`}>
       <div 
-        className={`${categoryStyle.color} ${categoryStyle.textColor} px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
+        className="bg-accent text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move"
       >
         <div className="flex items-center space-x-2">
           <Checkbox 
@@ -120,90 +101,16 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         </div>
       )}
 
-      {/* Blend Mode and Opacity Controls */}
-      <div className="px-3 pb-3 pt-1">
-        <Separator className="my-2" />
-        
-        <div className="flex items-center justify-between">
-          <Popover>
-            <PopoverTrigger className="flex items-center space-x-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors">
-              <LayersIcon className="h-3 w-3" />
-              <span>{data.blendMode.replace('-', ' ')}</span>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" side="right">
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Blend Mode</Label>
-                <Select value={data.blendMode} onValueChange={handleBlendModeChange} disabled={!data.enabled}>
-                  <SelectTrigger className="w-full text-xs">
-                    <SelectValue placeholder="normal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    
-                    <SelectItem value="multiply">Multiply</SelectItem>
-                    <SelectItem value="screen">Screen</SelectItem>
-                    <SelectItem value="overlay">Overlay</SelectItem>
-                    
-                    <SelectItem value="darken">Darken</SelectItem>
-                    <SelectItem value="lighten">Lighten</SelectItem>
-                    
-                    <SelectItem value="color-dodge">Color Dodge</SelectItem>
-                    <SelectItem value="color-burn">Color Burn</SelectItem>
-                    
-                    <SelectItem value="hard-light">Hard Light</SelectItem>
-                    <SelectItem value="soft-light">Soft Light</SelectItem>
-                    
-                    <SelectItem value="difference">Difference</SelectItem>
-                    <SelectItem value="exclusion">Exclusion</SelectItem>
-                    
-                    <SelectItem value="hue">Hue</SelectItem>
-                    <SelectItem value="saturation">Saturation</SelectItem>
-                    <SelectItem value="color">Color</SelectItem>
-                    <SelectItem value="luminosity">Luminosity</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Label className="text-xs text-gray-500 mt-3 block">Opacity</Label>
-                <div className="flex items-center">
-                  <Slider
-                    value={[data.opacity * 100]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    className="flex-1 mr-2"
-                    onValueChange={handleOpacityChange}
-                    disabled={!data.enabled}
-                  />
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">
-                    {Math.round(data.opacity * 100)}%
-                  </span>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-      
       <div className="px-3 pb-2 flex justify-between relative h-6">
-        {/* Input handle - support multiple connections */}
         <Handle
           type="target"
           position={Position.Left}
-          id="dynamic-input"
-          className="w-9 h-9 rounded-full -ml-4 bg-amber-400"
+          className="w-9 h-9 rounded-full -ml-4 bg-primary"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
-        
-        {/* Small visual indicator showing that this handle accepts multiple connections */}
-        <div className="absolute top-[50%] left-[-10px] transform -translate-y-1/2 w-5 h-5 rounded-full opacity-40 flex items-center justify-center pointer-events-none border-2 border-dashed border-amber-400">
-          <div className="text-[8px] font-bold text-amber-600">∞</div>
-        </div>
-        
-        {/* Output handle */}
         <Handle
           type="source"
           position={Position.Right}
-          id="output"
           className="w-9 h-9 rounded-full -mr-4 bg-accent"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />

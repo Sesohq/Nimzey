@@ -9,8 +9,8 @@ export default function Header({ onNewProject, onExportImage }: HeaderProps) {
   return (
     <header className="bg-darkBg text-white p-3 flex justify-between items-center shadow-md">
       <div className="flex items-center">
-        <h1 className="text-xl font-bold">FilterKit</h1>
-        <span className="ml-2 text-sm text-gray-400">Node-Based Image Filters</span>
+        <h1 className="text-xl font-bold">Filter Forge</h1>
+        <span className="ml-2 text-sm text-gray-400">Inspiration App</span>
       </div>
       <div className="flex space-x-4">
         <Button 
