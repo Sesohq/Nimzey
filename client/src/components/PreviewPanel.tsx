@@ -448,6 +448,9 @@ export default function PreviewPanel({
             <DialogContent className="bg-black border-gray-700 text-white">
               <DialogHeader>
                 <DialogTitle className="font-mono text-white">Export Settings</DialogTitle>
+                <div className="text-xs text-gray-400 mt-1 font-mono">
+                  Configure your image export options
+                </div>
               </DialogHeader>
               <div className="py-4">
                 <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
