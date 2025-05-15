@@ -213,7 +213,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               position={Position.Left}
               style={{ 
                 left: -8, 
-                top: 20, 
+                top: 12, // Aligned with the center of the parameter name
                 width: 10, 
                 height: 10,
                 background: '#555555' 
@@ -254,7 +254,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 position={Position.Left}
                 style={{ 
                   left: -8, 
-                  top: 20, 
+                  top: 12, // Aligned with the center of the parameter name
                   width: 10, 
                   height: 10, 
                   background: param.isConnected ? '#ff5555' : '#555555' 
@@ -358,7 +358,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             type="source"
             position={Position.Right}
             style={{ 
-              top: 16 + (index * 12), 
+              top: 16, // Fixed position aligned with the main output handle
               right: -8, 
               width: 8, 
               height: 8, 
