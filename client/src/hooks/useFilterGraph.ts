@@ -425,8 +425,12 @@ export function useFilterGraph() {
       })
     );
     
+    // First update connected parameters to propagate values
+    updateConnectedParams();
+
+    // Then process the image with the updated values
     processImage();
-  }, [processImage]);
+  }, [processImage, updateConnectedParams]);
   
   // Handle disconnecting a parameter
   const handleDisconnectParam = useCallback((nodeId: string, paramId: string) => {
