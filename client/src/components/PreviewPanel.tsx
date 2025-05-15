@@ -329,18 +329,6 @@ export default function PreviewPanel({
             <span className="text-lg">Preview</span>
           </div>
           <div className="flex space-x-2">
-            {processedImage && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="flex items-center space-x-1 text-white bg-black border-[1px] border-yellow-500 hover:bg-gray-900 px-2 py-1 h-7 rounded font-mono"
-                onClick={() => onExportImage(exportFormat)} 
-                title="Quick Export"
-              >
-                <span>//</span>
-                <span>Export</span>
-              </Button>
-            )}
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="Fullscreen">
               <Maximize2 className="h-4 w-4" />
             </Button>
@@ -437,43 +425,45 @@ export default function PreviewPanel({
             </svg>
             EXPORT OPTIONS
           </div>
-          <div className="mb-2">
-            <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
-            <Select value={exportFormat} onValueChange={setExportFormat}>
-              <SelectTrigger className="w-full bg-gray-900 border border-gray-700 rounded">
-                <SelectValue placeholder="PNG" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="png">PNG</SelectItem>
-                <SelectItem value="jpeg">JPEG</SelectItem>
-                <SelectItem value="webp">WEBP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <div 
-              className={`btn-glitch special-filters ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => processedImage && onExportImage(exportFormat)}
-            >
-              <div className="text-container font-semibold">
-                // Export Image
-              </div>
-              <div className="icon-container" style={{ backgroundColor: '#FFC107' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-1/2 pr-1">
+              <Label className="block text-xs text-gray-300 mb-1 font-mono">Format</Label>
+              <Select value={exportFormat} onValueChange={setExportFormat}>
+                <SelectTrigger className="w-full bg-gray-900 border border-gray-700 rounded">
+                  <SelectValue placeholder="PNG" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="png">PNG</SelectItem>
+                  <SelectItem value="jpeg">JPEG</SelectItem>
+                  <SelectItem value="webp">WEBP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-1/2 pl-1 flex items-end">
+              <div 
+                className={`btn-glitch special-filters w-full ${!processedImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => processedImage && onExportImage(exportFormat)}
+              >
+                <div className="text-container font-semibold">
+                  // Export Image
+                </div>
+                <div className="icon-container" style={{ backgroundColor: '#FFC107' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
             </div>
-            
-            {!processedImage && (
-              <div className="text-xs text-amber-400 p-1 bg-black border border-amber-800 rounded flex items-center font-mono">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                Upload an image and apply filters to enable export
-              </div>
-            )}
           </div>
+          
+          {!processedImage && (
+            <div className="text-xs text-amber-400 p-1 bg-black border border-amber-800 rounded flex items-center font-mono">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              Upload an image and apply filters to enable export
+            </div>
+          )}
         </div>
       </div>
     </>
