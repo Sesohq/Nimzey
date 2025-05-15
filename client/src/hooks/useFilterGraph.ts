@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
+import useFilterWorker from '@/hooks/useFilterWorker';
 
 export function useFilterGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -64,34 +65,111 @@ export function useFilterGraph() {
     return previewUrl;
   }, [nodes, edges, getCanvas]);
 
+  // We'll implement worker support progressively
+  // For now, we'll use a simpler approach to demonstrate the concept
+  const isProcessing = useRef(false);
+
   // Process the image through the filter chain
   const processImage = useCallback(() => {
     if (!sourceImageRef.current) return;
     
-    const canvas = getCanvas();
-    // Always process the complete filter chain
-    const result = applyFilters(sourceImageRef.current, nodes, edges, canvas);
+    // Set processing flag
+    isProcessing.current = true;
     
-    if (result) {
-      // Always update the processed image with the complete chain result
-      setProcessedImage(result);
-      
-      // Update previews for all filter nodes in the chain
-      const filterNodes = nodes.filter(node => node.type === 'filterNode');
-      for (const node of filterNodes) {
-        generateNodePreview(node);
+    // Use setTimeout to keep the UI responsive
+    setTimeout(() => {
+      try {
+        const canvas = getCanvas();
+        
+        // Process with existing applyFilters function
+        const result = applyFilters(sourceImageRef.current, nodes, edges, canvas);
+        
+        if (result) {
+          // Update the processed image
+          setProcessedImage(result);
+          
+          // Update previews for all filter nodes
+          const filterNodes = nodes.filter(node => node.type === 'filterNode');
+          for (const node of filterNodes) {
+            generateNodePreview(node);
+          }
+          
+          // If a node is selected, update its preview in the panel
+          if (selectedNodeId) {
+            const selectedNode = nodes.find(n => n.id === selectedNodeId);
+            if (selectedNode) {
+              const preview = generateNodePreview(selectedNode);
+              setNodePreview(preview);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing image:', error);
+      } finally {
+        // Clear processing flag
+        isProcessing.current = false;
       }
+    }, 0); // Use 0ms timeout to defer execution until after UI updates
+  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview]);
+  
+  /* 
+  // These functions will be used when we implement Web Workers fully
+  // For now, we're using setTimeout to keep the UI responsive
+  
+  // Function to get the processing order of nodes
+  const getProcessOrder = useCallback((nodes: Node[], edges: Edge[]): string[] => {
+    // Find the source node (image node)
+    const sourceNode = nodes.find(node => node.type === 'imageNode');
+    if (!sourceNode) return [];
+    
+    // Start with the source node
+    const order: string[] = [sourceNode.id];
+    const visited = new Set<string>([sourceNode.id]);
+    
+    // Perform a breadth-first traversal
+    let currentIdx = 0;
+    
+    while (currentIdx < order.length) {
+      const currentNodeId = order[currentIdx];
       
-      // If a node is selected, update its node-specific preview in the preview panel
-      if (selectedNodeId) {
-        const selectedNode = nodes.find(n => n.id === selectedNodeId);
-        if (selectedNode) {
-          const preview = generateNodePreview(selectedNode);
-          setNodePreview(preview);
+      // Find all outgoing edges from this node
+      const outgoingEdges = edges.filter(edge => edge.source === currentNodeId);
+      
+      // Add target nodes to the order if not already visited
+      for (const edge of outgoingEdges) {
+        if (!visited.has(edge.target)) {
+          order.push(edge.target);
+          visited.add(edge.target);
         }
       }
+      
+      currentIdx++;
     }
-  }, [nodes, edges, selectedNodeId, getCanvas, generateNodePreview]);
+    
+    return order;
+  }, []);
+  
+  // Update previews for all filter nodes
+  const updateNodePreviews = useCallback(async () => {
+    if (!sourceImageRef.current) return;
+    
+    // Process each filter node to generate its preview
+    const filterNodes = nodes.filter(node => node.type === 'filterNode');
+    
+    for (const node of filterNodes) {
+      await generateNodePreview(node);
+    }
+    
+    // If a node is selected, update its preview in the preview panel
+    if (selectedNodeId) {
+      const selectedNode = nodes.find(n => n.id === selectedNodeId);
+      if (selectedNode) {
+        const preview = await generateNodePreview(selectedNode);
+        setNodePreview(preview);
+      }
+    }
+  }, [nodes, selectedNodeId, generateNodePreview]);
+  */
 
   // Handle node parameter changes
   const handleParamChange = useCallback((nodeId: string, paramName: string, value: number | string) => {
