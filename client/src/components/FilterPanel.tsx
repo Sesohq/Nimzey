@@ -93,7 +93,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
                   {category.filters.map(filter => (
                     <div
                       key={filter.type}
-                      className={`btn-container ${categoryId}-filters ${draggedFilter === filter.type ? 'dragging' : ''}`}
+                      className={`btn-glitch ${categoryId}-filters ${draggedFilter === filter.type ? 'dragging' : ''}`}
                       draggable
                       onDragStart={(e) => handleFilterDragStart(e, filter.type)}
                       onDragEnd={handleFilterDragEnd}
@@ -116,7 +116,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       
       <div className="p-4" style={{backgroundColor: '#1d2129'}}>
         <div 
-          className="btn-container special-filters"
+          className="btn-glitch special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}
           style={{marginBottom: 0}}
         >

@@ -1,0 +1,138 @@
+/* Glitch button style adapted from Uiverse.io by Awadhesh684827 - Modified for dark theme */
+.btn-glitch {
+  display: flex;
+  width: 100%;
+  font-family: "VT323", monospace;
+  border: 1px solid rgb(255, 255, 255);
+  color: rgb(255, 255, 255);
+  background-color: #1d2129;
+  padding: 10px 13px;
+  min-width: 175px;
+  line-height: 1.5em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 15px;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-glitch .text-container,
+.btn-glitch .icon-container {
+  display: inline-block;
+}
+
+.btn-glitch .icon-container {
+  min-width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #1d2129;
+}
+
+.btn-glitch:hover,
+.btn-glitch:focus {
+  animation-name: glitch;
+  animation-duration: 0.2s;
+  background-color: #222;
+  color: white;
+  border: 1px solid #0088ff;
+}
+
+.btn-glitch:hover .text-container,
+.btn-glitch:focus .text-container {
+  animation-name: blink;
+  animation-duration: 0.1s;
+  animation-iteration-count: infinite;
+}
+
+.btn-glitch:hover .icon-container,
+.btn-glitch:focus .icon-container {
+  animation-name: blink;
+  animation-duration: 0.1s;
+  animation-iteration-count: infinite;
+}
+
+.btn-glitch:active {
+  background-color: #000;
+  color: #0088ff;
+}
+
+.btn-glitch:active .text-container,
+.btn-glitch:active .icon-container {
+  animation-name: none;
+}
+
+/* Category-specific colors for icon containers */
+.basic-filters .icon-container {
+  background-color: #5B8FB9;
+}
+
+.texture-filters .icon-container {
+  background-color: #B983FF;
+}
+
+.distortion-filters .icon-container {
+  background-color: #FF7D7D;
+}
+
+.photo-filters .icon-container {
+  background-color: #52D3D8;
+}
+
+.special-filters .icon-container {
+  background-color: #FFC107;
+}
+
+.edge-filters .icon-container {
+  background-color: #4CAF50;
+}
+
+.effect-filters .icon-container {
+  background-color: #F59AFF;
+}
+
+/* Glitch animations */
+@keyframes glitch {
+  25% {
+    background-color: rgba(255, 0, 0, 0.2);
+    transform: translateX(-5px);
+    letter-spacing: 2px;
+  }
+
+  35% {
+    background-color: rgba(0, 255, 0, 0.2);
+    transform: translate(5px);
+  }
+
+  59% {
+    opacity: 0.8;
+  }
+
+  60% {
+    background-color: rgba(0, 0, 255, 0.2);
+    transform: translate(-5px);
+    filter: blur(2px);
+  }
+
+  100% {
+    background-color: #222;
+    filter: blur(0);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shrink {
+  100% {
+    width: 10%;
+  }
+}

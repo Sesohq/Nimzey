@@ -7,6 +7,7 @@ import '@/components/ui/styled-button.css';
 import '@/components/ui/orange-button.css';
 import '@/components/ui/category-button.css';
 import '@/components/ui/category-headers.css';
+import '@/components/ui/glitch-button.css';
 
 createRoot(document.getElementById("root")!).render(
   <ReactFlowProvider>
