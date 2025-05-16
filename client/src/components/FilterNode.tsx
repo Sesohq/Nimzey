@@ -394,35 +394,17 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 </div>
               </div>
               
-              {/* Parameter output handle */}
-              <Handle
-                id={`output-param-${param.id || param.name}`}
-                type="source"
-                position={Position.Right}
-                style={{ 
-                  right: -17, // 3px to the left
-                  top: 14, // 2px down
-                  width: 8, 
-                  height: 8, 
-                  background: '#777777',
-                  borderRadius: '50%',
-                  border: '2px solid #333',
-                  zIndex: 10
-                }}
-              />
+              {/* Parameter output handles removed as requested */}
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
-                  <CustomSlider
+                  <Slider
                     value={[param.value as number]}
                     min={param.min}
                     max={param.max}
                     step={param.step}
-                    color="warning"
-                    size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
-                    onValueCommit={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
                   />
                   {editingParam === (param.id || param.name) ? (
