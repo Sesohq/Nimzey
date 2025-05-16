@@ -398,15 +398,20 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
-                  <Slider
-                    value={[param.value as number]}
-                    min={param.min}
-                    max={param.max}
-                    step={param.step}
+                  <div 
                     className="flex-1 mr-2"
-                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
-                    disabled={!data.enabled || param.isConnected}
-                  />
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                  >
+                    <Slider
+                      value={[param.value as number]}
+                      min={param.min}
+                      max={param.max}
+                      step={param.step}
+                      onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                      disabled={!data.enabled || param.isConnected}
+                    />
+                  </div>
                   {editingParam === (param.id || param.name) ? (
                     <Input
                       type={param.paramType === 'float' || param.paramType === 'integer' ? 'number' : 'text'}
