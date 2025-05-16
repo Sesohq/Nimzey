@@ -394,21 +394,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 </div>
               </div>
               
-              {/* Parameter connection points rendered differently - not as output handles */}
-              <div 
-                id={`param-${param.id || param.name}`}
-                className="absolute"
-                style={{ 
-                  right: -12,
-                  top: 14,
-                  width: 6, 
-                  height: 6, 
-                  background: '#555',
-                  borderRadius: '50%', 
-                  border: '1px solid #333',
-                  zIndex: 5
-                }}
-              />
+              {/* Parameter connection indicators removed */}
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
@@ -501,14 +487,14 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           style={{ top: 16, transform: 'translateY(-50%)' }}
         />
         
-        {/* Single output handle - centered on the right edge */}
+        {/* Single output handle - bottom right corner */}
         <Handle
           id="node-output"
           type="source"
-          position={Position.Right}
+          position={Position.Bottom}
           style={{ 
-            right: -17, // 3px to the left
-            top: 18, // 2px down
+            right: 5, // positioned at the bottom right
+            bottom: -14, 
             width: 8, 
             height: 8, 
             background: '#777777',
