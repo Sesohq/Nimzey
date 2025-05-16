@@ -317,6 +317,9 @@ export function useFilterGraph() {
       return;
     }
     
+    // Find output nodes
+    const outputNodes = nodes.filter(node => node.type === 'outputNode');
+    
     // Start processing from each source node
     sourceNodes.forEach(sourceNode => {
       processConnectedNodes(sourceNode.id, sourceImage);
@@ -326,12 +329,45 @@ export function useFilterGraph() {
     // This ensures we have a complete result for export
     try {
       const canvas = getCanvas();
-      const result = applyFilters(
-        sourceImageRef.current as HTMLImageElement, 
-        nodes, 
-        edges, 
-        canvas
-      );
+      
+      // If we have an active output node, use it for processing
+      let result: string | null = null;
+      
+      if (activeOutputNodeId && outputNodes.some(node => node.id === activeOutputNodeId)) {
+        // Process specifically to the active output node
+        result = applyFilters(
+          sourceImageRef.current as HTMLImageElement, 
+          nodes, 
+          edges, 
+          canvas,
+          undefined,
+          activeOutputNodeId
+        );
+        
+        // Update the output node with the result
+        if (result) {
+          setNodes(nds => nds.map(node => {
+            if (node.id === activeOutputNodeId) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  preview: result
+                }
+              };
+            }
+            return node;
+          }));
+        }
+      } else {
+        // If no active output node, process the whole chain
+        result = applyFilters(
+          sourceImageRef.current as HTMLImageElement, 
+          nodes, 
+          edges, 
+          canvas
+        );
+      }
       
       if (result) {
         // Update the processed image
@@ -656,28 +692,62 @@ export function useFilterGraph() {
       const imageDataUrl = e.target?.result as string;
       setSourceImage(imageDataUrl);
       
-      // Update the source node with the new image
-      setNodes(nds => 
-        nds.map(node => {
-          if (node.id.startsWith('source-')) {
-            return {
-              ...node,
-              data: { 
-                src: imageDataUrl,
-                onUploadImage: uploadFunctionRef.current
-              },
-            };
-          }
-          return node;
-        })
-      );
-      
       // Create a new image element to store the original
       const img = new Image();
+      
       img.onload = () => {
         sourceImageRef.current = img;
+
+        // Update the nodes with the new image and add an output node if needed
+        setNodes(nds => {
+          // First update the image node
+          const updatedNodes = nds.map(node => {
+            if (node.id.startsWith('source-')) {
+              return {
+                ...node,
+                data: { 
+                  src: imageDataUrl,
+                  onUploadImage: uploadFunctionRef.current
+                },
+              };
+            }
+            return node;
+          });
+          
+          // Find the source node and check if we already have an output node
+          const sourceNode = updatedNodes.find(node => node.id.startsWith('source-'));
+          const hasOutputNode = updatedNodes.some(node => node.type === 'outputNode');
+          
+          // If we have a source node but no output node, create one
+          if (sourceNode && !hasOutputNode) {
+            const outputNodeId = `output-${uuidv4().substring(0, 8)}`;
+            const outputNode = {
+              id: outputNodeId,
+              type: 'outputNode',
+              position: { 
+                x: sourceNode.position.x + 400, 
+                y: sourceNode.position.y 
+              },
+              data: {
+                preview: null,
+                isActive: true
+              }
+            };
+            
+            // Add the output node to our nodes array
+            updatedNodes.push(outputNode);
+            
+            // Set this as the active output node
+            setTimeout(() => setActiveOutputNodeId(outputNodeId), 0);
+          }
+          
+          return updatedNodes;
+        });
+        
+        // Process the image after nodes are updated
         processImage();
       };
+      
       img.src = imageDataUrl;
     };
     reader.readAsDataURL(file);
