@@ -47,6 +47,19 @@ export function useFilterGraph() {
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  
+  // Helper function to set the active output node
+  const setActiveOutput = useCallback((nodeId: string) => {
+    setNodes(ns =>
+      ns.map(n =>
+        n.type === 'outputNode'
+          ? { ...n, data: { ...n.data, isActive: n.id === nodeId } }
+          : n
+      )
+    );
+    // Process the image to update the output preview
+    processImage();
+  }, []);
 
   // Initialize canvas when needed
   const getCanvas = useCallback(() => {
@@ -706,6 +719,8 @@ export function useFilterGraph() {
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
     const sourceNodeId = 'source-1';
+    const outputNode = createOutputNode({ x: 600, y: 100 });
+    
     setNodes([
       {
         id: sourceNodeId,
@@ -716,6 +731,7 @@ export function useFilterGraph() {
           onUploadImage: uploadFunctionRef.current
         },
       },
+      outputNode
     ]);
     setEdges([]);
     setSourceImage(null);
