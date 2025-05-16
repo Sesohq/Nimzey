@@ -67,14 +67,7 @@ export default function NodeCanvas({
     onNodeClick('');
   };
 
-  const handleNodeClick = (event: React.MouseEvent, node: Node) => {
-    // For ImageNodes, we need to check if _openFileDialog exists and call it
-    if (node.type === 'imageNode' && node.data._openFileDialog) {
-      // Use the openFileDialog function stored on the node data
-      node.data._openFileDialog(event);
-    }
-    
-    // Always call the parent's onNodeClick to handle selection
+  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
   };
   

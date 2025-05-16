@@ -24,10 +24,9 @@ interface FilterPanelProps {
   onUploadImage: (file: File) => void;
   sourceImage: string | null;
   onAddOutputNode?: () => void;
-  onAddImageNode?: () => void;
 }
 
-export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage, onAddOutputNode, onAddImageNode }: FilterPanelProps) {
+export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage, onAddOutputNode }: FilterPanelProps) {
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
 
   const handleFilterDragStart = (e: React.DragEvent, filter: FilterType) => {
@@ -117,35 +116,18 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       </ScrollArea>
       
       <div className="p-4" style={{backgroundColor: '#000'}}>
-        {/* Upload Source Image button */}
         <div 
           className="btn-glitch special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}
-          style={{marginBottom: onAddImageNode ? '10px' : 0}}
+          style={{marginBottom: 0}}
         >
           <div className="text-container font-semibold">
-            // Upload Source Image
+            // Upload Image
           </div>
           <div className="icon-container" style={{backgroundColor: '#FF7D00'}}>
             <Upload size={16} />
           </div>
         </div>
-        
-        {/* Add Image Node button */}
-        {onAddImageNode && (
-          <div 
-            className="btn-glitch utility-filters"
-            onClick={onAddImageNode}
-            style={{marginBottom: 0}}
-          >
-            <div className="text-container font-semibold">
-              // Add Image Node
-            </div>
-            <div className="icon-container" style={{backgroundColor: '#3B82F6'}}>
-              <ImageIcon size={16} />
-            </div>
-          </div>
-        )}
         
         <input 
           type="file" 
