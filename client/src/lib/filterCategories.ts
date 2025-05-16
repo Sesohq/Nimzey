@@ -1,6 +1,16 @@
 import { FilterCategory } from '@/types';
 
 export const filterCategories: Record<string, FilterCategory> = {
+  utility: {
+    name: 'Utility',
+    filters: [
+      {
+        name: 'Output Node',
+        type: 'outputNode',
+        params: []
+      }
+    ]
+  },
   basic: {
     name: 'Basic Filters',
     filters: [
