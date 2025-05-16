@@ -201,7 +201,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         ${!data.enabled ? 'opacity-60' : ''} nodrag`}
     >
       <div 
-        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move drag-handle`}
       >
         <div className="flex items-center space-x-2">
           <Checkbox 
