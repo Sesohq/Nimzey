@@ -819,34 +819,6 @@ export function useFilterGraph() {
 
   // Function to add a new filter node
   const addNode = useCallback((filterType: FilterType) => {
-    // Special handling for output nodes
-    if (filterType === 'outputNode') {
-      const outputNodeId = `output-${uuidv4().substring(0, 8)}`;
-      
-      // Get the last node's position to place the output node in a good spot
-      const lastNodeX = nodes.reduce((max, node) => 
-        Math.max(max, node.position.x), 100);
-      
-      const newOutputNode = {
-        id: outputNodeId,
-        type: 'outputNode',
-        position: { 
-          x: lastNodeX + 300, 
-          y: Math.random() * 200 + 100 
-        },
-        data: {
-          preview: null,
-          isActive: true
-        }
-      };
-      
-      // Add the output node
-      setNodes(nds => [...nds, newOutputNode]);
-      setActiveOutputNodeId(outputNodeId);
-      return;
-    }
-    
-    // Regular filter node handling
     const filterDef = findFilterByType(filterType);
     if (!filterDef) return;
 
