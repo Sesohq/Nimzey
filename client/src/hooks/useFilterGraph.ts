@@ -370,6 +370,36 @@ export function useFilterGraph() {
         // Update the processed image
         setProcessedImage(result);
         
+        // Update any active OutputNodes with the result
+        const activeOutputNodes = nodes.filter(
+          node => node.type === 'outputNode' && (node.data as OutputNodeData).isActive
+        );
+        
+        if (activeOutputNodes.length > 0) {
+          setNodes(currentNodes =>
+            currentNodes.map(node => {
+              if (node.type === 'outputNode' && (node.data as OutputNodeData).isActive) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    preview: result
+                  }
+                };
+              }
+              return node;
+            })
+          );
+          
+          // Update the processed images map for output nodes
+          activeOutputNodes.forEach(node => {
+            setProcessedImages(prev => ({
+              ...prev,
+              [node.id]: result
+            }));
+          });
+        }
+        
         // If a node is selected, update its preview in the panel
         if (selectedNodeId) {
           const selectedNode = nodes.find(n => n.id === selectedNodeId);
@@ -1013,7 +1043,9 @@ export function useFilterGraph() {
         setEdges(eds => addEdge(newEdge, eds));
         
         // Set this OutputNode as active (only show one output at a time)
-        setActiveOutput(connection.target);
+        if (connection.target) {
+          setActiveOutput(connection.target as string);
+        }
       } else {
         // Regular node-to-node connection
         const newEdge = {

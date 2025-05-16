@@ -73,6 +73,14 @@ export const applyFilters = (
   // Apply each filter in the chain
   for (let i = 1; i < nodesToProcess.length; i++) {
     const node = nodesToProcess[i];
+    
+    // Handle different node types
+    if (node.type === 'outputNode') {
+      // For OutputNodes, we just want to create a snapshot of the current state
+      // but don't need to apply any filters
+      continue;
+    }
+    
     if (node.type !== 'filterNode') continue;
     
     const filterData = node.data as FilterNodeData;
@@ -98,10 +106,18 @@ const buildProcessingChain = (sourceNodeId: string, nodes: Node[], edges: Edge[]
   
   if (targetNodes.length === 0) return chain;
   
+  // Prioritize OutputNodes in the processing chain
+  // This ensures that if there's a connection to an OutputNode, we follow it first
+  const outputNodes = targetNodes.filter(node => node.type === 'outputNode');
+  const otherNodes = targetNodes.filter(node => node.type !== 'outputNode');
+  
+  // Place OutputNodes first in the processing queue
+  const orderedTargetNodes = [...outputNodes, ...otherNodes];
+  
   // Process all branches from this node
   let allConnectedNodes: Node[] = [];
   
-  for (const targetNode of targetNodes) {
+  for (const targetNode of orderedTargetNodes) {
     const nextNodes = buildProcessingChain(targetNode.id, nodes, edges, visited);
     allConnectedNodes = [...allConnectedNodes, ...nextNodes];
   }
