@@ -422,6 +422,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                    onValueCommit={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
                   />
                   {editingParam === (param.id || param.name) ? (
