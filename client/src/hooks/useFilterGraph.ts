@@ -11,10 +11,26 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
+import { FilterType, FilterNodeData, ImageNodeData, OutputNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
 import { toast } from '@/hooks/use-toast';
+
+// OutputNode type definition
+type OutputNode = Node<OutputNodeData> & { type: 'outputNode' };
+
+// Helper function to create an output node
+function createOutputNode(position = { x: 600, y: 200 }): OutputNode {
+  return {
+    id: `output-${uuidv4()}`,
+    type: 'outputNode',
+    position,
+    data: { 
+      isActive: true,
+      preview: null
+    },
+  };
+}
 
 export function useFilterGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);

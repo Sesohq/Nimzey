@@ -1,0 +1,129 @@
+Let’s bake an actual OutputNode into your hook and graph so that it really is the unique end-point. Here’s a minimal set of changes you can drop right into your existing useFilterGraph:
+
+1) Extend your types
+ts
+Copy
+Edit
+// types.ts
+export interface OutputNodeData {
+  /** thumbnail of this node’s output */
+  preview?: string;
+  /** only one outputNode may be “live” at a time */
+  isActive: boolean;
+}
+
+// in your hook file, alongside your other Node types:
+type OutputNode = Node<OutputNodeData> & { type: 'outputNode' };
+2) Factory & activation helper
+ts
+Copy
+Edit
+import { v4 as uuidv4 } from 'uuid';
+
+function createOutputNode(position = { x: 600, y: 200 }): OutputNode {
+  return {
+    id: `output-${uuidv4()}`,
+    type: 'outputNode',
+    position,
+    data: { isActive: true }, // newly created node becomes active
+  };
+}
+
+function setActiveOutput(nodeId: string) {
+  setNodes(ns =>
+    ns.map(n =>
+      n.type === 'outputNode'
+        ? { ...n, data: { ...n.data, isActive: n.id === nodeId } }
+        : n
+    )
+  );
+}
+Call setActiveOutput(newId) immediately after you setNodes([... , createOutputNode()]) or whenever the user clicks “Set as final output”.
+
+3) Lock down connections in onConnect
+ts
+Copy
+Edit
+const onConnect = useCallback((connection: Connection) => {
+  // find the target node
+  const target = nodes.find(n => n.id === connection.target);
+  
+  // if it’s an Output node, only allow its single “in” handle and replace any prior
+  if (target?.type === 'outputNode') {
+    const newEdge: Edge = { /* build edge with targetHandle: 'in' */ };
+    setEdges(es => [
+      ...es.filter(e => e.target !== target.id),
+      newEdge,
+    ]);
+    setActiveOutput(target.id);
+    // also re-process main image
+    processImage();
+    return;
+  }
+
+  // otherwise proceed as normal…
+}, [nodes, processImage]);
+Give your Output node a single <Handle type="target" position={Position.Left} id="in" /> in its React component.
+
+4) Drive processImage from the active output
+Replace your “full-graph vs selected-node” logic at the top of processImage with:
+
+ts
+Copy
+Edit
+// inside processImage():
+// 1) pick the active output node
+const activeOut = nodes.find(
+  (n): n is OutputNode => n.type === 'outputNode' && n.data.isActive
+);
+
+// 2) build a chain ending at that output (or fall back to full graph)
+const { nodes: chainNodes, edges: chainEdges } = activeOut
+  ? getNodeChain(activeOut.id, nodes, edges)
+  : { nodes, edges };
+
+// 3) applyFilters to that chain only
+const result = applyFilters(
+  sourceImageRef.current!,
+  chainNodes,
+  chainEdges,
+  exportCanvasRef.current!,
+  undefined,
+  true
+);
+setProcessedImage(result);
+Now your “Download” button and main preview will always show exactly whatever feeds that active Output node.
+
+5) Render the Output node
+tsx
+Copy
+Edit
+// FilterOutputNode.tsx
+import { Handle, Position } from 'reactflow';
+
+export function OutputNode({ id, data }: NodeProps<OutputNodeData>) {
+  return (
+    <div className={`output-node ${data.isActive ? 'active' : ''}`}>
+      <Handle type="target" position={Position.Left} id="in" />
+      <div className="label">FINAL OUTPUT</div>
+      {data.preview
+        ? <img src={data.preview} className="preview-img" />
+        : <div className="placeholder">no data</div>}
+    </div>
+  );
+}
+Don’t forget to register it in your ReactFlow nodeTypes.
+
+With these six small steps:
+
+OutputNodeData type + createOutputNode()
+
+Single active semantics via setActiveOutput
+
+Connection lock-down in onConnect
+
+processImage routed through the active Output
+
+OutputNode React component
+
+Export already works because it’s pointed at your exportCanvasRef

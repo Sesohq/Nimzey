@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
+import OutputNode from './OutputNode';
 import { Badge } from '@/components/ui/badge';
 
 // Creating nodeTypes - note that we need to define them inside the component 
@@ -58,7 +59,8 @@ export default function NodeCanvas({
     // Use a wrapper to pass onUploadImage to ImageNode
     imageNode: (nodeProps: any) => (
       <ImageNode {...nodeProps} onUploadImage={onUploadImage} />
-    )
+    ),
+    outputNode: OutputNode
   };
 
   const onDragOver = useCallback((event: React.DragEvent) => {
