@@ -1,10 +1,18 @@
-import { memo } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
+import { memo, useEffect, useState } from 'react';
+import { Handle, Position, NodeProps, useEdges } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { OutputNodeData } from '@/types';
 
-const OutputNode = ({ data, selected }: NodeProps<OutputNodeData>) => {
+const OutputNode = ({ data, selected, id }: NodeProps<OutputNodeData>) => {
   const { preview, isActive } = data;
+  const edges = useEdges();
+  const [hasConnection, setHasConnection] = useState(false);
+  
+  // Check if node has incoming connections
+  useEffect(() => {
+    const isConnected = edges.some(edge => edge.target === id);
+    setHasConnection(isConnected);
+  }, [edges, id]);
   
   return (
     <Card className={`shadow-md w-[160px] min-h-[120px] bg-black border-2 ${selected ? 'border-primary' : 'border-gray-700'} rounded-md overflow-hidden`}>
@@ -34,7 +42,7 @@ const OutputNode = ({ data, selected }: NodeProps<OutputNodeData>) => {
       
       {/* Preview or empty state */}
       <div className="flex items-center justify-center p-4" style={{ minHeight: '80px' }}>
-        {preview ? (
+        {preview && hasConnection ? (
           <img src={preview} alt="Output preview" className="w-full h-full object-cover" />
         ) : (
           <div className="text-neutral-500 text-xs text-center">
