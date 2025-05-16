@@ -394,20 +394,19 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 </div>
               </div>
               
-              {/* Parameter output handle */}
-              <Handle
-                id={`output-param-${param.id || param.name}`}
-                type="source"
-                position={Position.Right}
+              {/* Parameter connection points rendered differently - not as output handles */}
+              <div 
+                id={`param-${param.id || param.name}`}
+                className="absolute"
                 style={{ 
-                  right: -17, // 3px to the left
-                  top: 14, // 2px down
-                  width: 8, 
-                  height: 8, 
-                  background: '#777777',
-                  borderRadius: '50%',
-                  border: '2px solid #333',
-                  zIndex: 10
+                  right: -12,
+                  top: 14,
+                  width: 6, 
+                  height: 6, 
+                  background: '#555',
+                  borderRadius: '50%', 
+                  border: '1px solid #333',
+                  zIndex: 5
                 }}
               />
               
