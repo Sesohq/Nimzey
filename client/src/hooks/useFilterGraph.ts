@@ -716,10 +716,11 @@ export function useFilterGraph() {
     reader.readAsDataURL(file);
   }, [processImage]);
 
-  // Set the upload function reference for use in image nodes
+  // Set the function references
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
-  }, [uploadImage]);
+    processImageRef.current = processImage;
+  }, [uploadImage, processImage]);
 
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
@@ -1035,8 +1036,8 @@ export function useFilterGraph() {
   }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes, setActiveOutput]);
 
   // Handle node selection
-  const onNodeSelect = useCallback((nodeId: string) => {
-    setSelectedNodeId(nodeId ? nodeId : null);
+  const onNodeSelect = useCallback((nodeId: string | null) => {
+    setSelectedNodeId(nodeId);
     
     // Generate preview for the selected node
     if (nodeId && sourceImage) {
