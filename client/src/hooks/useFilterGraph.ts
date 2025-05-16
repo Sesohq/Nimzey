@@ -986,19 +986,43 @@ export function useFilterGraph() {
         }
       }
     } else {
-      // Regular node-to-node connection
-      const newEdge = {
-        ...connection,
-        id: `e-${connection.source}-${connection.target}`,
-        animated: true,
-        type: 'smoothstep',
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 20,
-          height: 20,
-        },
-      };
-      setEdges(eds => addEdge(newEdge, eds));
+      // Check if we're connecting to an OutputNode
+      const targetNode = nodes.find(n => n.id === connection.target);
+      
+      if (targetNode && targetNode.type === 'outputNode') {
+        // Creating connection to an OutputNode
+        const newEdge = {
+          ...connection,
+          id: `e-${connection.source}-${connection.target}`,
+          animated: true,
+          type: 'smoothstep',
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 20,
+            height: 20,
+          },
+        };
+        
+        // Add the connection
+        setEdges(eds => addEdge(newEdge, eds));
+        
+        // Set this OutputNode as active (only show one output at a time)
+        setActiveOutput(connection.target);
+      } else {
+        // Regular node-to-node connection
+        const newEdge = {
+          ...connection,
+          id: `e-${connection.source}-${connection.target}`,
+          animated: true,
+          type: 'smoothstep',
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 20,
+            height: 20,
+          },
+        };
+        setEdges(eds => addEdge(newEdge, eds));
+      }
     }
 
     // Re-process the image when connections change
