@@ -1150,6 +1150,45 @@ export function useFilterGraph() {
     
     return outputNodeId;
   }, [nodes]);
+  
+  // Function to add a new image node
+  const addImageNode = useCallback(() => {
+    const imageNodeId = `image-${uuidv4().substring(0, 8)}`;
+    
+    // Get average node position to place the new image node in a visible area
+    let avgX = 250;
+    let avgY = 250;
+    
+    if (nodes.length > 0) {
+      const sum = nodes.reduce((acc, node) => {
+        return {
+          x: acc.x + node.position.x,
+          y: acc.y + node.position.y
+        };
+      }, { x: 0, y: 0 });
+      
+      avgX = sum.x / nodes.length + 100;
+      avgY = sum.y / nodes.length + 50;
+    }
+    
+    const newImageNode = {
+      id: imageNodeId,
+      type: 'imageNode',
+      position: { 
+        x: avgX, 
+        y: avgY 
+      },
+      data: { 
+        src: null,
+        onUploadImage: uploadFunctionRef.current,
+        label: 'Image'
+      },
+    };
+    
+    setNodes(nds => [...nds, newImageNode]);
+    
+    return imageNodeId;
+  }, [nodes]);
 
   return {
     nodes,
@@ -1160,6 +1199,7 @@ export function useFilterGraph() {
     onNodeSelect,
     addNode,
     addOutputNode,
+    addImageNode,
     selectedNode,
     selectedNodeId,
     processedImage,

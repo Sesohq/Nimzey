@@ -15,6 +15,7 @@ export default function Home() {
     onNodeSelect,
     addNode,
     addOutputNode,
+    addImageNode,
     selectedNode,
     selectedNodeId,
     processedImage,
@@ -44,6 +45,7 @@ export default function Home() {
           onUploadImage={uploadImage}
           sourceImage={sourceImage}
           onAddOutputNode={addOutputNode}
+          onAddImageNode={addImageNode}
         />
         
         <NodeCanvas

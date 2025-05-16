@@ -24,9 +24,10 @@ interface FilterPanelProps {
   onUploadImage: (file: File) => void;
   sourceImage: string | null;
   onAddOutputNode?: () => void;
+  onAddImageNode?: () => void;
 }
 
-export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage, onAddOutputNode }: FilterPanelProps) {
+export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage, onAddOutputNode, onAddImageNode }: FilterPanelProps) {
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
 
   const handleFilterDragStart = (e: React.DragEvent, filter: FilterType) => {
