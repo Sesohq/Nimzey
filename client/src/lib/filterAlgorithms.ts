@@ -87,7 +87,13 @@ export const applyFilters = (
     // Skip disabled filters
     if (!filterData.enabled) continue;
     
-    applyFilter(filterData.filterType, ctx, canvas, filterData.params);
+    // Convert FilterParam[] to expected format for applyFilter
+    const params = filterData.params.map(param => ({
+      name: param.id || param.name,
+      value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
+    }));
+    
+    applyFilter(filterData.filterType, ctx, canvas, params);
   }
   
   return canvas.toDataURL();
