@@ -1054,6 +1054,33 @@ export function useFilterGraph() {
   // Selected node data
   const selectedNode = nodes.find(node => node.id === selectedNodeId) || null;
 
+  // Function to add an output node
+  const addOutputNode = useCallback(() => {
+    const outputNodeId = `output-${uuidv4().substring(0, 8)}`;
+    
+    // Get the last node's position to place the output node to the right
+    const lastNodeX = nodes.reduce((max, node) => 
+      Math.max(max, node.position.x), 100);
+    
+    const newOutputNode = {
+      id: outputNodeId,
+      type: 'outputNode',
+      position: { 
+        x: lastNodeX + 300, 
+        y: 100 
+      },
+      data: {
+        preview: null,
+        isActive: true
+      }
+    };
+    
+    setNodes(nds => [...nds, newOutputNode]);
+    setActiveOutputNodeId(outputNodeId);
+    
+    return outputNodeId;
+  }, [nodes]);
+
   return {
     nodes,
     edges,
@@ -1062,6 +1089,7 @@ export function useFilterGraph() {
     onConnect,
     onNodeSelect,
     addNode,
+    addOutputNode,
     selectedNode,
     selectedNodeId,
     processedImage,

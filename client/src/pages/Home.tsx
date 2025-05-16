@@ -14,6 +14,7 @@ export default function Home() {
     onConnect,
     onNodeSelect,
     addNode,
+    addOutputNode,
     selectedNode,
     selectedNodeId,
     processedImage,
