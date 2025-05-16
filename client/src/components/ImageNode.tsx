@@ -4,6 +4,13 @@ import { Card } from '@/components/ui/card';
 import { ImageNodeData } from '@/types';
 import { Upload, Plus } from 'lucide-react';
 
+// Apply CSS to make the node fully interactive
+const nodeStyles = {
+  pointerEvents: 'auto' as const,
+  userSelect: 'none' as const,
+  cursor: 'pointer'
+};
+
 interface ExtendedNodeProps extends NodeProps<ImageNodeData> {
   onUploadImage?: (file: File) => void;
 }
@@ -49,10 +56,9 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
   return (
     <Card 
       className={`shadow-md w-[180px] ${isSourceNode ? 'bg-white' : 'bg-blue-50'} ${selected ? 'ring-2 ring-primary' : ''}`}
-      style={{ 
-        pointerEvents: 'auto',
-        userSelect: 'none'
-      }}
+      style={nodeStyles}
+      onClick={openFileDialog}
+      onPointerDown={openFileDialog}
     >
       <div 
         className={`${isSourceNode ? 'bg-blue-500' : 'bg-blue-400'} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between`}
