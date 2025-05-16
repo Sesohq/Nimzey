@@ -119,7 +119,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         <div 
           className="btn-glitch special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}
-          style={{marginBottom: '10px'}}
+          style={{marginBottom: 0}}
         >
           <div className="text-container font-semibold">
             // Upload Image
@@ -128,21 +128,6 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
             <Upload size={16} />
           </div>
         </div>
-        
-        {onAddOutputNode && (
-          <div 
-            className="btn-glitch special-filters"
-            onClick={onAddOutputNode}
-            style={{marginBottom: 0}}
-          >
-            <div className="text-container font-semibold">
-              // Add Output Node
-            </div>
-            <div className="icon-container" style={{backgroundColor: '#4CAF50'}}>
-              <Stars size={16} />
-            </div>
-          </div>
-        )}
         
         <input 
           type="file" 

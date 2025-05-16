@@ -43,6 +43,7 @@ export default function Home() {
           onAddFilter={addNode}
           onUploadImage={uploadImage}
           sourceImage={sourceImage}
+          onAddOutputNode={addOutputNode}
         />
         
         <NodeCanvas

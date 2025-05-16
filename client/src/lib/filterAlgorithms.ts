@@ -47,16 +47,51 @@ export const applyFilters = (
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
-  targetNodeId?: string
+  targetNodeId?: string,
+  outputNodeId?: string
 ): string | null => {
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
   if (!sourceNode) return null;
   
-  // If a target node is specified, get the path to it
-  const nodesToProcess = targetNodeId 
-    ? getPathToNode(targetNodeId, nodes, edges)
-    : buildProcessingChain(sourceNode.id, nodes, edges);
+  // Process nodes differently based on which nodes were specified
+  let nodesToProcess;
+  
+  if (targetNodeId && outputNodeId) {
+    // If both target and output are specified, find the path from target to output
+    const targetNode = nodes.find(node => node.id === targetNodeId);
+    const outputNode = nodes.find(node => node.id === outputNodeId);
+    
+    if (targetNode && outputNode) {
+      const pathToTarget = getPathToNode(targetNodeId, nodes, edges);
+      const pathToOutput = getPathToNode(outputNodeId, nodes, edges);
+      
+      // Determine which path to use based on whether target is in path to output
+      const targetInPathToOutput = pathToOutput.some(node => node.id === targetNodeId);
+      
+      if (targetInPathToOutput) {
+        // If target is in path to output, use subpath from target to output
+        const targetIndex = pathToOutput.findIndex(node => node.id === targetNodeId);
+        nodesToProcess = pathToOutput.slice(targetIndex);
+      } else {
+        // Otherwise, just process to the target
+        nodesToProcess = pathToTarget;
+      }
+    } else {
+      // Fall back to just target if we can't find one of the nodes
+      nodesToProcess = targetNodeId 
+        ? getPathToNode(targetNodeId, nodes, edges)
+        : buildProcessingChain(sourceNode.id, nodes, edges);
+    }
+  } else if (outputNodeId) {
+    // If only output node specified, process path to output
+    nodesToProcess = getPathToNode(outputNodeId, nodes, edges);
+  } else {
+    // Otherwise use standard processing
+    nodesToProcess = targetNodeId 
+      ? getPathToNode(targetNodeId, nodes, edges)
+      : buildProcessingChain(sourceNode.id, nodes, edges);
+  }
 
   if (nodesToProcess.length === 0) return null;
   
