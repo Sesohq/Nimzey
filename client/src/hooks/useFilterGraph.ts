@@ -713,7 +713,6 @@ export function useFilterGraph() {
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
     const sourceNodeId = 'source-1';
-    const outputNodeId = 'output-1';
     
     setNodes([
       {
@@ -724,15 +723,6 @@ export function useFilterGraph() {
           src: null,
           onUploadImage: uploadFunctionRef.current
         },
-      },
-      {
-        id: outputNodeId,
-        type: 'outputNode',
-        position: { x: 600, y: 100 },
-        data: {
-          preview: null,
-          isActive: true
-        },
       }
     ]);
     
@@ -741,7 +731,6 @@ export function useFilterGraph() {
     setProcessedImage(null);
     setSelectedNodeId(null);
     setNodePreview(null);
-    setActiveOutputNodeId(outputNodeId);
   }, []);
 
   // Initialize the source node
