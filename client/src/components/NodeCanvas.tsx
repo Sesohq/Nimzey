@@ -109,8 +109,6 @@ export default function NodeCanvas({
           snapGrid={[15, 15]}
           onDragOver={onDragOver}
           deleteKeyCode="Delete"
-          nodesDraggable={true}
-          selectNodesOnDrag={false}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />

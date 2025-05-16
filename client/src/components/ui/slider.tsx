@@ -13,6 +13,9 @@ const Slider = React.forwardRef<
       "relative flex w-full touch-none select-none items-center",
       className
     )}
+    onClick={e => e.stopPropagation()}
+    onMouseDown={e => e.stopPropagation()}
+    onPointerDown={e => e.stopPropagation()}
     {...props}
   >
     <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-gray-200">
