@@ -73,7 +73,7 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         <div className="icon-container basic-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
           <Layers className="h-5 w-5" />
         </div>
-        <span className="text-lg">Nodes</span>
+        <span className="text-lg">Filters</span>
       </div>
       
       <ScrollArea className="flex-1">

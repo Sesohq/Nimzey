@@ -11,26 +11,10 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { FilterType, FilterNodeData, ImageNodeData, OutputNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
+import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { applyFilters } from '@/lib/filterAlgorithms';
 import { toast } from '@/hooks/use-toast';
-
-// OutputNode type definition
-type OutputNode = Node<OutputNodeData> & { type: 'outputNode' };
-
-// Helper function to create an output node
-function createOutputNode(position = { x: 600, y: 200 }): OutputNode {
-  return {
-    id: `output-${uuidv4()}`,
-    type: 'outputNode',
-    position,
-    data: { 
-      isActive: true,
-      preview: null
-    },
-  };
-}
 
 export function useFilterGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -47,24 +31,6 @@ export function useFilterGraph() {
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  
-  // Declare processImageRef to avoid circular dependencies
-  const processImageRef = useRef<() => void>(() => {});
-  
-  // Helper function to set the active output node
-  const setActiveOutput = useCallback((nodeId: string) => {
-    setNodes(ns =>
-      ns.map(n =>
-        n.type === 'outputNode'
-          ? { ...n, data: { ...n.data, isActive: n.id === nodeId } }
-          : n
-      )
-    );
-    // Process the image to update the output preview
-    if (processImageRef.current) {
-      processImageRef.current();
-    }
-  }, []);
 
   // Initialize canvas when needed
   const getCanvas = useCallback(() => {
@@ -369,67 +335,6 @@ export function useFilterGraph() {
       if (result) {
         // Update the processed image
         setProcessedImage(result);
-        
-        // Update connected OutputNodes with the result
-        // Check for active output nodes that have actual connections in the graph
-        const activeOutputNodes = nodes.filter(node => 
-          node.type === 'outputNode' && 
-          (node.data as OutputNodeData).isActive &&
-          // Only consider nodes that have incoming connections
-          edges.some(edge => edge.target === node.id)
-        );
-        
-        if (activeOutputNodes.length > 0) {
-          setNodes(currentNodes =>
-            currentNodes.map(node => {
-              if (node.type === 'outputNode' && 
-                  (node.data as OutputNodeData).isActive &&
-                  edges.some(edge => edge.target === node.id)) {
-                return {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    preview: result
-                  }
-                };
-              } else if (node.type === 'outputNode') {
-                // Reset preview for disconnected output nodes
-                return {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    preview: null
-                  }
-                };
-              }
-              return node;
-            })
-          );
-          
-          // Update the processed images map for output nodes
-          activeOutputNodes.forEach(node => {
-            setProcessedImages(prev => ({
-              ...prev,
-              [node.id]: result
-            }));
-          });
-        } else {
-          // Clear previews from all output nodes if none are connected
-          setNodes(currentNodes =>
-            currentNodes.map(node => {
-              if (node.type === 'outputNode') {
-                return {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    preview: null
-                  }
-                };
-              }
-              return node;
-            })
-          );
-        }
         
         // If a node is selected, update its preview in the panel
         if (selectedNodeId) {
@@ -777,17 +682,14 @@ export function useFilterGraph() {
     reader.readAsDataURL(file);
   }, [processImage]);
 
-  // Set the function references
+  // Set the upload function reference for use in image nodes
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
-    processImageRef.current = processImage;
-  }, [uploadImage, processImage]);
+  }, [uploadImage]);
 
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
     const sourceNodeId = 'source-1';
-    const outputNode = createOutputNode({ x: 600, y: 100 });
-    
     setNodes([
       {
         id: sourceNodeId,
@@ -798,7 +700,6 @@ export function useFilterGraph() {
           onUploadImage: uploadFunctionRef.current
         },
       },
-      outputNode
     ]);
     setEdges([]);
     setSourceImage(null);
@@ -1053,54 +954,28 @@ export function useFilterGraph() {
         }
       }
     } else {
-      // Check if we're connecting to an OutputNode
-      const targetNode = nodes.find(n => n.id === connection.target);
-      
-      if (targetNode && targetNode.type === 'outputNode') {
-        // Creating connection to an OutputNode
-        const newEdge = {
-          ...connection,
-          id: `e-${connection.source}-${connection.target}`,
-          animated: true,
-          type: 'smoothstep',
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 20,
-            height: 20,
-          },
-        };
-        
-        // Add the connection
-        setEdges(eds => addEdge(newEdge, eds));
-        
-        // Set this OutputNode as active (only show one output at a time)
-        if (connection.target) {
-          setActiveOutput(connection.target as string);
-        }
-      } else {
-        // Regular node-to-node connection
-        const newEdge = {
-          ...connection,
-          id: `e-${connection.source}-${connection.target}`,
-          animated: true,
-          type: 'smoothstep',
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 20,
-            height: 20,
-          },
-        };
-        setEdges(eds => addEdge(newEdge, eds));
-      }
+      // Regular node-to-node connection
+      const newEdge = {
+        ...connection,
+        id: `e-${connection.source}-${connection.target}`,
+        animated: true,
+        type: 'smoothstep',
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+        },
+      };
+      setEdges(eds => addEdge(newEdge, eds));
     }
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes, setActiveOutput]);
+  }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes]);
 
   // Handle node selection
-  const onNodeSelect = useCallback((nodeId: string | null) => {
-    setSelectedNodeId(nodeId);
+  const onNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId ? nodeId : null);
     
     // Generate preview for the selected node
     if (nodeId && sourceImage) {

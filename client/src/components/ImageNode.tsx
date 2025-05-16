@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { ImageNodeData } from '@/types';
@@ -9,26 +9,22 @@ interface ExtendedNodeProps extends NodeProps<ImageNodeData> {
 }
 
 const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
-  // Use the uploadImage function from either props or data
-  const uploadFunc = onUploadImage || data.onUploadImage;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Open file picker directly
   const handleClick = () => {
-    // Create a temporary file input element
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    
-    // Set up the file change handler
-    fileInput.onchange = (e: any) => {
-      const files = e.target.files;
-      if (files && files.length > 0 && uploadFunc) {
-        uploadFunc(files[0]);
-      }
-    };
-    
-    // Trigger the file selection dialog
-    fileInput.click();
+    // Only trigger file input if onUploadImage is provided
+    if (onUploadImage && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && onUploadImage) {
+      onUploadImage(files[0]);
+      // Reset the input value so the same file can be selected again
+      e.target.value = '';
+    }
   };
 
   return (
@@ -63,6 +59,15 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
             <span>Click to upload image</span>
           </div>
         )}
+        
+        {/* Hidden file input */}
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          className="hidden" 
+          accept="image/*"
+          onChange={handleFileChange}
+        />
       </div>
       
       <div className="px-3 pb-2 flex justify-end relative h-6">
