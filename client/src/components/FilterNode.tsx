@@ -398,18 +398,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
-                  <div 
-                    className="flex-1 mr-2"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                  >
-                    <Slider
-                      value={[param.value as number]}
+                  <div className="flex items-center flex-1 mr-2">
+                    <input
+                      type="range"
+                      value={param.value as number}
                       min={param.min}
                       max={param.max}
                       step={param.step}
-                      onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                      onChange={(e) => handleParamChange(param.id || param.name, parseFloat(e.target.value))}
                       disabled={!data.enabled || param.isConnected}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                     />
                   </div>
                   {editingParam === (param.id || param.name) ? (
