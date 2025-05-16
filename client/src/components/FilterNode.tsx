@@ -198,10 +198,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   return (
     <Card 
       className={`shadow-md w-[280px] bg-card ${selected ? 'ring-2 ring-primary' : ''} 
-        ${!data.enabled ? 'opacity-60' : ''}`}
+        ${!data.enabled ? 'opacity-60' : ''} nodrag`}
     >
       <div 
-        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move !nodrag`}
       >
         <div className="flex items-center space-x-2">
           <Checkbox 
