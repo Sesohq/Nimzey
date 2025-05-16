@@ -1,62 +1,114 @@
-import { useState, useRef } from 'react';
+import { memo, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import { CustomSlider } from '@/components/ui/custom-slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ChevronDown, ChevronUp, MinusIcon, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, MinusIcon, TagIcon, Layers, Paintbrush } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FilterNodeData, BlendMode, NodeColorTag } from '@/types';
+import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import NodeControls from './NodeControls';
 
-// Get proper border color based on the node's color tag
-const getBorderForColorTag = (colorTag: NodeColorTag): string => {
-  switch (colorTag) {
-    case 'red': return 'border-red-500';
-    case 'orange': return 'border-orange-500';
-    case 'yellow': return 'border-yellow-500';
-    case 'green': return 'border-green-500';
-    case 'blue': return 'border-blue-500';
-    case 'purple': return 'border-purple-500';
-    case 'pink': return 'border-pink-500';
-    default: return 'border-gray-700';
+// Color tag backgrounds
+const colorTagBg: Record<NodeColorTag, string> = {
+  default: 'bg-gray-600',
+  red: 'bg-red-600',
+  orange: 'bg-orange-600',
+  yellow: 'bg-yellow-500',
+  green: 'bg-green-600',
+  blue: 'bg-blue-600',
+  purple: 'bg-purple-600',
+  pink: 'bg-pink-600'
+};
+
+// Blend mode labels
+const blendModeLabels: Record<BlendMode, string> = {
+  'normal': 'Normal',
+  'multiply': 'Multiply',
+  'screen': 'Screen',
+  'overlay': 'Overlay',
+  'darken': 'Darken',
+  'lighten': 'Lighten',
+  'color-dodge': 'Color Dodge',
+  'color-burn': 'Color Burn',
+  'hard-light': 'Hard Light',
+  'soft-light': 'Soft Light',
+  'difference': 'Difference',
+  'exclusion': 'Exclusion'
+};
+
+// EditableValue component for consistent display and editing of parameter values
+const EditableValue = ({ 
+  value,
+  unit,
+  paramId,
+  isEditing,
+  editValue,
+  onStartEdit,
+  onChangeEdit,
+  onFinishEdit,
+  onCancelEdit,
+  disabled
+}: {
+  value: number | string,
+  unit?: string,
+  paramId: string,
+  isEditing: boolean,
+  editValue: string,
+  onStartEdit: (id: string, value: number | string | boolean) => void,
+  onChangeEdit: (value: string) => void,
+  onFinishEdit: () => void,
+  onCancelEdit: () => void,
+  disabled?: boolean
+}) => {
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        value={editValue}
+        onChange={(e) => onChangeEdit(e.target.value)}
+        onBlur={onFinishEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onFinishEdit();
+          } else if (e.key === 'Escape') {
+            onCancelEdit();
+          }
+        }}
+        className="text-xs w-14 h-6 px-1 py-0"
+        autoFocus
+      />
+    );
   }
+  
+  return (
+    <span 
+      className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'}`}
+      onClick={() => {
+        if (!disabled && typeof value !== 'boolean') {
+          onStartEdit(paramId, value);
+        }
+      }}
+      title={disabled ? "Parameter is disabled or connected" : "Click to edit value"}
+    >
+      {value}{unit || ''}
+    </span>
+  );
 };
-
-// Get proper header background color based on the node's color tag
-const getHeaderColorForTag = (colorTag: NodeColorTag): string => {
-  switch (colorTag) {
-    case 'red': return 'bg-red-900';
-    case 'orange': return 'bg-orange-900';
-    case 'yellow': return 'bg-yellow-900';
-    case 'green': return 'bg-green-900';
-    case 'blue': return 'bg-blue-900';
-    case 'purple': return 'bg-purple-900';
-    case 'pink': return 'bg-pink-900';
-    default: return 'bg-neutral-800';
-  }
-};
-
-// Get a prefix for filter node labels
-const getNodeLabelPrefix = (filterType: string): string => {
-  return '//';
-};
-
-// List of available blend modes
-const blendModes: BlendMode[] = [
-  'normal', 'multiply', 'screen', 'overlay', 
-  'darken', 'lighten', 'color-dodge', 'color-burn', 
-  'hard-light', 'soft-light', 'difference', 'exclusion'
-];
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  
+  // Create handle references for connection lines to work properly
+  const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -144,122 +196,308 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   };
 
   return (
-    <Card
-      className={`min-w-[280px] border-2 relative ${
-        selected ? 'border-yellow-400' : getBorderForColorTag(data.colorTag)
-      } ${!data.enabled ? 'opacity-50' : ''}`}
-      onClick={e => e.stopPropagation()}
+    <Card 
+      className={`shadow-md w-[280px] bg-card ${selected ? 'ring-2 ring-primary' : ''} 
+        ${!data.enabled ? 'opacity-60' : ''}`}
     >
-      {/* Header with node controls - this part is draggable */}
-      <div className={`px-3 py-2 ${data.colorTag ? getHeaderColorForTag(data.colorTag) : 'bg-neutral-800'} flex items-center justify-between rounded-t-sm cursor-move`}>
-        <div className="flex items-center">
+      <div 
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
+      >
+        <div className="flex items-center space-x-2">
           <Checkbox 
-            id={`node-${id}-enabled`}
+            id={`enable-${id}`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
-            className="mr-2 h-3 w-3 data-[state=checked]:bg-orange-500 data-[state=checked]:text-orange-500"
+            className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
             onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
           />
-          <div className="text-white text-xs font-mono font-medium">
-            {getNodeLabelPrefix(data.filterType)} {data.label}
-          </div>
+          <span>{data.label}</span>
         </div>
-        
-        <div className="flex items-center space-x-1">
-          <button
-            className="p-1 text-neutral-400 hover:text-white focus:outline-none"
-            onClick={handleToggleCollapse}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </button>
+        <div className="flex space-x-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Layers className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Node Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
-          <button
-            className="p-1 text-neutral-400 hover:text-white focus:outline-none"
-            onClick={() => setShowSettings(!showSettings)}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <Settings size={14} />
-          </button>
-          
-          <NodeControls 
-            onRemoveNode={data.onRemoveNode ? () => data.onRemoveNode?.(id) : undefined}
-            onMinimizeNode={data.onToggleCollapsed ? () => data.onToggleCollapsed(id, !collapsed) : undefined}
-          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={handleToggleCollapse}
+                >
+                  {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{collapsed ? 'Expand' : 'Collapse'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
-      
-      {/* Prevent React Flow from dragging when interacting with content below */}
-      <div onPointerDown={e => e.stopPropagation()}>
-        {/* Node settings panel */}
-        {showSettings && (
-          <div className="p-3 border-t border-gray-800 bg-black">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="block text-xs text-gray-500 mb-1">Blend Mode</Label>
+
+      {/* Node settings panel */}
+      {showSettings && (
+        <div className="p-3 border-b border-gray-200">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Blend Mode</Label>
+              <Select 
+                value={data.blendMode || 'normal'} 
+                onValueChange={(value) => handleChangeBlendMode(value as BlendMode)}
+                disabled={!data.enabled}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(blendModeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
+              <Select 
+                value={data.colorTag || 'default'} 
+                onValueChange={(value) => handleChangeColorTag(value as NodeColorTag)}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="red">Red</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="purple">Purple</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="mt-2">
+            <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
+            <Slider
+              value={[data.opacity || 100]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(values) => handleChangeOpacity(values[0])}
+              disabled={!data.enabled}
+            />
+          </div>
+        </div>
+      )}
+
+      {!collapsed && (
+        <div className="p-3">
+          {/* Source Image parameter */}
+          <div className="mb-4 relative">
+            <Handle
+              id="param-sourceImage"
+              type="target"
+              position={Position.Left}
+              style={{ 
+                left: -17, // 3px to the right
+                top: 10, // 2px down
+                width: 8, 
+                height: 8,
+                background: '#777777',
+                borderRadius: '50%',
+                border: '2px solid #333',
+                zIndex: 10
+              }}
+            />
+            
+            <div className="flex justify-between items-center">
+              <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
+              <Badge 
+                variant="outline" 
+                className="text-[9px] px-1 py-0 h-4"
+              >
+                image
+              </Badge>
+            </div>
+          </div>
+          
+          {/* Image Preview */}
+          {data.preview && (
+            <div className="mb-3">
+              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
+                <img 
+                  src={data.preview} 
+                  alt={`${data.label} preview`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Parameters with connection handles */}
+          {data.params.map((param) => (
+            <div key={param.id || param.name} className="mb-4 relative">
+              {/* Parameter connection handle */}
+              <Handle
+                id={`param-${param.id || param.name}`}
+                type="target"
+                position={Position.Left}
+                style={{ 
+                  left: -17, // 3px to the right
+                  top: 10, // 2px down
+                  width: 8, 
+                  height: 8, 
+                  background: param.isConnected ? '#ff5555' : '#777777',
+                  borderRadius: '50%',
+                  border: '2px solid #333',
+                  zIndex: 10
+                }}
+              />
+              
+              <div className="flex justify-between items-center">
+                <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
+                <div className="flex items-center">
+                  {param.isConnected && (
+                    <button 
+                      className="text-xs text-red-500 hover:text-red-700 mr-1 px-1 border border-red-500 rounded"
+                      onClick={() => handleDisconnectParam(param.id || param.name)}
+                      title="Disconnect parameter"
+                    >
+                      ×
+                    </button>
+                  )}
+                  <Badge 
+                    variant="outline" 
+                    className="text-[9px] px-1 py-0 h-4"
+                  >
+                    {param.paramType}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Parameter output handles removed as requested */}
+              
+              {param.controlType === 'range' && (
+                <div className="flex items-center mt-1">
+                  <div 
+                    className="flex-1 mr-2"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                  >
+                    <Slider
+                      value={[param.value as number]}
+                      min={param.min}
+                      max={param.max}
+                      step={param.step}
+                      onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                      disabled={!data.enabled || param.isConnected}
+                    />
+                  </div>
+                  {editingParam === (param.id || param.name) ? (
+                    <Input
+                      type={param.paramType === 'float' || param.paramType === 'integer' ? 'number' : 'text'}
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={handleFinishEditing}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleFinishEditing();
+                        } else if (e.key === 'Escape') {
+                          setEditingParam(null);
+                        }
+                      }}
+                      min={param.min}
+                      max={param.max}
+                      step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
+                      className="text-xs w-16 h-6 px-1 py-0"
+                      autoFocus
+                    />
+                  ) : (
+                    <span 
+                      className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
+                      onClick={() => {
+                        if (typeof param.value !== 'boolean') {
+                          handleStartEditing(param.id || param.name, param.value);
+                        }
+                      }}
+                      title="Click to edit value directly"
+                    >
+                      {param.value}{param.unit || ''}
+                    </span>
+                  )}
+                </div>
+              )}
+              
+              {param.controlType === 'select' && (
                 <Select 
-                  value={data.blendMode || 'normal'} 
-                  onValueChange={(value) => handleChangeBlendMode(value as BlendMode)}
+                  value={param.value as string} 
+                  onValueChange={(value) => handleParamChange(param.id || param.name, value)}
+                  disabled={!data.enabled || param.isConnected}
                 >
-                  <SelectTrigger className="w-full text-xs h-8">
-                    <SelectValue />
+                  <SelectTrigger className="w-full text-sm mt-1">
+                    <SelectValue placeholder={param.options?.[0]} />
                   </SelectTrigger>
                   <SelectContent>
-                    {blendModes.map(mode => (
-                      <SelectItem key={mode} value={mode}>
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    {param.options?.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              )}
               
-              <div>
-                <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
-                <Select 
-                  value={data.colorTag || 'default'} 
-                  onValueChange={(value) => handleChangeColorTag(value as NodeColorTag)}
-                >
-                  <SelectTrigger className="w-full text-xs h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Default</SelectItem>
-                    <SelectItem value="red">Red</SelectItem>
-                    <SelectItem value="orange">Orange</SelectItem>
-                    <SelectItem value="yellow">Yellow</SelectItem>
-                    <SelectItem value="green">Green</SelectItem>
-                    <SelectItem value="blue">Blue</SelectItem>
-                    <SelectItem value="purple">Purple</SelectItem>
-                    <SelectItem value="pink">Pink</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {param.controlType === 'checkbox' && (
+                <Checkbox 
+                  checked={param.value as boolean}
+                  onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
+                  disabled={!data.enabled || param.isConnected}
+                  className="mt-1"
+                />
+              )}
             </div>
-            
-            <div className="mt-2">
-              <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
-              <Slider
-                value={[data.opacity || 100]}
-                min={0}
-                max={100}
-                step={1}
-                onValueChange={(values) => handleChangeOpacity(values[0])}
-                disabled={!data.enabled}
-              />
-            </div>
-          </div>
-        )}
-        
-        {/* Parameter connection handle on left side */}
+          ))}
+        </div>
+      )}
+
+      {/* Main node connection handles */}
+      <div className="px-3 pb-2 flex justify-between relative h-8">
+        {/* Input handle (hidden, as we use the Source Image parameter input instead) */}
         <Handle
-          id="param-sourceImage"
+          id="node-input"
           type="target"
           position={Position.Left}
+          className="w-6 h-6 rounded-full -ml-3 bg-blue-600 opacity-0" /* Made invisible */
+          style={{ top: 16, transform: 'translateY(-50%)' }}
+        />
+        
+        {/* Single output handle - centered on the right edge */}
+        <Handle
+          id="node-output"
+          type="source"
+          position={Position.Right}
           style={{ 
-            left: -17, // 3px further to the left
-            top: 25, // Positioned to line up with the image preview
+            right: -17, // 3px to the left
+            top: 18, // 2px down
             width: 8, 
             height: 8, 
             background: '#777777',
@@ -268,200 +506,9 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             zIndex: 10
           }}
         />
-        
-        {/* Image preview or parameters based on collapsed state */}
-        {!collapsed && (
-          <div className={`p-3 ${showSettings ? 'border-t border-gray-800' : ''} bg-black overflow-hidden`}>
-            {/* Image preview for source node */}
-            {data.preview && (
-              <div 
-                className="w-full h-[80px] rounded-md overflow-hidden mb-3 bg-neutral-900 flex items-center justify-center"
-                style={{ 
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-              >
-                <img 
-                  src={data.preview} 
-                  alt={data.label} 
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
-            )}
-            
-            {/* Filter parameters */}
-            {data.params.map((param) => (
-              <div key={param.id || param.name} className="mb-3">
-                {/* Parameter header with label, value and connection dot */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    {/* Parameter input handle */}
-                    <Handle
-                      id={`param-${param.id || param.name}`}
-                      type="target"
-                      position={Position.Left}
-                      style={{ 
-                        left: -17, // 3px to the left
-                        top: 14, // 2px down
-                        width: 8, 
-                        height: 8, 
-                        background: param.isConnected ? '#ff5555' : '#777777',
-                        borderRadius: '50%',
-                        border: '2px solid #333',
-                        zIndex: 10
-                      }}
-                    />
-                    
-                    <div className="mr-1">
-                      <div className="text-xs font-medium text-gray-300 flex items-center">
-                        {param.label}
-                        {param.isConnected && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button 
-                                  className="ml-1 text-red-400 hover:text-red-500" 
-                                  onClick={() => handleDisconnectParam(param.id || param.name)}
-                                >
-                                  <MinusIcon size={10} />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Disconnect parameter</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <Badge 
-                      variant="outline" 
-                      className="text-[9px] px-1 py-0 h-4"
-                    >
-                      {param.paramType}
-                    </Badge>
-                  </div>
-                </div>
-                
-                {/* Parameter slider - using native HTML input for better control */}
-                {param.controlType === 'range' && (
-                  <div className="flex items-center mt-1">
-                    <div className="flex-1 mr-2">
-                      <input
-                        type="range"
-                        value={param.value as number}
-                        min={param.min}
-                        max={param.max}
-                        step={param.step}
-                        onChange={(e) => handleParamChange(param.id || param.name, parseFloat(e.target.value))}
-                        disabled={!data.enabled || param.isConnected}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                    {editingParam === (param.id || param.name) ? (
-                      <Input
-                        type={param.paramType === 'float' || param.paramType === 'integer' ? 'number' : 'text'}
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={handleFinishEditing}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleFinishEditing();
-                          } else if (e.key === 'Escape') {
-                            setEditingParam(null);
-                          }
-                        }}
-                        min={param.min}
-                        max={param.max}
-                        step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
-                        className="text-xs w-16 h-6 px-1 py-0"
-                        autoFocus
-                      />
-                    ) : (
-                      <span 
-                        className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
-                        onClick={() => {
-                          if (typeof param.value !== 'boolean') {
-                            handleStartEditing(param.id || param.name, param.value);
-                          }
-                        }}
-                        title="Click to edit value directly"
-                      >
-                        {param.value}{param.unit || ''}
-                      </span>
-                    )}
-                  </div>
-                )}
-                
-                {param.controlType === 'select' && (
-                  <Select 
-                    value={param.value as string} 
-                    onValueChange={(value) => handleParamChange(param.id || param.name, value)}
-                    disabled={!data.enabled || param.isConnected}
-                  >
-                    <SelectTrigger className="w-full text-sm mt-1">
-                      <SelectValue placeholder={param.options?.[0]} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {param.options?.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                
-                {param.controlType === 'checkbox' && (
-                  <Checkbox 
-                    checked={param.value as boolean}
-                    onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
-                    disabled={!data.enabled || param.isConnected}
-                    className="mt-1"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Main node connection handles */}
-        <div className="px-3 pb-2 flex justify-between relative h-8">
-          {/* Input handle (hidden, as we use the Source Image parameter input instead) */}
-          <Handle
-            id="node-input"
-            type="target"
-            position={Position.Left}
-            className="w-6 h-6 rounded-full -ml-3 bg-blue-600 opacity-0" /* Made invisible */
-            style={{ top: 16, transform: 'translateY(-50%)' }}
-          />
-          
-          {/* Single output handle - centered on the right edge */}
-          <Handle
-            id="node-output"
-            type="source"
-            position={Position.Right}
-            style={{ 
-              right: -17, // 3px to the left
-              top: 18, // 2px down
-              width: 8, 
-              height: 8, 
-              background: '#777777',
-              borderRadius: '50%',
-              border: '2px solid #333',
-              zIndex: 10
-            }}
-          />
-        </div>
       </div>
     </Card>
   );
 };
 
-export default FilterNode;
+export default memo(FilterNode);
