@@ -1,0 +1,67 @@
+Creating the OutputNode and Filter Chain System
+Here's how I implemented the OutputNode and filter chain system for the Filter Kit application:
+1. OutputNode Component Design
+I created a dedicated OutputNode component that functions as the final destination in our filter graph. The design matches our terminal aesthetic with:
+A distinctive header with "// OUTPUT" label
+Active/inactive state indicators with color-coding
+Preview window that only shows images when connected to a filter chain
+Clear visual indicators showing when the node is active or selected
+const OutputNode = ({ data, selected }: NodeProps<OutputNodeData>) => {
+ const { preview, isActive } = data;
+ 
+ return (
+ <div className="flex flex-col items-center min-w-[160px] bg-black border-2 rounded-md overflow-hidden">
+ {/* Input handle */}
+ <Handle type="target" position={Position.Left} id="input" className="w-3 h-3 bg-gray-400" />
+ 
+ {/* Node Header */}
+ <div className="w-full px-3 py-2 text-center font-mono">
+ <div className="flex items-center justify-center space-x-2">
+ <div className="w-2 h-2 rounded-full" />
+ <div className="text-sm text-white font-medium">// OUTPUT</div>
+ </div>
+ </div>
+ 
+ {/* Preview or empty state */}
+ {preview ? (
+ <img src={preview} alt="Output preview" className="w-full h-full object-cover" />
+ ) : (
+ <div className="text-neutral-500 text-xs">
+ {isActive ? "Connect a filter" : "Inactive"}
+ </div>
+ )}
+ </div>
+ );
+};
+2. Integration with Filter Graph System
+Default OutputNode on Canvas Initialization:
+Added an OutputNode to the initial canvas setup so it's always present
+Positioned it on the right side of the canvas as the destination
+Connection Management:
+Updated the onConnect function to detect connections to OutputNodes
+When a connection is made to an OutputNode, it's set as the active output
+Only one OutputNode can be active at a time
+Filter Chain Processing:
+Modified the filter processing system to prioritize paths leading to OutputNodes
+Reworked the filter chain traversal to check for connections to OutputNodes
+Updated the preview panel to show only filter chains connected to active OutputNodes
+Active State Management:
+Created a dedicated setActiveOutput function to manage active state
+When multiple OutputNodes exist, only one can be active at a time
+Connections automatically make an OutputNode active
+3. Preview Updates
+The system now:
+Shows image previews only for OutputNodes with incoming connections
+Clears the preview when connections are removed
+Updates the filter chain panel to show only chains connected to active OutputNodes
+Provides a clear message when no OutputNode is connected
+4. Building the Processing Chain
+I modified how the filter processing works to prioritize chains leading to OutputNodes:
+// Prioritize OutputNodes in the processing chain
+const outputNodes = targetNodes.filter(node => node.type === 'outputNode');
+const otherNodes = targetNodes.filter(node => node.type !== 'outputNode');
+ 
+// Place OutputNodes first in the processing queue
+const orderedTargetNodes = [...outputNodes, ...otherNodes];
+This ensures that when multiple paths exist in the filter graph, those leading to OutputNodes are processed first, making the system more predictable and intuitive.
+The filter chain panel was also updated to only display nodes that are part of the path to an active OutputNode, making it clear which filters are affecting the final output.

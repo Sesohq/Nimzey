@@ -26,6 +26,7 @@ export function useFilterGraph() {
   const [nodePreview, setNodePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedImages, setProcessedImages] = useState<Record<string, string>>({});
+  const [activeOutputNodeId, setActiveOutputNodeId] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
@@ -686,10 +687,34 @@ export function useFilterGraph() {
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
   }, [uploadImage]);
+  
+  // Function to set the active output node
+  const setActiveOutput = useCallback((nodeId: string | null) => {
+    // Deactivate all output nodes first
+    setNodes(nds => 
+      nds.map(node => {
+        if (node.type === 'outputNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              isActive: node.id === nodeId
+            }
+          };
+        }
+        return node;
+      })
+    );
+    
+    // Update the active output node ID
+    setActiveOutputNodeId(nodeId);
+  }, []);
 
   // Function to reset the canvas
   const resetCanvas = useCallback(() => {
     const sourceNodeId = 'source-1';
+    const outputNodeId = 'output-1';
+    
     setNodes([
       {
         id: sourceNodeId,
@@ -700,12 +725,23 @@ export function useFilterGraph() {
           onUploadImage: uploadFunctionRef.current
         },
       },
+      {
+        id: outputNodeId,
+        type: 'outputNode',
+        position: { x: 600, y: 100 },
+        data: {
+          preview: null,
+          isActive: true
+        },
+      }
     ]);
+    
     setEdges([]);
     setSourceImage(null);
     setProcessedImage(null);
     setSelectedNodeId(null);
     setNodePreview(null);
+    setActiveOutputNodeId(outputNodeId);
   }, []);
 
   // Initialize the source node
@@ -896,6 +932,13 @@ export function useFilterGraph() {
         variant: "destructive",
       });
       return;
+    }
+    
+    // Check if this is a connection to an OutputNode
+    const targetNode = nodes.find(node => node.id === connection.target);
+    if (targetNode && targetNode.type === 'outputNode') {
+      // Set this OutputNode as the active one
+      setActiveOutput(targetNode.id);
     }
     
     // Check if this is a parameter-level connection

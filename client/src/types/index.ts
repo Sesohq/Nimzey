@@ -15,7 +15,7 @@ export type FilterType =
   | 'glow'
   | 'halftone';
 
-export type NodeType = 'filterNode' | 'imageNode';
+export type NodeType = 'filterNode' | 'imageNode' | 'outputNode';
 
 export type ParamType = 'float' | 'integer' | 'color' | 'image' | 'mask' | 'texture' | 'boolean' | 'vector2' | 'option';
 
@@ -84,4 +84,9 @@ export type ImageNodeData = {
   onUploadImage?: (file: File) => void;
 };
 
-export type NodeData = FilterNodeData | ImageNodeData;
+export type OutputNodeData = {
+  preview: string | null;
+  isActive: boolean;
+};
+
+export type NodeData = FilterNodeData | ImageNodeData | OutputNodeData;
