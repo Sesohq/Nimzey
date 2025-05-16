@@ -198,10 +198,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   return (
     <Card 
       className={`shadow-md w-[280px] bg-card ${selected ? 'ring-2 ring-primary' : ''} 
-        ${!data.enabled ? 'opacity-60' : ''} nodrag`}
+        ${!data.enabled ? 'opacity-60' : ''}`}
     >
+      {/* This is the draggable header */}
       <div 
-        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move drag-handle`}
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
       >
         <div className="flex items-center space-x-2">
           <Checkbox 
@@ -310,7 +311,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       )}
 
       {!collapsed && (
-        <div className="p-3">
+        <div className="p-3" onMouseDown={(e) => e.stopPropagation()}>
           {/* Source Image parameter */}
           <div className="mb-4 relative">
             <Handle
@@ -379,7 +380,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   {param.isConnected && (
                     <button 
                       className="text-xs text-red-500 hover:text-red-700 mr-1 px-1 border border-red-500 rounded"
-                      onClick={() => handleDisconnectParam(param.id || param.name)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDisconnectParam(param.id || param.name);
+                      }}
                       title="Disconnect parameter"
                     >
                       ×
@@ -430,11 +434,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                       step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
                       className="text-xs w-16 h-6 px-1 py-0"
                       autoFocus
+                      onMouseDown={(e) => e.stopPropagation()}
                     />
                   ) : (
                     <span 
                       className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (typeof param.value !== 'boolean') {
                           handleStartEditing(param.id || param.name, param.value);
                         }
