@@ -491,10 +491,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         <Handle
           id="node-output"
           type="source"
-          position={Position.Bottom}
+          position={Position.Right}
           style={{ 
-            right: 5, // positioned at the bottom right
-            bottom: -14, 
+            right: -17,
+            bottom: 0,
+            top: 'auto',
             width: 8, 
             height: 8, 
             background: '#777777',
