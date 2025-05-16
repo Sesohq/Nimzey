@@ -117,18 +117,35 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
       </ScrollArea>
       
       <div className="p-4" style={{backgroundColor: '#000'}}>
+        {/* Upload Source Image button */}
         <div 
           className="btn-glitch special-filters"
           onClick={() => document.getElementById('imageUpload')?.click()}
-          style={{marginBottom: 0}}
+          style={{marginBottom: onAddImageNode ? '10px' : 0}}
         >
           <div className="text-container font-semibold">
-            // Upload Image
+            // Upload Source Image
           </div>
           <div className="icon-container" style={{backgroundColor: '#FF7D00'}}>
             <Upload size={16} />
           </div>
         </div>
+        
+        {/* Add Image Node button */}
+        {onAddImageNode && (
+          <div 
+            className="btn-glitch utility-filters"
+            onClick={onAddImageNode}
+            style={{marginBottom: 0}}
+          >
+            <div className="text-container font-semibold">
+              // Add Image Node
+            </div>
+            <div className="icon-container" style={{backgroundColor: '#3B82F6'}}>
+              <ImageIcon size={16} />
+            </div>
+          </div>
+        )}
         
         <input 
           type="file" 

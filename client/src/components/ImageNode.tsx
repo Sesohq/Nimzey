@@ -8,8 +8,12 @@ interface ExtendedNodeProps extends NodeProps<ImageNodeData> {
   onUploadImage?: (file: File) => void;
 }
 
-const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
+const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Determine if this is the main source image node (starting with 'source-') or an additional image node
+  const isSourceNode = id.startsWith('source-');
+  const nodeLabel = isSourceNode ? "Source Image" : "Image";
   
   const handleClick = () => {
     // Only trigger file input if onUploadImage is provided
@@ -28,9 +32,9 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
   };
 
   return (
-    <Card className={`shadow-md w-[180px] bg-white ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className="bg-blue-500 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
-        <span>Source Image</span>
+    <Card className={`shadow-md w-[180px] ${isSourceNode ? 'bg-white' : 'bg-blue-50'} ${selected ? 'ring-2 ring-primary' : ''}`}>
+      <div className={`${isSourceNode ? 'bg-blue-500' : 'bg-blue-400'} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}>
+        <span>{nodeLabel}</span>
       </div>
       
       <div className="p-3">
@@ -72,10 +76,20 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
       
       <div className="px-3 pb-2 flex justify-end relative h-6">
         <Handle
+          id="node-output"
           type="source"
           position={Position.Right}
-          className="w-9 h-9 rounded-full -mr-4 bg-accent"
-          style={{ top: '50%', transform: 'translateY(-50%)' }}
+          style={{ 
+            right: -17,
+            bottom: 0,
+            top: 'auto',
+            width: 8, 
+            height: 8, 
+            background: '#777777',
+            borderRadius: '50%',
+            border: '2px solid #333',
+            zIndex: 10
+          }}
         />
       </div>
     </Card>
