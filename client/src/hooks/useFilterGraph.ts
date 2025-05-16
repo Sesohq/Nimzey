@@ -48,6 +48,9 @@ export function useFilterGraph() {
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   
+  // Declare processImageRef to avoid circular dependencies
+  const processImageRef = useRef<() => void>(() => {});
+  
   // Helper function to set the active output node
   const setActiveOutput = useCallback((nodeId: string) => {
     setNodes(ns =>
@@ -58,7 +61,9 @@ export function useFilterGraph() {
       )
     );
     // Process the image to update the output preview
-    processImage();
+    if (processImageRef.current) {
+      processImageRef.current();
+    }
   }, []);
 
   // Initialize canvas when needed
@@ -1027,7 +1032,7 @@ export function useFilterGraph() {
 
     // Re-process the image when connections change
     processImage();
-  }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes]);
+  }, [processImage, handleConnectParam, updateConnectedParams, checkForCycles, edges, nodes, setActiveOutput]);
 
   // Handle node selection
   const onNodeSelect = useCallback((nodeId: string) => {

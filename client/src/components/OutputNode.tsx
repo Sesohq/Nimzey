@@ -1,59 +1,73 @@
-import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Card } from '@/components/ui/card';
 import { OutputNodeData } from '@/types';
-import { CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const OutputNode = ({ data, selected }: NodeProps<OutputNodeData>) => {
+  const { preview, isActive } = data;
+
   return (
-    <Card className={`shadow-md w-[180px] bg-white ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className="bg-green-600 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
-        <span>Final Output</span>
-        {data.isActive && (
-          <CheckCircle className="h-4 w-4 text-white" />
-        )}
-      </div>
+    <div 
+      className={cn(
+        "flex flex-col items-center min-w-[160px] bg-black border-2 rounded-md overflow-hidden",
+        selected ? "border-yellow-400" : isActive ? "border-green-500" : "border-neutral-700"
+      )}
+    >
+      {/* Input handle (left side) */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="w-3 h-3 bg-gray-400"
+        style={{ left: -17 }}
+      />
       
-      <div className="p-3">
-        {data.preview ? (
-          <img 
-            src={data.preview} 
-            alt="Output preview" 
-            className="w-full h-auto rounded mb-2 object-cover"
-            style={{ maxHeight: '100px' }}
-          />
-        ) : (
-          <div className="w-full h-[100px] bg-gray-100 rounded mb-2 flex flex-col items-center justify-center text-gray-400 text-xs">
-            <span>No Input Connected</span>
+      {/* Node Header */}
+      <div className={cn(
+        "w-full px-3 py-2 text-center font-mono",
+        isActive ? "bg-green-800" : "bg-neutral-800"
+      )}>
+        <div className="flex items-center justify-center space-x-2">
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            isActive ? "bg-green-400" : "bg-neutral-400"
+          )} />
+          <div className="text-sm text-white font-medium">
+            // OUTPUT
           </div>
-        )}
-        <div className="text-xs text-center text-gray-500 mt-1">
-          {data.isActive ? 
-            "Active Output" : 
-            "Connect to set as output"
-          }
         </div>
       </div>
       
-      <div className="px-3 pb-2 flex justify-start relative h-6">
-        <Handle
-          id="in"
-          type="target"
-          position={Position.Left}
-          style={{ 
-            left: -17, 
-            top: 18, 
-            width: 8, 
-            height: 8, 
-            background: '#777777',
-            borderRadius: '50%',
-            border: '2px solid #333',
-            zIndex: 10
-          }}
-        />
+      {/* Preview */}
+      <div className="w-full h-[100px] bg-neutral-900 flex items-center justify-center">
+        {preview ? (
+          <img 
+            src={preview} 
+            alt="Output preview" 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="text-neutral-500 text-xs uppercase text-center">
+            {isActive ? "Connect a filter" : "Inactive"}
+          </div>
+        )}
       </div>
-    </Card>
+      
+      {/* Status indicator */}
+      <div className="w-full px-3 py-1 text-[10px] bg-neutral-800 text-neutral-400">
+        {isActive ? (
+          <div className="flex items-center justify-center space-x-1">
+            <span className="text-green-400">●</span>
+            <span>ACTIVE</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center space-x-1">
+            <span className="text-neutral-500">○</span>
+            <span>INACTIVE</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-export default memo(OutputNode);
+export default OutputNode;
