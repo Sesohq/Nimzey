@@ -15,7 +15,10 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
   const isSourceNode = id.startsWith('source-');
   const nodeLabel = isSourceNode ? "Source Image" : "Image";
   
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Stop propagation to prevent React Flow's dragging
+    e.stopPropagation();
+    
     // Only trigger file input if onUploadImage is provided
     if (onUploadImage && fileInputRef.current) {
       fileInputRef.current.click();
@@ -32,8 +35,12 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
   };
 
   return (
-    <Card className={`shadow-md w-[180px] ${isSourceNode ? 'bg-white' : 'bg-blue-50'} ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className={`${isSourceNode ? 'bg-blue-500' : 'bg-blue-400'} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}>
+    <Card 
+      className={`shadow-md w-[180px] ${isSourceNode ? 'bg-white' : 'bg-blue-50'} ${selected ? 'ring-2 ring-primary' : ''}`}
+    >
+      <div 
+        className={`${isSourceNode ? 'bg-blue-500' : 'bg-blue-400'} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between`}
+      >
         <span>{nodeLabel}</span>
       </div>
       
