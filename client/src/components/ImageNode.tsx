@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { ImageNodeData } from '@/types';
@@ -15,15 +15,27 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
   const isSourceNode = id.startsWith('source-');
   const nodeLabel = isSourceNode ? "Source Image" : "Image";
   
-  const handleClick = (e: React.MouseEvent) => {
-    // Stop propagation to prevent React Flow's dragging
+  // Handle both clicks and pointer down events
+  const openFileDialog = (e: React.MouseEvent | React.PointerEvent) => {
+    // Stop propagation to prevent React Flow's dragging/selection
     e.stopPropagation();
+    e.preventDefault();
     
     // Only trigger file input if onUploadImage is provided
     if (onUploadImage && fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
+  
+  // Expose the openFileDialog function through data for external access
+  useEffect(() => {
+    // @ts-ignore - Add openFileDialog to data for external calls
+    data._openFileDialog = openFileDialog;
+    return () => {
+      // @ts-ignore - Clean up when unmounted
+      delete data._openFileDialog;
+    };
+  }, [data]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -37,6 +49,10 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
   return (
     <Card 
       className={`shadow-md w-[180px] ${isSourceNode ? 'bg-white' : 'bg-blue-50'} ${selected ? 'ring-2 ring-primary' : ''}`}
+      style={{ 
+        pointerEvents: 'auto',
+        userSelect: 'none'
+      }}
     >
       <div 
         className={`${isSourceNode ? 'bg-blue-500' : 'bg-blue-400'} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between`}
@@ -48,13 +64,15 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
         {data.src ? (
           <div 
             className="relative group cursor-pointer"
-            onClick={handleClick}
+            onClick={openFileDialog}
+            onPointerDown={openFileDialog}
           >
             <img 
               src={data.src} 
               alt="Source image" 
               className="w-full h-auto rounded mb-2 object-cover"
               style={{ maxHeight: '100px' }}
+              draggable={false}
             />
             <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
               <Upload className="w-6 h-6 text-white" />
@@ -64,7 +82,8 @@ const ImageNode = ({ data, selected, id, onUploadImage }: ExtendedNodeProps) => 
         ) : (
           <div 
             className="w-full h-[100px] bg-gray-100 rounded mb-2 flex flex-col items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors"
-            onClick={handleClick}
+            onClick={openFileDialog}
+            onPointerDown={openFileDialog}
           >
             <Plus className="h-6 w-6 mb-1" />
             <span>Click to upload image</span>

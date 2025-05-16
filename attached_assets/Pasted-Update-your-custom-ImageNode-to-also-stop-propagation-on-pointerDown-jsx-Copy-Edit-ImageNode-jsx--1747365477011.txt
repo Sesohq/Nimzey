@@ -1,0 +1,145 @@
+Update your custom ImageNode to also stop propagation on pointerDown
+jsx
+Copy
+Edit
+// ImageNode.jsx
+import React, { useRef } from 'react';
+import { Handle, Position } from 'reactflow';
+
+export function ImageNode({ id, data, selected, isConnectable }) {
+  const fileInputRef = useRef(null);
+
+  // fire on either pointerDown or click
+  const openFileDialog = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    fileInputRef.current?.click();
+  };
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      data.onImageUpload(id, reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div
+      onPointerDown={openFileDialog}  // catch drag-start
+      onClick={openFileDialog}        // catch regular clicks
+      style={{
+        padding: 10,
+        border: selected ? '2px solid #007ACC' : '1px solid #aaa',
+        borderRadius: 4,
+        background: '#fff',
+        cursor: 'pointer',
+        textAlign: 'center',
+        width: 150,
+        userSelect: 'none',           // avoid text selection
+        pointerEvents: 'auto'         // ensure clicks reach us
+      }}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={onFileChange}
+      />
+
+      {data.image ? (
+        <img
+          src={data.image}
+          alt="texture"
+          style={{ width: '100%', borderRadius: 4, userSelect: 'none' }}
+          draggable={false}       // prevent default drag image
+        />
+      ) : (
+        <div style={{ color: '#888' }}>Click to upload texture</div>
+      )}
+
+      <Handle type="target" position={Position.Top} isConnectable={isConnectable} />
+      <Handle type="source" position={Position.Bottom} isConnectable={isConnectable} />
+    </div>
+  );
+}
+Why this helps
+
+onPointerDown fires before React Flow’s drag logic, so we intercept it.
+
+pointerEvents: 'auto' and removing any cursor-move ensures clicks are delivered.
+
+2) Fallback: Catch the click in React Flow’s onNodeClick
+If the node itself still doesn’t receive the event, you can hook into React Flow’s global click callback:
+
+jsx
+Copy
+Edit
+// App.jsx
+import React, { useCallback, useRef, useState } from 'react';
+import ReactFlow, { addEdge, Controls } from 'reactflow';
+import { ImageNode } from './ImageNode';
+
+const nodeTypes = { imageNode: ImageNode };
+
+function App() {
+  const [nodes, setNodes] = useState([
+    {
+      id: '1',
+      type: 'imageNode',
+      position: { x: 100, y: 100 },
+      data: { image: null, onImageUpload: handleImageUpload }
+    }
+  ]);
+  const [edges, setEdges] = useState([]);
+  const fileInputRefs = useRef({}); // map nodeId → ref
+
+  function handleImageUpload(nodeId, dataUrl) {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, image: dataUrl } } : n
+      )
+    );
+  }
+
+  const onNodeClick = useCallback((event, node) => {
+    if (node.type === 'imageNode') {
+      // call the input click via ref stored in node.data
+      node.data._openFileDialog?.();
+    }
+  }, []);
+
+  const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), []);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={setNodes}
+      onEdgesChange={setEdges}
+      onConnect={onConnect}
+      onNodeClick={onNodeClick}
+      nodeTypes={nodeTypes}
+      fitView
+    >
+      <Controls />
+    </ReactFlow>
+  );
+}
+In your ImageNode, expose the openFileDialog function on data so the onNodeClick can call it:
+
+jsx
+Copy
+Edit
+// inside ImageNode component before return
+useEffect(() => {
+  data._openFileDialog = openFileDialog;
+  return () => { delete data._openFileDialog; };
+}, []);
+Next Steps
+Apply the pointerDown + pointerEvents fix in your ImageNode.jsx.
+
+If it still doesn’t work, wire up onNodeClick as a fallback.
