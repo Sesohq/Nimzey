@@ -377,25 +377,37 @@ export default function PreviewPanel({
             {selectedNode ? (
               getFilterChain(selectedNode)
             ) : (
-              // If no node selected, find the last nodes in the chain (with no outgoing edges)
+              // If no node selected, find active OutputNodes and show their chains
               (() => {
-                // Find nodes that don't have outgoing connections (end of the chain)
-                const nodeIds = nodes.map(node => node.id);
-                const nodesWithOutgoingEdges = new Set(edges.map(edge => edge.source));
-                const endNodes = nodes.filter(node => 
-                  nodeIds.includes(node.id) && !nodesWithOutgoingEdges.has(node.id) && node.type !== 'imageNode'
+                // Find active output nodes that have connections
+                const activeOutputNodes = nodes.filter(node => 
+                  node.type === 'outputNode' && 
+                  node.data.isActive && 
+                  edges.some(edge => edge.target === node.id)
                 );
                 
-                if (endNodes.length > 0) {
-                  // Get the first end node and its entire chain
-                  return getFilterChain(endNodes[0]);
+                if (activeOutputNodes.length > 0) {
+                  // Use the first active output node to get its chain
+                  // Start with the nodes directly connected to the output node
+                  const connectedSources = edges
+                    .filter(edge => edge.target === activeOutputNodes[0].id)
+                    .map(edge => edge.source);
+                    
+                  if (connectedSources.length > 0) {
+                    const connectedNode = nodes.find(node => node.id === connectedSources[0]);
+                    if (connectedNode) {
+                      return getFilterChain(connectedNode);
+                    }
+                  }
+                  
+                  // If no connected sources, show the output node itself
+                  return getFilterChain(activeOutputNodes[0]);
                 } else {
-                  // Fallback to using the source node
-                  const sourceNode = nodes.find(node => node.type === 'imageNode');
-                  return sourceNode ? (
-                    getFilterChain(sourceNode)
-                  ) : (
-                    <div className="text-sm text-gray-500">No filter chain available</div>
+                  // No active output connections, show a message
+                  return (
+                    <div className="text-sm text-gray-400 p-2">
+                      Connect filter nodes to an output node to see the filter chain
+                    </div>
                   );
                 }
               })()

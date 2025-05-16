@@ -370,20 +370,35 @@ export function useFilterGraph() {
         // Update the processed image
         setProcessedImage(result);
         
-        // Update any active OutputNodes with the result
-        const activeOutputNodes = nodes.filter(
-          node => node.type === 'outputNode' && (node.data as OutputNodeData).isActive
+        // Update connected OutputNodes with the result
+        // Check for active output nodes that have actual connections in the graph
+        const activeOutputNodes = nodes.filter(node => 
+          node.type === 'outputNode' && 
+          (node.data as OutputNodeData).isActive &&
+          // Only consider nodes that have incoming connections
+          edges.some(edge => edge.target === node.id)
         );
         
         if (activeOutputNodes.length > 0) {
           setNodes(currentNodes =>
             currentNodes.map(node => {
-              if (node.type === 'outputNode' && (node.data as OutputNodeData).isActive) {
+              if (node.type === 'outputNode' && 
+                  (node.data as OutputNodeData).isActive &&
+                  edges.some(edge => edge.target === node.id)) {
                 return {
                   ...node,
                   data: {
                     ...node.data,
                     preview: result
+                  }
+                };
+              } else if (node.type === 'outputNode') {
+                // Reset preview for disconnected output nodes
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    preview: null
                   }
                 };
               }
@@ -398,6 +413,22 @@ export function useFilterGraph() {
               [node.id]: result
             }));
           });
+        } else {
+          // Clear previews from all output nodes if none are connected
+          setNodes(currentNodes =>
+            currentNodes.map(node => {
+              if (node.type === 'outputNode') {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    preview: null
+                  }
+                };
+              }
+              return node;
+            })
+          );
         }
         
         // If a node is selected, update its preview in the panel
