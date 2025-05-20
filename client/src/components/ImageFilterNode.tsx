@@ -1,9 +1,17 @@
 import React, { memo, useRef, useState, useEffect } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
-import { ImageIcon, XIcon } from 'lucide-react';
-import { FilterNodeData } from '@/types';
+import { ImageIcon, XIcon, Layers } from 'lucide-react';
+import { FilterNodeData, BlendMode } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 
 interface ImageFilterNodeProps extends NodeProps<FilterNodeData> {
   id: string;
@@ -97,6 +105,20 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
     }
   };
 
+  // Handle blend mode change
+  const handleBlendModeChange = (value: string) => {
+    if (data.onChangeBlendMode) {
+      data.onChangeBlendMode(id, value as BlendMode);
+    }
+  };
+
+  // Handle opacity change
+  const handleOpacityChange = (value: number[]) => {
+    if (data.onChangeOpacity) {
+      data.onChangeOpacity(id, value[0]);
+    }
+  };
+
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-md p-2 w-64 shadow-md">
       {/* Node header */}
@@ -116,6 +138,49 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
             <XIcon size={14} className="text-gray-400 hover:text-red-400" />
           </Button>
         )}
+      </div>
+      
+      {/* Blend mode selector */}
+      <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
+        <Layers size={14} className="text-gray-500" />
+        <span>Blend:</span>
+        <Select
+          defaultValue={data.blendMode}
+          onValueChange={handleBlendModeChange}
+        >
+          <SelectTrigger className="h-7 w-28 text-xs bg-gray-800 border-gray-700">
+            <SelectValue placeholder="Blend Mode" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-800 border-gray-700 text-gray-200">
+            <SelectItem value="normal">Normal</SelectItem>
+            <SelectItem value="multiply">Multiply</SelectItem>
+            <SelectItem value="screen">Screen</SelectItem>
+            <SelectItem value="overlay">Overlay</SelectItem>
+            <SelectItem value="darken">Darken</SelectItem>
+            <SelectItem value="lighten">Lighten</SelectItem>
+            <SelectItem value="color-dodge">Color Dodge</SelectItem>
+            <SelectItem value="color-burn">Color Burn</SelectItem>
+            <SelectItem value="hard-light">Hard Light</SelectItem>
+            <SelectItem value="soft-light">Soft Light</SelectItem>
+            <SelectItem value="difference">Difference</SelectItem>
+            <SelectItem value="exclusion">Exclusion</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* Opacity slider */}
+      <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
+        <span>Opacity:</span>
+        <div className="flex-1">
+          <Slider
+            defaultValue={[data.opacity]}
+            max={100}
+            step={1}
+            className="h-2"
+            onValueChange={handleOpacityChange}
+          />
+        </div>
+        <span className="w-8 text-right">{data.opacity}%</span>
       </div>
       
       {/* Clickable image area */}
@@ -151,6 +216,22 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
           className="hidden"
         />
       </div>
+      
+      {/* Input connection point */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="node-input"
+        style={{ 
+          left: -8,
+          width: 8, 
+          height: 8, 
+          background: '#777777',
+          borderRadius: '50%',
+          border: '2px solid #333',
+          zIndex: 10
+        }}
+      />
       
       {/* Output connection point */}
       <Handle
