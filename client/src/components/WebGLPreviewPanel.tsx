@@ -24,6 +24,8 @@ interface WebGLPreviewPanelProps {
   width: number;
   selectedNode: Node<FilterNodeData | ImageNodeData> | null;
   nodePreview: string | null;
+  processedImage?: string | null;
+  processedImages?: Record<string, string>;
   nodes: Node[];
   edges: Edge[];
   onExportImage: (format?: string) => void;
@@ -36,6 +38,8 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
   width,
   selectedNode,
   nodePreview,
+  processedImage,
+  processedImages,
   nodes,
   edges,
   onExportImage,
@@ -164,20 +168,19 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
           </Select>
           
           {/* Zoom controls */}
-          <Button variant="ghost" size="icon" onClick={handleZoomOut} className="h-8 w-8">
+          <Button variant="ghost" onClick={handleZoomOut} className="h-8 w-8 p-0">
             <ZoomOut className="h-4 w-4 text-white" />
           </Button>
           <div className="text-white text-xs">{Math.round(zoom * 100)}%</div>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn} className="h-8 w-8">
+          <Button variant="ghost" onClick={handleZoomIn} className="h-8 w-8 p-0">
             <ZoomIn className="h-4 w-4 text-white" />
           </Button>
           
           {/* Expand/collapse button */}
           <Button 
             variant="ghost" 
-            size="icon" 
             onClick={() => setExpanded(!expanded)}
-            className="h-8 w-8"
+            className="h-8 w-8 p-0"
           >
             {expanded ? 
               <Minimize2 className="h-4 w-4 text-white" /> : 
@@ -229,7 +232,7 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
         {(isProcessing || localProcessing) && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
             <div className="flex flex-col items-center">
-              <LoadingSpinner size={32} />
+              <LoadingSpinner size="lg" />
               <div className="text-white mt-2">Processing...</div>
             </div>
           </div>
@@ -261,7 +264,7 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
               <SelectItem value="webp">WebP</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="secondary" onClick={handleExportClick} className="h-8 text-sm">
+          <Button variant="secondary" onClick={handleExportClick} className="h-8 text-sm py-0">
             <Download className="h-4 w-4 mr-1" />
             Export
           </Button>
