@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useMemo, useEffect } from 'react';
+import { memo, useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
@@ -113,6 +113,30 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   }, [data.preview]);
   
+  // Function to directly request a preview update via custom event
+  const requestPreviewUpdate = useCallback(() => {
+    console.log('Requesting direct preview update for node:', id);
+    
+    // Dispatch the request event
+    const requestEvent = new CustomEvent('request-node-preview', {
+      detail: { nodeId: id }
+    });
+    window.dispatchEvent(requestEvent);
+  }, [id]);
+  
+  // Make the function globally available for debugging
+  useEffect(() => {
+    if (!(window as any).requestPreviewForNode) {
+      (window as any).requestPreviewForNode = function(nodeId: string) {
+        console.log('Global: Requesting preview for node:', nodeId);
+        const event = new CustomEvent('request-node-preview', { 
+          detail: { nodeId } 
+        });
+        window.dispatchEvent(event);
+      };
+    }
+  }, []);
+  
   // Subscribe to preview updates for this node using custom DOM events
   useEffect(() => {
     const handlePreviewUpdate = (e: any) => {
@@ -143,13 +167,16 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         // First, update the parameter value
         data.onParamChange(id, paramId, value);
         
-        // Then, directly request a node preview update through the callback
+        // Request preview update using our direct DOM event system
+        requestPreviewUpdate();
+        
+        // Also use the callback if available (for backward compatibility)
         if (data.onRequestNodePreview) {
           data.onRequestNodePreview(id);
         }
       }
-    }, 50, { leading: true, trailing: true }); // Faster throttle for better responsiveness
-  }, [id, data.onParamChange, data.onRequestNodePreview]);
+    }, 30, { leading: true, trailing: true }); // Even faster throttle for better responsiveness
+  }, [id, data.onParamChange, data.onRequestNodePreview, requestPreviewUpdate]);
   
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);

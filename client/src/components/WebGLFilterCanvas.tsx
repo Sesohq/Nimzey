@@ -9,6 +9,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Node, Edge } from 'reactflow';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { FilterNodeData, ImageNodeData } from '@/types';
+import { updateNodePreviewDirectly } from '@/utils/directUpdatePreview';
 
 interface WebGLFilterCanvasProps {
   nodes: Node[];
@@ -61,7 +62,11 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
             // Generate the node preview
             const preview = await rendererRef.current!.getNodePreview(e.detail.nodeId, 300);
             if (preview) {
-              // Dispatch the preview update event
+              // Try direct DOM update first - this bypasses React rendering completely
+              const didDirectUpdate = updateNodePreviewDirectly(e.detail.nodeId, preview);
+              console.log('Direct DOM update for preview request:', didDirectUpdate ? 'successful' : 'failed');
+              
+              // Also dispatch the DOM event for backward compatibility
               const previewEvent = new CustomEvent('node-preview-updated', { 
                 detail: { nodeId: e.detail.nodeId, preview }
               });
@@ -151,7 +156,11 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
           if (nodePreview) {
             console.log('Generated preview for node:', selectedNodeId);
             
-            // Dispatch a custom DOM event with the preview
+            // Try direct DOM update first - this bypasses React rendering completely
+            const didDirectUpdate = updateNodePreviewDirectly(selectedNodeId, nodePreview);
+            console.log('Direct DOM update for preview:', didDirectUpdate ? 'successful' : 'failed');
+            
+            // Still dispatch the DOM event for backward compatibility
             const previewEvent = new CustomEvent('node-preview-updated', { 
               detail: { nodeId: selectedNodeId, preview: nodePreview }
             });
