@@ -103,6 +103,14 @@ const EditableValue = ({
 };
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+  // Create throttled version of the parameter change handler for slider interactions
+  const throttledParamChange = useMemo(() => {
+    return throttle((paramId: string, value: number | string | boolean) => {
+      if (data.onParamChange) {
+        data.onParamChange(id, paramId, value);
+      }
+    }, 100, { leading: true, trailing: true });
+  }, [id, data.onParamChange]);
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
@@ -407,7 +415,12 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     color="warning"
                     size="md"
                     className="flex-1 mr-2"
-                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                    onValueChange={(values) => {
+                      // Update node data immediately so the thumb moves
+                      handleParamChange(param.id || param.name, values[0]);
+                      // Use throttled processing for WebGL rendering
+                      throttledParamChange(param.id || param.name, values[0]);
+                    }}
                     disabled={!data.enabled || param.isConnected}
                   />
                   {editingParam === (param.id || param.name) ? (
