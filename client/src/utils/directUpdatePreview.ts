@@ -21,7 +21,25 @@ export function updateNodePreviewDirectly(nodeId: string, previewUrl: string): b
     return true;
   }
   
-  console.log(`Could not find preview image for node ${nodeId}`);
+  // Try to find the image after a brief delay - the element might not be in the DOM yet
+  setTimeout(() => {
+    const retryImgElement = document.querySelector(`img[data-node-preview-id="${nodeId}"]`) as HTMLImageElement;
+    if (retryImgElement) {
+      console.log(`Found preview image for node ${nodeId} on second attempt`);
+      
+      // Add cache busting 
+      const urlWithCacheBuster = previewUrl.includes('?') 
+        ? `${previewUrl}&_cache=${Date.now()}` 
+        : `${previewUrl}?_cache=${Date.now()}`;
+      
+      // Update the image
+      retryImgElement.src = urlWithCacheBuster;
+    } else {
+      console.log(`Still could not find preview image for node ${nodeId} after retry`);
+    }
+  }, 50);
+  
+  console.log(`Could not find preview image for node ${nodeId} on first attempt`);
   return false;
 }
 

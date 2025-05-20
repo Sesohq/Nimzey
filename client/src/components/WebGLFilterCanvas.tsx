@@ -45,37 +45,67 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
     // Create renderer
     rendererRef.current = new GLRenderer(canvasRef.current);
     
-    // Add handler for preview requests
+    // Add handler for preview requests with a short debounce to avoid excessive processing
+    let requestTimer: NodeJS.Timeout | null = null;
+    const pendingRequests = new Set<string>();
+    
     const handlePreviewRequest = (e: any) => {
       if (e.detail && e.detail.nodeId && rendererRef.current) {
-        console.log('WebGLFilterCanvas received preview request for:', e.detail.nodeId);
+        const nodeId = e.detail.nodeId;
+        console.log('WebGLFilterCanvas received preview request for:', nodeId);
         
-        // Generate preview asynchronously to avoid blocking the UI
-        setTimeout(async () => {
+        // Add to pending requests
+        pendingRequests.add(nodeId);
+        
+        // Clear previous timer if exists
+        if (requestTimer) {
+          clearTimeout(requestTimer);
+        }
+        
+        // Set new timer to process all pending requests
+        requestTimer = setTimeout(async () => {
           try {
-            // Compile the graph first
+            // Only compile the graph once for all pending requests
             rendererRef.current!.compileGraph(nodes, edges);
             
-            // Preload necessary images
+            // Preload necessary images once
             await rendererRef.current!.preloadImages(nodes);
             
-            // Generate the node preview
-            const preview = await rendererRef.current!.getNodePreview(e.detail.nodeId, 300);
-            if (preview) {
-              // Try direct DOM update first - this bypasses React rendering completely
-              const didDirectUpdate = updateNodePreviewDirectly(e.detail.nodeId, preview);
-              console.log('Direct DOM update for preview request:', didDirectUpdate ? 'successful' : 'failed');
-              
-              // Also dispatch the DOM event for backward compatibility
-              const previewEvent = new CustomEvent('node-preview-updated', { 
-                detail: { nodeId: e.detail.nodeId, preview }
-              });
-              window.dispatchEvent(previewEvent);
+            // Process all pending requests
+            for (const id of pendingRequests) {
+              // Generate the node preview
+              const preview = await rendererRef.current!.getNodePreview(id, 300);
+              if (preview) {
+                // Try direct DOM update first - this bypasses React rendering completely
+                const didDirectUpdate = updateNodePreviewDirectly(id, preview);
+                console.log('Direct DOM update for preview request:', id, didDirectUpdate ? 'successful' : 'failed');
+                
+                // Also dispatch the DOM event for backward compatibility
+                const previewEvent = new CustomEvent('node-preview-updated', { 
+                  detail: { nodeId: id, preview }
+                });
+                window.dispatchEvent(previewEvent);
+                
+                // Also update the nodes state directly for consistency
+                setNodes(nodes => 
+                  nodes.map(node => 
+                    node.id === id 
+                      ? { ...node, data: { ...node.data, preview } }
+                      : node
+                  )
+                );
+              }
             }
+            
+            // Clear pending requests
+            pendingRequests.clear();
           } catch (err) {
-            console.error('Error generating requested preview:', err);
+            console.error('Error generating requested previews:', err);
+            pendingRequests.clear();
+          } finally {
+            requestTimer = null;
           }
-        }, 0);
+        }, 20); // Short delay to batch requests
       }
     };
     

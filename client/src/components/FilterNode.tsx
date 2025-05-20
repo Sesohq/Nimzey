@@ -117,12 +117,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const requestPreviewUpdate = useCallback(() => {
     console.log('Requesting direct preview update for node:', id);
     
-    // Dispatch the request event
+    // Dispatch the request event directly
     const requestEvent = new CustomEvent('request-node-preview', {
       detail: { nodeId: id }
     });
     window.dispatchEvent(requestEvent);
-  }, [id]);
+    
+    // Also request a preview through the callback if available
+    // (belt-and-suspenders approach to ensure preview updates)
+    if (data.onRequestNodePreview) {
+      data.onRequestNodePreview(id);
+    }
+  }, [id, data.onRequestNodePreview]);
   
   // Make the function globally available for debugging
   useEffect(() => {
@@ -488,6 +494,8 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                       handleParamChange(param.id || param.name, values[0]);
                       // Use throttled processing for WebGL rendering
                       throttledParamChange(param.id || param.name, values[0]);
+                      // Also directly request a preview update immediately
+                      requestPreviewUpdate();
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />
