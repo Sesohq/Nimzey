@@ -2,7 +2,7 @@ import { Node, Edge } from 'reactflow';
 import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
 
 // Function to apply image overlay with blend mode and opacity
-function applyImageOverlay(
+function applyImageBlending(
   ctx: CanvasRenderingContext2D, 
   canvas: HTMLCanvasElement, 
   overlayImage: HTMLImageElement, 
@@ -172,7 +172,7 @@ export const applyFilters = (
   for (let i = 1; i < nodesToProcess.length; i++) {
     const node = nodesToProcess[i];
     
-    if (node.type === 'filterNode') {
+    if (node.type === 'filterNode' || node.type === 'imageFilterNode') {
       const filterData = node.data as FilterNodeData;
       // Skip disabled filters
       if (!filterData.enabled) continue;
@@ -183,43 +183,13 @@ export const applyFilters = (
         value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
       }));
       
-      applyFilter(filterData.filterType, ctx, canvas, convertedParams);
-    } 
-    else if (node.type === 'imageFilterNode') {
-      // Handle Image Filter Node - blend the uploaded image with current canvas
-      const imageNodeData = node.data as FilterNodeData;
-      if (!imageNodeData.enabled) continue;
-      
-      // Find the image data parameter
-      const imageParam = imageNodeData.params.find(p => p.id === 'image-data');
-      if (imageParam && typeof imageParam.value === 'string' && imageParam.value) {
-        // Create a new image from the image data
-        const overlayImage = new Image();
-        overlayImage.src = imageParam.value;
-        
-        // We need to wait for the image to load
-        if (overlayImage.complete) {
-          // Apply the image with blend mode
-          applyImageOverlay(ctx, canvas, overlayImage, imageNodeData.blendMode, imageNodeData.opacity);
-        } else {
-          // For synchronous operation, we'll use a temporary approach
-          // In a production app, this should be handled asynchronously
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
-          if (tempCtx) {
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-            
-            // Draw original content to temp canvas
-            tempCtx.drawImage(canvas, 0, 0);
-            
-            // Set up a one-time load event handler
-            overlayImage.onload = () => {
-              applyImageOverlay(ctx, canvas, overlayImage, imageNodeData.blendMode, imageNodeData.opacity);
-            };
-          }
-        }
+      // Add blend mode and opacity parameters for image nodes
+      if (node.type === 'imageFilterNode') {
+        convertedParams.push({ name: 'blendMode', value: filterData.blendMode });
+        convertedParams.push({ name: 'opacity', value: filterData.opacity });
       }
+      
+      applyFilter(filterData.filterType, ctx, canvas, convertedParams);
     }
   }
   
@@ -447,6 +417,36 @@ const applyFilter = (
   const data = imageData.data;
   
   switch (filterType) {
+    case 'image':
+      // Handle image overlay filter
+      const imageDataValue = params.find(p => p.name === 'imageData')?.value;
+      const blendMode = params.find(p => p.name === 'blendMode')?.value as string || 'normal';
+      const opacity = Number(params.find(p => p.name === 'opacity')?.value || 100);
+      
+      if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue !== '') {
+        // Write back the current image data
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Load the overlay image
+        const overlayImage = new Image();
+        overlayImage.src = imageDataValue;
+        
+        if (overlayImage.complete) {
+          // Apply image overlay
+          applyImageBlending(ctx, canvas, overlayImage, blendMode, opacity);
+        } else {
+          // If image is not loaded, set up a load handler 
+          // (usually happens only the first time)
+          overlayImage.onload = () => {
+            applyImageBlending(ctx, canvas, overlayImage, blendMode, opacity);
+          };
+        }
+        
+        // Get the updated canvas data after overlay is applied
+        return; // Early return, as we've modified the canvas directly
+      }
+      break;
+      
     case 'blur':
       applyBlurFilter(data, canvas.width, canvas.height, getParamValue(params, 'radius', 10));
       break;
