@@ -295,7 +295,7 @@ export function useFilterGraph() {
   }, [edges, nodes, getHiddenCanvas]);
 
   // Process the image through the filter chain
-  const processImage = useCallback(() => {
+  const processImage = useCallback(async () => {
     if (!sourceImageRef.current || !sourceImage) return;
     
     // First, update any connected parameters
@@ -758,42 +758,67 @@ export function useFilterGraph() {
     console.log(`Uploading image to node ${nodeId}`);
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       if (e.target && e.target.result) {
         const imageDataUrl = e.target.result as string;
         
-        setNodes(prev =>
-          prev.map(node => {
-            if (node.id !== nodeId) return node;
-            
-            // Update the *params* array, not a custom parameters object
-            const newParams = (node.data as FilterNodeData).params.map(p => {
-              if (p.id === 'image-data' || p.name === 'imageData') {
-                return { ...p, value: imageDataUrl };
-              }
-              return p;
-            });
-            
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                params: newParams,
-                // Also update the "preview" so the node UI shows it immediately
-                preview: imageDataUrl
-              }
-            };
-          })
-        );
-        
-        // Re-run the processing to make the new texture flow through the chain
-        processImage();
-        
-        toast({
-          title: "Image uploaded",
-          description: "The image has been uploaded to the node",
-          variant: "default"
-        });
+        try {
+          // Create a new image and pre-decode it to avoid async loading issues
+          const img = new Image();
+          img.src = imageDataUrl;
+          await img.decode();  // Wait for it to fully load
+          
+          // Create a temporary canvas to draw the image and get its pixel data
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          if (!tempCtx) throw new Error("Could not create temp context");
+          
+          tempCanvas.width = img.width;
+          tempCanvas.height = img.height;
+          tempCtx.drawImage(img, 0, 0);
+          
+          // Update the node with the image data
+          setNodes(prev =>
+            prev.map(node => {
+              if (node.id !== nodeId) return node;
+              
+              // Update the params array with the image data
+              const newParams = (node.data as FilterNodeData).params.map(p => {
+                if (p.id === 'image-data' || p.name === 'imageData') {
+                  return { ...p, value: imageDataUrl };
+                }
+                return p;
+              });
+              
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  params: newParams,
+                  // Important: Set the preview to the image data for immediate UI feedback
+                  preview: imageDataUrl
+                }
+              };
+            })
+          );
+          
+          // Re-run the processing to make the new texture flow through the chain
+          // This ensures the image is already loaded when the chain processes
+          processImage();
+          
+          toast({
+            title: "Image uploaded",
+            description: "The image has been uploaded to the node",
+            variant: "default"
+          });
+        } catch (error) {
+          console.error("Error processing uploaded image:", error);
+          toast({
+            title: "Upload failed",
+            description: "Could not process the image",
+            variant: "destructive"
+          });
+        }
       }
     };
     
