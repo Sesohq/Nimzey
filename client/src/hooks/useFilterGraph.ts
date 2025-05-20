@@ -824,7 +824,47 @@ export function useFilterGraph() {
 
     const newNodeId = `${filterType}-${uuidv4().substring(0, 8)}`;
     
-    // Process params to ensure they have IDs
+    // For Image node type, create a special node
+    if (filterType === 'image') {
+      const newNode = {
+        id: newNodeId,
+        type: 'imageFilterNode',
+        position: { 
+          x: Math.random() * 300 + 250, 
+          y: Math.random() * 200 + 100
+        },
+        data: {
+          label: `${filterDef.name}`,
+          filterType,
+          params: filterDef.params.map(param => ({
+            ...param, 
+            id: param.id || `${param.name}-${uuidv4().substring(0, 8)}`,
+            controlType: param.controlType || 'select',
+            paramType: param.paramType || 'image'
+          })),
+          enabled: true,
+          preview: null,
+          colorTag: 'purple',
+          blendMode: 'normal',
+          opacity: 100,
+          collapsed: false,
+          onParamChange: handleParamChange,
+          onToggleEnabled: handleToggleEnabled,
+          onChangeBlendMode: handleBlendModeChange,
+          onChangeOpacity: handleOpacityChange,
+          onChangeColorTag: handleColorTagChange,
+          onToggleCollapsed: handleToggleCollapsed,
+          onConnectParam: handleConnectParam,
+          onDisconnectParam: handleDisconnectParam
+        },
+      };
+      
+      // Add the new node
+      setNodes(nds => [...nds, newNode]);
+      return;
+    }
+    
+    // Process params to ensure they have IDs for regular filter nodes
     const processedParams = filterDef.params.map(param => ({
       ...param, 
       id: param.id || `${param.name}-${uuidv4().substring(0, 8)}`,
