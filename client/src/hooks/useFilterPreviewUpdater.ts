@@ -9,7 +9,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { Node } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
 
-type QualityLevel = 'preview' | 'draft' | 'full';
+type QualityLevel = 'low' | 'preview' | 'draft' | 'full';
 
 interface PreviewUpdaterOptions {
   selectedNodeId: string | null;
@@ -51,8 +51,8 @@ export function useFilterPreviewUpdater({
     // Mark as updating
     isUpdatingRef.current = true;
     
-    // Immediately process at preview quality for responsive UI
-    processGraph('preview');
+    // Immediately process at low quality for super-responsive UI during sliding
+    processGraph('low');
     
     // Schedule a higher quality update after user stops changing parameters
     scheduledUpdateRef.current = window.setTimeout(() => {
@@ -65,9 +65,14 @@ export function useFilterPreviewUpdater({
         return;
       }
       
-      // Process at higher quality
-      processGraph('full');
-      isUpdatingRef.current = false;
+      // First update with preview quality
+      processGraph('preview');
+      
+      // Then schedule full quality update after a longer pause
+      scheduledUpdateRef.current = window.setTimeout(() => {
+        processGraph('full');
+        isUpdatingRef.current = false;
+      }, 300);
     }, 200);
   }, [processGraph, clearScheduledUpdates]);
   
