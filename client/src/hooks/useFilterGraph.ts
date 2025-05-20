@@ -296,7 +296,7 @@ export function useFilterGraph() {
   }, [edges, nodes, getHiddenCanvas]);
 
   // Process the image through the filter chain
-  const processImage = useCallback(async () => {
+  const processImage = useCallback(() => {
     if (!sourceImageRef.current || !sourceImage) return;
     
     // First, update any connected parameters
@@ -774,16 +774,20 @@ export function useFilterGraph() {
           const tempCtx = tempCanvas.getContext('2d');
           if (!tempCtx) throw new Error("Could not create temp context");
           
+          // Set canvas dimensions to match the image
           tempCanvas.width = img.width;
           tempCanvas.height = img.height;
-          tempCtx.drawImage(img, 0, 0);
           
-          // Update the node with the image data
+          // Draw the image and get its pixel data
+          tempCtx.drawImage(img, 0, 0);
+          const texturePixels = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Update the node with both the image data URL and the pre-decoded pixel data
           setNodes(prev =>
             prev.map(node => {
               if (node.id !== nodeId) return node;
               
-              // Update the params array with the image data
+              // Update the params array with the image data URL for serialization
               const newParams = (node.data as FilterNodeData).params.map(p => {
                 if (p.id === 'image-data' || p.name === 'imageData') {
                   return { ...p, value: imageDataUrl };
@@ -796,15 +800,16 @@ export function useFilterGraph() {
                 data: {
                   ...node.data,
                   params: newParams,
-                  // Important: Set the preview to the image data for immediate UI feedback
+                  // Save the decoded pixels for synchronous access during filtering
+                  texturePixels,
+                  // Set the preview to the image data for immediate UI feedback
                   preview: imageDataUrl
                 }
               };
             })
           );
           
-          // Re-run the processing to make the new texture flow through the chain
-          // This ensures the image is already loaded when the chain processes
+          // Re-run the processing chain to update all previews
           processImage();
           
           toast({

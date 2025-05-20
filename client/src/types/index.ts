@@ -83,6 +83,7 @@ export type FilterNodeData = {
 export type ImageNodeData = {
   src: string | null;
   onUploadImage?: (file: File) => void;
+  texturePixels?: ImageData; // Add field for storing preloaded image data
 };
 
 export type OutputNodeData = {

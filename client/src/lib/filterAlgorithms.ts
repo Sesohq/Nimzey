@@ -105,14 +105,14 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[]): Node[] => 
 };
 
 // Main function to apply filters
-export const applyFilters = async (
+export const applyFilters = (
   sourceImage: HTMLImageElement,
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
   targetNodeId?: string,
   outputNodeId?: string
-): Promise<string | null> => {
+): string | null => {
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
   if (!sourceNode) return null;
@@ -189,7 +189,7 @@ export const applyFilters = async (
         convertedParams.push({ name: 'opacity', value: filterData.opacity });
       }
       
-      await applyFilter(filterData.filterType, ctx, canvas, convertedParams);
+      applyFilter(filterData.filterType, ctx, canvas, convertedParams, node.data);
     }
   }
   
@@ -407,68 +407,51 @@ function applyGlowFilter(
 }
 
 // Apply a specific filter based on type
-const applyFilter = async (
+const applyFilter = (
   filterType: FilterType,
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  params: { name: string; value: number | string }[]
-): Promise<void> => {
+  params: { name: string; value: number | string }[],
+  nodeData?: any
+): void => {
   let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let data = imageData.data;
   
   switch (filterType) {
     case 'image':
       // Handle image node - overlay a texture image on top of the filter chain
-      const imageDataValue = params.find(p => p.name === 'imageData')?.value;
       const blendMode = params.find(p => p.name === 'blendMode')?.value as string || 'normal';
       const opacity = Number(params.find(p => p.name === 'opacity')?.value || 100);
       
       // First put the current filter chain data back to the canvas
       ctx.putImageData(imageData, 0, 0);
       
-      // IMPORTANT: If the node has an uploaded texture image, load and apply it properly
-      if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue.length > 10) {
-        console.log("Image node: Loading texture image with blend mode:", blendMode);
+      // Use pre-loaded texture pixels if available (from the node data)
+      if (nodeData && nodeData.texturePixels) {
+        console.log("Image node: Using preloaded texture with blend mode:", blendMode);
         
-        try {
-          // Create a new image and load it SYNCHRONOUSLY
-          const textureImage = new Image();
-          textureImage.crossOrigin = "anonymous";
-          
-          // Use a promise to properly wait for the image to load
-          await new Promise<void>((resolve, reject) => {
-            textureImage.onload = () => resolve();
-            textureImage.onerror = () => {
-              console.error("Failed to load texture image");
-              reject();
-            };
-            textureImage.src = imageDataValue;
-          });
-          
-          // Image is now fully loaded, apply it to the canvas
-          console.log("Image node: Texture image loaded, applying blend");
-          
-          // Setup a temporary canvas for the texture
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
-          if (!tempCtx) break;
-          
-          tempCanvas.width = canvas.width;
-          tempCanvas.height = canvas.height;
-          
-          // Draw the texture onto the temp canvas
-          tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-          tempCtx.drawImage(textureImage, 0, 0, tempCanvas.width, tempCanvas.height);
-          
-          // Blend the texture onto the main canvas
-          ctx.save();
-          ctx.globalAlpha = opacity / 100;
-          ctx.globalCompositeOperation = convertBlendMode(blendMode);
-          ctx.drawImage(tempCanvas, 0, 0);
-          ctx.restore();
-        } catch (error) {
-          console.error("Error in image node processing:", error);
-        }
+        // Get the texture pixels we preloaded during upload
+        const texturePixels = nodeData.texturePixels;
+        
+        // Create a temporary canvas for the texture
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) break;
+        
+        // Set dimensions to match our main canvas
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        
+        // Draw the texture pixels onto the temp canvas
+        // This will handle scaling/positioning of the texture
+        tempCtx.putImageData(texturePixels, 0, 0);
+        
+        // Blend the texture onto the main canvas with the specified blend mode
+        ctx.save();
+        ctx.globalAlpha = opacity / 100;
+        ctx.globalCompositeOperation = convertBlendMode(blendMode);
+        ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
       }
       break;
       
