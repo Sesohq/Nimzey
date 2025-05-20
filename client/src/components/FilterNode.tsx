@@ -104,8 +104,15 @@ const EditableValue = ({
 };
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
-  // Add local state for the preview thumbnail
+  // Add local state for the preview thumbnail - fallback to data.preview
   const [previewThumb, setPreviewThumb] = useState(data.preview || '');
+  
+  // Also update local state if data.preview changes (for initial load)
+  useEffect(() => {
+    if (data.preview) {
+      setPreviewThumb(data.preview);
+    }
+  }, [data.preview]);
   
   // Subscribe to preview updates for this node
   useEffect(() => {
