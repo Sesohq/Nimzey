@@ -1,5 +1,4 @@
-import { memo, useState, useRef, useMemo } from 'react';
-import { throttle } from 'lodash';
+import { memo, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
@@ -114,8 +113,6 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   
   // Create handle references for connection lines to work properly
   const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  
-  // Simple approach for slider updates
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,6 +126,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
+      
+      // Trigger immediate preview update by calling the same logic
+      // that happens when clicking on the background
+      if (onPaneClick) {
+        onPaneClick();
+      }
     }
   };
 
@@ -414,13 +417,8 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => {
-                      // Simple direct update of the parameter
+                      // Apply change immediately for real-time preview updates
                       handleParamChange(param.id || param.name, values[0]);
-                      
-                      // Directly trigger update
-                      if (onPaneClick) {
-                        onPaneClick();
-                      }
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />

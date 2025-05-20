@@ -18,7 +18,7 @@ interface WebGLFilterCanvasProps {
   selectedNodeId: string | null;
   onPreviewGenerated?: (dataUrl: string | null) => void;
   onProcessingStateChange?: (isProcessing: boolean) => void;
-  qualityLevel?: 'low' | 'preview' | 'draft' | 'full';
+  qualityLevel?: 'preview' | 'draft' | 'full';
 }
 
 const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
@@ -95,9 +95,6 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         // Render the graph based on quality level
         let options: any = {};
         switch (qualityLevel) {
-          case 'low':
-            options = { quality: 'low', maxDimension: 256, tileSize: 128 };
-            break;
           case 'preview':
             options = { quality: 'preview', maxDimension: 512, tileSize: 256 };
             break;

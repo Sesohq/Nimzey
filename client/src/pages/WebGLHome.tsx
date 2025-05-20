@@ -63,7 +63,7 @@ export default function WebGLHome() {
   }, [setSelectedNodeId, generateNodePreview, nodes]);
   
   // Quality change handler
-  const handleQualityChange = useCallback((quality: 'low' | 'preview' | 'draft' | 'full') => {
+  const handleQualityChange = useCallback((quality: 'preview' | 'draft' | 'full') => {
     setQualityLevel(quality);
     // Request processing with the new quality level
     requestProcessing(quality);

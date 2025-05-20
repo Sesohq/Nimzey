@@ -30,8 +30,8 @@ interface WebGLPreviewPanelProps {
   edges: Edge[];
   onExportImage: (format?: string) => void;
   isProcessing?: boolean;
-  qualityLevel?: 'low' | 'preview' | 'draft' | 'full'; 
-  onQualityChange?: (quality: 'low' | 'preview' | 'draft' | 'full') => void;
+  qualityLevel?: 'preview' | 'draft' | 'full'; 
+  onQualityChange?: (quality: 'preview' | 'draft' | 'full') => void;
 }
 
 const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
