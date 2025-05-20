@@ -29,6 +29,61 @@ import { ShaderRegistry } from '@/gl/compiler/ShaderRegistry';
 type QualityLevel = 'preview' | 'draft' | 'full';
 
 export function useGLFilterGraph() {
+  // Process the filter graph using WebGL
+  const processGraph = async (quality: QualityLevel = 'draft', options: { maxDimension?: number } = {}) => {
+    const glRenderer = glRendererRef.current;
+    if (!glRenderer || !nodes.length || !edges.length) return;
+    
+    // Find output nodes
+    const outputNodes = nodes.filter(node => node.type === 'outputNode');
+    if (outputNodes.length === 0) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // Compile the graph
+      glRenderer.compileGraph(nodes, edges);
+      
+      // Preload necessary images
+      await glRenderer.preloadImages(nodes);
+      
+      // Render based on quality level
+      let renderOptions: RenderOptions = { 
+        quality, 
+        maxDimension: options.maxDimension 
+      };
+      
+      if (quality === 'preview') {
+        renderOptions.tileSize = 256;
+        renderOptions.maxDimension = options.maxDimension || 512;
+      } else if (quality === 'draft') {
+        renderOptions.maxDimension = options.maxDimension || 1024;
+      }
+      
+      // Render the graph
+      const renderedImage = await glRenderer.render(renderOptions);
+      
+      if (renderedImage) {
+        // Store the result
+        setProcessedImage(renderedImage);
+        
+        // Update processed images map
+        setProcessedImages(prev => ({
+          ...prev,
+          [activeOutputNodeId || '']: renderedImage
+        }));
+      }
+    } catch (err) {
+      console.error('Error processing filter graph:', err);
+      toast({
+        title: 'Processing error',
+        description: 'An error occurred while processing the image.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
@@ -404,6 +459,23 @@ export function useGLFilterGraph() {
   
 
 
+  // Create throttled version of requestProcessing for interactive updates
+  const throttledProcessing = useMemo(() => {
+    return throttle((quality: QualityLevel = 'preview') => {
+      // Use low resolution during interactive dragging (144px max for super fast updates)
+      const options = { maxDimension: 144 }; // Very low res for immediate feedback
+      requestProcessing(quality, options);
+    }, 100, { leading: true, trailing: true });
+  }, [requestProcessing]);
+  
+  // Create debounced version for high-quality updates after interaction stops
+  const debouncedHighQualityUpdate = useMemo(() => {
+    return debounce((quality: QualityLevel = 'draft') => {
+      // Higher resolution once user stops interacting
+      requestProcessing(quality);
+    }, 300);
+  }, [requestProcessing]);
+
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
     setNodes(nodes => 
@@ -431,12 +503,12 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Use throttled processing for immediate feedback at low resolution
-    throttledRequestProcessing('preview');
+    // For immediate feedback, use throttled low-res processing
+    throttledProcessing('preview');
     
     // Also queue a higher quality update for when the user stops dragging
-    debouncedRequestProcessing('draft');
-  }, [throttledRequestProcessing, debouncedRequestProcessing]);
+    debouncedHighQualityUpdate('draft');
+  }, [throttledProcessing, debouncedHighQualityUpdate]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
@@ -586,22 +658,32 @@ export function useGLFilterGraph() {
       await glRendererRef.current.preloadImages(nodes);
       
       // Render based on quality level
-      let options: any = {};
+      let renderOptions: any = {};
       
       switch (quality) {
         case 'preview':
-          options = { quality: 'preview', maxDimension: 512, tileSize: 256 };
+          renderOptions = { 
+            quality: 'preview', 
+            maxDimension: options.maxDimension || 512, // Use custom dimension if provided
+            tileSize: 256 
+          };
           break;
         case 'draft':
-          options = { quality: 'draft', maxDimension: 1024 };
+          renderOptions = { 
+            quality: 'draft', 
+            maxDimension: options.maxDimension || 1024 // Use custom dimension if provided
+          };
           break;
         case 'full':
-          options = { quality: 'full' };
+          renderOptions = { 
+            quality: 'full',
+            maxDimension: options.maxDimension // Will be undefined if not provided
+          };
           break;
       }
       
       // Render the graph
-      const renderedImage = await glRendererRef.current.render(options);
+      const renderedImage = await glRendererRef.current.render(renderOptions);
       
       if (renderedImage) {
         // Store the result
