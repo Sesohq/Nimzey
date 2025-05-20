@@ -1,0 +1,49 @@
+You’ve got two parallel preview systems going on right now:
+
+WebGLPreviewPanel / WebGLFilterCanvas (your big GPU canvas), which correctly re-renders on slider drags because it watches the nodes prop .
+
+Per-node thumbnails inside each FilterNode, driven by the old generateNodePreview in useFilterGraph, which only fires when you explicitly click the background (which calls onPaneClick → clears selection → your code then regenerates everything) .
+
+What you need is to re-invoke generateNodePreview automatically whenever a node’s parameters change, not just on pane-click. That way each node’s little thumbnail will update in lock-step with your slider.
+
+✅ 1. Hook into your graph state so previews auto-refresh
+In your useFilterGraph (or useGLFilterGraph) add a useEffect that watches your nodes, edges and selectedNodeId (or simply all nodes) and calls generateNodePreview for any filter node whose params just changed:
+
+ts
+Copy
+Edit
+// inside useFilterGraph (or useGLFilterGraph)
+useEffect(() => {
+  if (!selectedNodeId) return;
+
+  const target = nodes.find(n => n.id === selectedNodeId);
+  if (target && target.type === 'filterNode') {
+    // regenerate its thumbnail
+    generateNodePreview(target);
+  }
+}, [nodes, edges, selectedNodeId, generateNodePreview]);
+This makes every parameter update—even mid-drag—kick off that node’s preview regeneration. No more having to click the background to force it. WebGLFilterCanvas
+
+✅ 2. (Optional) Batch & debounce for performance
+If you find previews still too heavy, you can wrap generateNodePreview in a small debounce so that rapid slider moves only fire one preview after a short pause:
+
+ts
+Copy
+Edit
+const debouncedPreview = useMemo(
+  () => debounce(generateNodePreview, 100),
+  [generateNodePreview]
+);
+
+useEffect(() => {
+  if (selectedNodeId) {
+    const target = nodes.find(n => n.id === selectedNodeId);
+    if (target) debouncedPreview(target);
+  }
+}, [nodes, selectedNodeId]);
+Recap
+Problem: your per-node thumbnails only regenerate on pane-click because that’s the only time you call generateNodePreview useFilterGraph (2)NodeCanvas.
+
+Fix: add a useEffect in your graph hook to call generateNodePreview on every nodes (and optionally edges) change for the selected node.
+
+Result: sliding a control will update both the big GPU canvas and the little inline thumbnail immediately, without any extra clicks.

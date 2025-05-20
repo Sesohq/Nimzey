@@ -29,6 +29,8 @@ import { ShaderRegistry } from '@/gl/compiler/ShaderRegistry';
 type QualityLevel = 'preview' | 'draft' | 'full';
 
 export function useGLFilterGraph() {
+  // Create debounced preview generator for thumbnail updates
+  // This will be properly initialized in a useEffect after all dependencies are available
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
