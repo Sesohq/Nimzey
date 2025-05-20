@@ -17,13 +17,15 @@ import { ZoomIn, ZoomOut } from 'lucide-react';
 import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import OutputNode from './OutputNode';
+import ImageFilterNode from './ImageFilterNode';
 import { Badge } from '@/components/ui/badge';
 
 // Using a renderNode function instead of creating new nodeTypes object on each render
 const nodeTypes: NodeTypes = {
   filterNode: FilterNode,
   imageNode: ImageNode,
-  outputNode: OutputNode
+  outputNode: OutputNode,
+  imageFilterNode: ImageFilterNode
 };
 
 interface NodeCanvasProps {

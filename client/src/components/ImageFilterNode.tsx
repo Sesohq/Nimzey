@@ -49,7 +49,9 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
           setImagePreview(imageDataUrl);
           
           // Update the parameter value if it exists
-          data.onParamChange(id, 'image-data', imageDataUrl);
+          if (data.onParamChange) {
+            data.onParamChange(id, 'image-data', imageDataUrl);
+          }
         }
       };
       
