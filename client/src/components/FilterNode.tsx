@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { memo, useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import NodeControls from './NodeControls';
-import CanvasPreview from './CanvasPreview';
 
 // Color tag backgrounds
 const colorTagBg: Record<NodeColorTag, string> = {
@@ -103,51 +102,88 @@ const EditableValue = ({
   );
 };
 
-interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
-  generateNodePreview?: (nodeId: string) => void;
-}
-
-const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
-  // State for the fast preview system
-  const [showFastPreview, setShowFastPreview] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [isSliderActive, setIsSliderActive] = useState(false);
+const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+  // Add local state for the preview thumbnail - fallback to data.preview
+  const [previewThumb, setPreviewThumb] = useState(data.preview || '');
   
-  // Reference to the source image for fast previews
-  const sourceImageRef = useRef<string | null>(null);
-  
-  // Effect to update source image when the preview changes
+  // Also update local state if data.preview changes (for initial load)
   useEffect(() => {
     if (data.preview) {
-      sourceImageRef.current = data.preview;
+      setPreviewThumb(data.preview);
     }
   }, [data.preview]);
   
-  // Create throttled version of the preview generator
-  const throttledPreview = useMemo(() => {
-    return throttle(() => {
-      // Trigger the thumbnail generation
-      if (generateNodePreview) {
-        generateNodePreview(id);
+  // Function to directly request a preview update via custom event
+  const requestPreviewUpdate = useCallback(() => {
+    console.log('Requesting direct preview update for node:', id);
+    
+    // Dispatch the request event directly
+    const requestEvent = new CustomEvent('request-node-preview', {
+      detail: { nodeId: id }
+    });
+    window.dispatchEvent(requestEvent);
+    
+    // Also request a preview through the callback if available
+    // (belt-and-suspenders approach to ensure preview updates)
+    if (data.onRequestNodePreview) {
+      data.onRequestNodePreview(id);
+    }
+  }, [id, data.onRequestNodePreview]);
+  
+  // Make the function globally available for debugging
+  useEffect(() => {
+    if (!(window as any).requestPreviewForNode) {
+      (window as any).requestPreviewForNode = function(nodeId: string) {
+        console.log('Global: Requesting preview for node:', nodeId);
+        const event = new CustomEvent('request-node-preview', { 
+          detail: { nodeId } 
+        });
+        window.dispatchEvent(event);
+      };
+    }
+  }, []);
+  
+  // Subscribe to preview updates for this node using custom DOM events
+  useEffect(() => {
+    const handlePreviewUpdate = (e: any) => {
+      if (e.detail && e.detail.nodeId === id && e.detail.preview) {
+        console.log('Node', id, 'received preview update via DOM event');
+        setPreviewThumb(e.detail.preview);
+        
+        // Also update in the node data if callback is provided
+        if (data.onUpdatePreview) {
+          data.onUpdatePreview(id, e.detail.preview);
+        }
       }
-    }, 100, { leading: false, trailing: true });
-  }, [id, generateNodePreview]);
+    };
+    
+    // Add event listener for our custom event
+    window.addEventListener('node-preview-updated', handlePreviewUpdate);
+    
+    // Clean up on unmount
+    return () => {
+      window.removeEventListener('node-preview-updated', handlePreviewUpdate);
+    };
+  }, [id, data.onUpdatePreview]);
   
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
+        // First, update the parameter value
         data.onParamChange(id, paramId, value);
-        // Also schedule a thumbnail update
-        throttledPreview();
+        
+        // Request preview update using our direct DOM event system
+        requestPreviewUpdate();
+        
+        // Also use the callback if available (for backward compatibility)
+        if (data.onRequestNodePreview) {
+          data.onRequestNodePreview(id);
+        }
       }
-    }, 100, { leading: true, trailing: true });
-  }, [id, data.onParamChange, throttledPreview]);
+    }, 30, { leading: true, trailing: true }); // Even faster throttle for better responsiveness
+  }, [id, data.onParamChange, data.onRequestNodePreview, requestPreviewUpdate]);
   
-  // Handler for when fast preview is generated
-  const handleFastPreviewGenerated = useCallback((dataUrl: string) => {
-    setPreviewImageUrl(dataUrl);
-  }, []);
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
@@ -166,17 +202,8 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
   };
 
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
-    // Show fast preview while user is interacting with sliders
-    setShowFastPreview(true);
-    
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
-      
-      // Hide fast preview and trigger normal preview after interaction stops
-      setTimeout(() => {
-        setShowFastPreview(false);
-        throttledPreview();
-      }, 500);
     }
   };
 
@@ -395,33 +422,19 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
             </div>
           </div>
           
-          {/* Image Preview - with Fast Canvas Preview when sliders are active */}
-          {(showFastPreview && sourceImageRef.current && data.filter?.type) || data.preview ? (
+          {/* Image Preview - Using local state for more reliable updates */}
+          {previewThumb && (
             <div className="mb-3">
               <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
-                {showFastPreview && sourceImageRef.current && data.filter?.type ? (
-                  /* Show real-time canvas preview during slider interactions */
-                  <CanvasPreview
-                    imageUrl={sourceImageRef.current}
-                    filterType={data.filter.type}
-                    params={data.filter.params || []}
-                    width={280}
-                    height={100}
-                    onPreviewGenerated={handleFastPreviewGenerated}
-                  />
-                ) : (
-                  /* Show normal WebGL-rendered preview when not interacting */
-                  data.preview && (
-                    <img 
-                      src={data.preview} 
-                      alt={`${data.label} preview`}
-                      className="w-full h-full object-cover"
-                    />
-                  )
-                )}
+                <img 
+                  src={previewThumb} 
+                  alt={`${data.label} preview`}
+                  className="w-full h-full object-cover"
+                  data-node-preview-id={id}  // Add data attribute for direct DOM manipulation
+                />
               </div>
             </div>
-          ) : null}
+          )}
           
           {/* Parameters with connection handles */}
           {data.params.map((param) => (
@@ -477,20 +490,12 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => {
-                      // Show fast preview while adjusting slider
-                      setShowFastPreview(true);
-                      
                       // Update node data immediately so the thumb moves
                       handleParamChange(param.id || param.name, values[0]);
-                    }}
-                    onValueCommit={(values) => {
-                      // When slider interaction ends, hide fast preview after a delay 
-                      // and generate the high-quality preview
-                      setTimeout(() => {
-                        setShowFastPreview(false);
-                        // Use throttled processing for WebGL rendering
-                        throttledParamChange(param.id || param.name, values[0]);
-                      }, 300);
+                      // Use throttled processing for WebGL rendering
+                      throttledParamChange(param.id || param.name, values[0]);
+                      // Also directly request a preview update immediately
+                      requestPreviewUpdate();
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />

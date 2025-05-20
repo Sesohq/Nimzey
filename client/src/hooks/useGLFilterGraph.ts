@@ -19,6 +19,7 @@ import {
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
 import { debounce, throttle } from 'lodash';
+import { emitPreview } from '@/lib/previewBus';
 import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { toast } from '@/hooks/use-toast';
@@ -334,6 +335,7 @@ export function useGLFilterGraph() {
         handleOpacityChange(id, opacity),
       onChangeColorTag: (id: string, colorTag: NodeColorTag) => 
         handleColorTagChange(id, colorTag),
+      onRequestNodePreview: (id: string) => requestNodePreview(id),
       blendMode: 'normal',
       opacity: 100,
       colorTag: 'default'
@@ -396,7 +398,28 @@ export function useGLFilterGraph() {
       const previewUrl = await glRendererRef.current.getNodePreview(targetNode.id, 300);
       
       if (previewUrl) {
+        // Set node preview in main preview panel
         setNodePreview(previewUrl);
+        
+        // Emit the preview update event - this will update all subscribed nodes
+        emitPreview(targetNode.id, previewUrl);
+        
+        // Also update the node data in React Flow's state for persistence
+        // This won't trigger re-renders in FilterNode thanks to our event system
+        setNodes(nodes => 
+          nodes.map(node => {
+            if (node.id === targetNode.id) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  preview: previewUrl
+                }
+              };
+            }
+            return node;
+          })
+        );
       }
     } catch (err) {
       console.error('Error generating node preview:', err);
@@ -409,11 +432,11 @@ export function useGLFilterGraph() {
 
   // These will be initialized after requestProcessing is defined
   
-  // Will be initialized after generateNodePreview is defined
+  // We don't need this reference anymore, removed
 
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
-    // Update parameter value in the node data
+    // First update the node data in state
     setNodes(nodes => 
       nodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
@@ -439,12 +462,19 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Immediately start a low-quality preview render
-    requestProcessing('preview');
+    // Schedule thumbnail and preview updates after the state is updated
+    setTimeout(() => {
+      // Update the node thumbnail
+      const updatedNode = nodes.find(n => n.id === nodeId);
+      if (updatedNode) {
+        generateNodePreview(updatedNode);
+      }
+      
+      // Process the main image (only the public interface is used here)
+      setQualityLevel('preview');
+    }, 10);
     
-    // Since we already have the node ID, schedule a thumbnail update
-    // We'll handle this with a useEffect that watches for node changes
-  }, [nodes, requestProcessing]);
+  }, [nodes, generateNodePreview]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
@@ -743,6 +773,24 @@ export function useGLFilterGraph() {
     });
   }, []);
   
+  // Add a function to directly request a node preview
+  const requestNodePreview = useCallback((nodeId: string) => {
+    // Simplest approach that works: re-select the node to trigger a preview update
+    // This leverages the existing mechanism that already works when clicking on nodes
+    
+    console.log('Requesting preview by re-selecting node:', nodeId);
+    
+    // Only re-select if we have a renderer and the node exists
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && glRendererRef.current) {
+      // First update the actual parameter value in state
+      setSelectedNodeId(nodeId);
+      
+      // Then request a preview generation
+      generateNodePreview(node);
+    }
+  }, [nodes, setSelectedNodeId, generateNodePreview]);
+
   return {
     nodes,
     edges,
@@ -770,24 +818,6 @@ export function useGLFilterGraph() {
     resetNodePositions,
     qualityLevel,
     setQualityLevel,
+    onRequestNodePreview: requestNodePreview,
   };
-  
-  // Add effect to auto-refresh thumbnails when nodes or parameters change
-  useEffect(() => {
-    // Skip if no node is selected
-    if (!selectedNodeId) return;
-    
-    // Find the selected node
-    const targetNode = nodes.find(n => n.id === selectedNodeId);
-    if (targetNode && targetNode.type === 'filterNode') {
-      // Use a small delay to avoid too many renders during rapid changes
-      const debounceTimer = setTimeout(() => {
-        generateNodePreview(targetNode);
-      }, 100);
-      
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [nodes, selectedNodeId, generateNodePreview]);
-  
-  return graphData;
 }

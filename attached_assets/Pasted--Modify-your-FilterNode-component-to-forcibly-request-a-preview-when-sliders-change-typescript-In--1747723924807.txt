@@ -1,0 +1,99 @@
+ Modify your FilterNode component to forcibly request a preview when sliders change
+typescript// In FilterNode.tsx
+
+// Create throttled version of the parameter change handler for slider interactions
+const throttledParamChange = useMemo(() => {
+  return throttle((paramId: string, value: number | string | boolean) => {
+    if (data.onParamChange) {
+      // First, update the parameter value
+      data.onParamChange(id, paramId, value);
+      
+      // Then explicitly request a node preview update
+      // This is the key part - trigger the same code that runs when you select a node
+      if (data.onRequestNodePreview) {
+        data.onRequestNodePreview(id);
+      }
+    }
+  }, 50, { leading: true, trailing: true }); // Faster throttle for better responsiveness
+}, [id, data.onParamChange, data.onRequestNodePreview]);
+2. Add the onRequestNodePreview function to your graph hook
+typescript// In useGLFilterGraph.ts or similar
+
+// Add a function that can be called to request a node preview
+const requestNodePreview = useCallback((nodeId: string) => {
+  // Force the node to be "selected" temporarily to generate a preview
+  const currentSelected = selectedNodeId;
+  
+  // Important: Only do this if we have a renderer
+  if (glRendererRef.current) {
+    // Create a function to generate the preview
+    const generatePreview = async () => {
+      try {
+        // This is the same logic your renderer already uses for node previews
+        const preview = await glRendererRef.current.getNodePreview(nodeId, 300);
+        
+        // Update the nodes state with the new preview
+        if (preview) {
+          setNodes(nodes => 
+            nodes.map(node => 
+              node.id === nodeId 
+                ? { ...node, data: { ...node.data, preview } }
+                : node
+            )
+          );
+        }
+      } catch (err) {
+        console.error('Error generating preview for node:', nodeId, err);
+      } finally {
+        // Restore the previously selected node if there was one
+        if (currentSelected !== selectedNodeId) {
+          setSelectedNodeId(currentSelected);
+        }
+      }
+    };
+    
+    // Run the preview generation
+    generatePreview();
+  }
+}, [glRendererRef, selectedNodeId, setNodes, setSelectedNodeId]);
+
+// Include this in your return object
+return {
+  // ... existing return values
+  onRequestNodePreview: requestNodePreview,
+};
+3. Make sure to pass this function down to your nodes
+typescript// In your NodeCanvas or wherever you create the nodeTypes
+const nodeTypes = useMemo(() => ({
+  filterNode: (props) => (
+    <FilterNode
+      {...props}
+      data={{
+        ...props.data,
+        onRequestNodePreview: requestNodePreview  // Add this line
+      }}
+    />
+  ),
+  // other node types...
+}), [/* dependencies */]);
+4. Update your type definitions to include the new prop
+typescript// In your types.ts or similar
+export interface FilterNodeData {
+  // Existing properties
+  label: string;
+  filterType: FilterType;
+  params: FilterParam[];
+  enabled: boolean;
+  // ... other properties
+  
+  // Add this
+  onRequestNodePreview?: (nodeId: string) => void;
+}
+This approach:
+
+Directly ties into your existing preview generation system
+Reuses the same code path that already works when clicking the background
+Explicitly requests preview updates when sliders change
+Maintains the original node selection state throughout
+
+The key insight is to directly request a node preview update when a parameter changes, rather than relying on selection state or React Flow's rendering cycle to trigger the preview update.

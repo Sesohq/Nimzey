@@ -1,0 +1,82 @@
+The root of the problem isn’t your GPU pipeline any more—it’s React Flow’s internal memoization of custom nodes. By default, once a node is mounted it only re-renders if its props object identity changes in a way React Flow can detect. You’ve been updating node.data.preview, but React Flow may still see the same object reference or shallow-equal props and skip re-mounting your FilterNode.
+
+Rather than fighting that, here’s a bullet-proof pattern that sidesteps React Flow’s caching altogether: push your thumbnail URL updates directly into component state inside each node, via an event emitter (or simple pub/sub). That way each FilterNode sub‐scribes to “previewUpdated” events for its own id, and when you compute a new preview in your graph hook you fire an event, and that React state update will always re-render the node.
+
+1. Create a tiny preview bus
+In some shared module (e.g. previewBus.ts):
+
+ts
+Copy
+Edit
+type PreviewHandler = (nodeId: string, url: string) => void;
+const handlers = new Set<PreviewHandler>();
+
+export function onPreview(fn: PreviewHandler) { handlers.add(fn); }
+export function offPreview(fn: PreviewHandler) { handlers.delete(fn); }
+export function emitPreview(nodeId: string, url: string) {
+  handlers.forEach(fn => fn(nodeId, url));
+}
+2. In your graph hook, emit instead of patching React Flow
+Wherever you generate a new thumbnail URL:
+
+ts
+Copy
+Edit
+import { emitPreview } from './previewBus';
+
+const url = await runFilterPipeline(...);
+// instead of setNodes(...)
+emitPreview(nodeId, url);
+3. In your FilterNode component, hold the preview in local state
+tsx
+Copy
+Edit
+import { useState, useEffect } from 'react';
+import { onPreview, offPreview } from '../previewBus';
+
+export default function FilterNode(props: NodeProps<FilterNodeData>) {
+  const { id, data, onParamChange } = props;
+  const [thumb, setThumb] = useState(data.preview || '');
+
+  // subscribe once, update state on events
+  useEffect(() => {
+    const handler = (nid: string, url: string) => {
+      if (nid === id) setThumb(url);
+    };
+    onPreview(handler);
+    return () => { offPreview(handler); };
+  }, [id]);
+
+  return (
+    <div className="filter-node">
+      {/* ... your sliders ... */}
+      <CustomSlider
+        value={[/* ... */]}
+        onValueChange={([v]) => {
+          onParamChange(id, param.id, v);
+          // you’ll be emitting in the hook, so no need for extra calls here
+        }}
+        {...}
+      />
+
+      {/* render local state thumb */}
+      {thumb && (
+        <img
+          src={thumb}
+          alt="node preview"
+          width={80}
+          height={80}
+          style={{ objectFit: 'cover' }}
+        />
+      )}
+    </div>
+  );
+}
+Why this solves it
+Direct React state in FilterNode will always re-render when you call setThumb.
+
+You no longer rely on React Flow to notice mutated data.preview props.
+
+Slider drags fire onParamChange, your graph hook re-computes and emitPreview(nodeId, url), and every FilterNode instance listening for its own id instantly updates.
+
+You can still throttle emitPreview in your hook (e.g. throttle((id,u)=>emitPreview(id,u),100)), and your runFilterPipeline can stay low-res during drags. But the key is: break free of React Flow’s memoization by using local state and pub/sub for those little thumbnails.
