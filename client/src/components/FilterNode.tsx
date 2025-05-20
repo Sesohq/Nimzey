@@ -397,6 +397,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   src={previewThumb} 
                   alt={`${data.label} preview`}
                   className="w-full h-full object-cover"
+                  data-node-preview-id={id}  // Add data attribute for direct DOM manipulation
                 />
               </div>
             </div>
