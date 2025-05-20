@@ -1,6 +1,7 @@
-import { memo, useState, useRef } from 'react';
+import { memo, useState, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
+import { throttle } from 'lodash';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { CustomSlider } from '@/components/ui/custom-slider';
