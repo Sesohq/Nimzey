@@ -10,6 +10,7 @@ const handlers = new Set<PreviewHandler>();
 
 export function onPreview(fn: PreviewHandler) { 
   handlers.add(fn); 
+  return fn; // Return handler for easier reference
 }
 
 export function offPreview(fn: PreviewHandler) { 

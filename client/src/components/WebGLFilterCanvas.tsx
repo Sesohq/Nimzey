@@ -9,6 +9,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Node, Edge } from 'reactflow';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { FilterNodeData, ImageNodeData } from '@/types';
+import { emitPreview } from '@/lib/previewBus';
 
 interface WebGLFilterCanvasProps {
   nodes: Node[];
@@ -112,8 +113,14 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         // If a selected node is provided, generate node preview
         if (selectedNodeId) {
           const nodePreview = await rendererRef.current!.getNodePreview(selectedNodeId, 300);
-          if (onPreviewGenerated && nodePreview) {
-            onPreviewGenerated(nodePreview);
+          if (nodePreview) {
+            // Emit the preview update event to notify all subscribed nodes
+            emitPreview(selectedNodeId, nodePreview);
+            
+            // Also call the callback if provided
+            if (onPreviewGenerated) {
+              onPreviewGenerated(nodePreview);
+            }
           }
         } else if (onPreviewGenerated) {
           // Otherwise, use the full render
