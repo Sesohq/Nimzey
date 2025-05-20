@@ -418,54 +418,53 @@ const applyFilter = (
   
   switch (filterType) {
     case 'image':
-      // Handle image overlay filter
+      // Handle image node - overlay a texture image on top of the filter chain
       const imageDataValue = params.find(p => p.name === 'imageData')?.value;
       const blendMode = params.find(p => p.name === 'blendMode')?.value as string || 'normal';
       const opacity = Number(params.find(p => p.name === 'opacity')?.value || 100);
       
-      // First put the current image data back to the canvas
+      // First put the current filter chain data back to the canvas
       ctx.putImageData(imageData, 0, 0);
       
       if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue !== '') {
-        // Create a new image from the uploaded image data
-        const overlayImage = new Image();
-        overlayImage.crossOrigin = "anonymous"; // To handle CORS
-        overlayImage.src = imageDataValue;
+        console.log("Image node: Applying texture image with blend mode:", blendMode);
+        // Create a new image from the uploaded texture image data
+        const textureImage = new Image();
+        textureImage.crossOrigin = "anonymous"; // To handle CORS
+        textureImage.src = imageDataValue;
         
-        // Important fix: Use a synchronous approach for already loaded images
-        if (overlayImage.complete && overlayImage.naturalWidth > 0) {
-          // Save context state before blending
-          ctx.save();
+        // Setup a temporary canvas to hold the texture
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) break;
+        
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        
+        // Define the blend function to apply when the texture is loaded
+        const applyTexture = () => {
+          if (!tempCtx) return;
           
-          // Apply blend mode and opacity
+          // Clear the temp canvas and draw the texture image
+          tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(textureImage, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Now apply the texture to the main canvas with the blend mode
+          ctx.save();
           ctx.globalAlpha = opacity / 100;
           ctx.globalCompositeOperation = convertBlendMode(blendMode);
-          
-          // Draw the overlay image to cover the whole canvas
-          try {
-            ctx.drawImage(overlayImage, 0, 0, canvas.width, canvas.height);
-          } catch (err) {
-            console.error("Error drawing overlay image:", err);
-          }
-          
-          // Restore context
+          ctx.drawImage(tempCanvas, 0, 0);
           ctx.restore();
+        };
+        
+        // Apply immediately if the image is already loaded
+        if (textureImage.complete && textureImage.naturalWidth > 0) {
+          applyTexture();
         } else {
-          // For images not yet loaded (first time)
-          console.log("Image not loaded yet, setting up load handler");
-          overlayImage.onload = () => {
-            // Apply the same blend operation when image loads
-            ctx.save();
-            ctx.globalAlpha = opacity / 100;
-            ctx.globalCompositeOperation = convertBlendMode(blendMode);
-            ctx.drawImage(overlayImage, 0, 0, canvas.width, canvas.height);
-            ctx.restore();
-          };
+          // Otherwise set up an onload handler
+          textureImage.onload = applyTexture;
         }
       }
-      
-      // Instead of reassigning variables, put the modified data back to canvas
-      ctx.putImageData(ctx.getImageData(0, 0, canvas.width, canvas.height), 0, 0);
       break;
       
     case 'blur':

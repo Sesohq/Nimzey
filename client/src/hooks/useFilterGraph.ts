@@ -836,14 +836,18 @@ export function useFilterGraph() {
         data: {
           label: `${filterDef.name}`,
           filterType,
+          // Important: Initialize with empty image data - do NOT use source image
           params: filterDef.params.map(param => ({
             ...param, 
             id: param.id || `${param.name}-${uuidv4().substring(0, 8)}`,
             controlType: param.controlType || 'select',
-            paramType: param.paramType || 'image'
+            paramType: param.paramType || 'image',
+            // Ensure value is explicitly set to empty string
+            value: ''
           })),
-          enabled: true,
+          // Do not set preview to sourceImage
           preview: null,
+          enabled: true,
           colorTag: 'purple',
           blendMode: 'normal',
           opacity: 100,
