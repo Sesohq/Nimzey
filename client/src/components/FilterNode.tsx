@@ -107,14 +107,26 @@ interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
 }
 
 const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
+  // Create throttled version of the preview generator
+  const throttledPreview = useMemo(() => {
+    return throttle(() => {
+      // Trigger the thumbnail generation
+      if (generateNodePreview) {
+        generateNodePreview(id);
+      }
+    }, 100, { leading: false, trailing: true });
+  }, [id, generateNodePreview]);
+  
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
         data.onParamChange(id, paramId, value);
+        // Also schedule a thumbnail update
+        throttledPreview();
       }
     }, 100, { leading: true, trailing: true });
-  }, [id, data.onParamChange]);
+  }, [id, data.onParamChange, throttledPreview]);
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
