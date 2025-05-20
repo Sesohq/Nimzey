@@ -14,7 +14,7 @@ import { FilterNodeData, ImageNodeData } from '@/types';
 
 export interface ShaderPipelineNode {
   id: string;
-  type: string;
+  type: string | 'unknown';
   shader: GLShader;
   uniforms: Record<string, any>;
   inputs: string[];
@@ -190,7 +190,7 @@ export class ShaderPipelineBuilder {
       if (shader) {
         pipelineNodes.push({
           id: nodeId,
-          type: node.type,
+          type: node.type || 'unknown',
           shader,
           uniforms,
           inputs,

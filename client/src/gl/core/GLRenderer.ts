@@ -30,6 +30,10 @@ export class GLRenderer {
   private compiledGraph: CompiledGraph | null = null;
   private canvas: HTMLCanvasElement;
   
+  // New optimized pipeline properties
+  private shaderPipeline: ShaderPipeline | null = null;
+  private fusedPipelineShader: any = null; // GLShader from our system
+  
   // Track loaded images/textures
   private imageCache: Map<string, HTMLImageElement> = new Map();
   private renderInProgress: boolean = false;
@@ -150,8 +154,8 @@ export class GLRenderer {
    * Render the compiled graph to the canvas
    */
   public async render(options: RenderOptions = { quality: 'full', useFusion: true }): Promise<string | null> {
-    if (!this.compiledGraph) {
-      console.warn('No compiled graph to render');
+    if (!this.compiledGraph && !this.shaderPipeline) {
+      console.warn('No compiled graph or shader pipeline to render');
       return null;
     }
     
@@ -179,15 +183,71 @@ export class GLRenderer {
       this.animationTime += deltaTime;
       this.lastRenderTime = now;
       
-      // Create framebuffers for each node
-      await this.setupFramebuffers(width, height);
-      
-      // If using tiles, render in tiles
-      if (options.tileSize && options.quality !== 'full') {
-        await this.renderTiled(width, height, options.tileSize, options.useFusion || false);
+      // Check if we can use the optimized shader pipeline
+      if (this.fusedPipelineShader && this.shaderPipeline && options.useFusion !== false) {
+        console.log('Using optimized fused shader pipeline for rendering');
+        
+        // Resize the context
+        this.context.resize(width, height);
+        
+        // Create a single framebuffer for the output
+        this.context.createFramebuffer('fused_output', 'fused_texture', width, height);
+        
+        // Prepare uniforms from the pipeline
+        const uniforms = { ...this.shaderPipeline.uniforms };
+        
+        // Add common uniforms
+        uniforms['u_resolution'] = [width, height];
+        uniforms['u_time'] = this.animationTime;
+        
+        // Find input texture from source nodes
+        if (this.shaderPipeline.entryPoints.length > 0) {
+          const sourceId = this.shaderPipeline.entryPoints[0];
+          
+          // Check if we have this image in cache
+          const sourceNode = this.shaderPipeline.nodes.find(node => node.id === sourceId);
+          if (sourceNode && sourceNode.uniforms[`u_${sourceId}_texture`]) {
+            const sourceImage = this.imageCache.get(sourceNode.uniforms[`u_${sourceId}_texture`]);
+            
+            if (sourceImage) {
+              // Create texture from source image
+              this.context.createTexture(`input_texture`, sourceImage);
+              
+              // Add to uniforms
+              uniforms['u_inputTexture'] = this.context.getTexture(`input_texture`);
+            }
+          }
+        }
+        
+        // Render the entire graph in a single pass
+        this.context.drawQuad(
+          this.fusedPipelineShader.getName(),
+          'fused_output',
+          uniforms
+        );
+        
+        // Draw final output to canvas
+        this.context.drawQuad(
+          'passthrough',
+          null, // null means render to canvas
+          {
+            'u_inputTexture': this.context.getTexture('fused_texture')
+          }
+        );
       } else {
-        // Otherwise render in a single pass
-        await this.renderFullscreen(width, height, options.useFusion || false);
+        // Fall back to traditional rendering approach
+        console.log('Using traditional multi-pass rendering');
+        
+        // Create framebuffers for each node
+        await this.setupFramebuffers(width, height);
+        
+        // If using tiles, render in tiles
+        if (options.tileSize && options.quality !== 'full') {
+          await this.renderTiled(width, height, options.tileSize, options.useFusion || false);
+        } else {
+          // Otherwise render in a single pass
+          await this.renderFullscreen(width, height, options.useFusion || false);
+        }
       }
       
       // Get final image as base64
