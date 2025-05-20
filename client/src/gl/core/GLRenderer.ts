@@ -11,6 +11,7 @@ import { GraphCompiler, CompiledGraph, CompiledNode } from '../compiler/GraphCom
 import { ShaderRegistry } from '../compiler/ShaderRegistry';
 import { GLGraphOptimizer } from '../compiler/GLGraphOptimizer';
 import { FUSED_SHADER_TEMPLATE } from '../shaders/fusedShaderTemplate';
+import { ShaderPipelineBuilder, ShaderPipeline } from '../compiler/ShaderPipeline';
 import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
 
 // Options for different rendering quality levels
@@ -47,30 +48,49 @@ export class GLRenderer {
    * Compile a ReactFlow graph into a WebGL shader pipeline
    */
   public compileGraph(nodes: Node[], edges: Edge[]): void {
-    // Compile graph
+    // First use the existing graph compiler
     this.compiledGraph = this.graphCompiler.compile(nodes, edges);
     
     // Apply optimizations
     this.compiledGraph = this.graphOptimizer.optimizeGraph(this.compiledGraph);
     
-    console.log('Graph compiled:', this.compiledGraph);
+    console.log('Graph compiled with traditional method:', this.compiledGraph);
     
-    // Find execution paths for potential shader fusion
-    const paths = this.graphOptimizer.findExecutionPaths(this.compiledGraph);
-    console.log('Execution paths:', paths);
-    
-    // Try to generate fused shaders for longer paths
-    paths.filter(path => path.length > 2).forEach(path => {
-      const fusedShader = this.graphOptimizer.generatePathShader(
-        path, 
-        this.compiledGraph!, 
-        FUSED_SHADER_TEMPLATE
-      );
+    try {
+      // Also use the new ShaderPipeline for more efficient rendering
+      const pipeline = ShaderPipelineBuilder.buildPipeline(nodes, edges);
+      console.log('Built optimized shader pipeline:', pipeline);
+      
+      // Try to generate a single fused shader for the entire pipeline
+      const fusedShader = ShaderPipelineBuilder.generateFusedShader(pipeline);
       
       if (fusedShader) {
-        console.log(`Generated fused shader for path: ${path.join(' → ')}`);
+        console.log('Successfully generated a fully fused shader for the entire graph');
+        
+        // Use this shader for the main render pass
+        this.fusedPipelineShader = fusedShader;
+        this.shaderPipeline = pipeline;
+      } else {
+        // Fall back to traditional execution path
+        const paths = this.graphOptimizer.findExecutionPaths(this.compiledGraph);
+        
+        // Try to generate fused shaders for longer paths
+        paths.filter(path => path.length > 2).forEach(path => {
+          const pathShader = this.graphOptimizer.generatePathShader(
+            path, 
+            this.compiledGraph!, 
+            FUSED_SHADER_TEMPLATE
+          );
+          
+          if (pathShader) {
+            console.log(`Generated fused shader for path: ${path.join(' → ')}`);
+          }
+        });
       }
-    });
+    } catch (err) {
+      console.error('Error building optimized shader pipeline:', err);
+      // Continue with traditional approach if shader pipeline fails
+    }
   }
   
   /**

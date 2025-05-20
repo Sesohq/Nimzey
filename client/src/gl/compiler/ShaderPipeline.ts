@@ -66,14 +66,22 @@ export class ShaderPipelineBuilder {
     });
     
     // Find entry points (nodes with no inputs)
-    const entryPoints = nodes
-      .filter(node => (dependencyMap.get(node.id) || []).length === 0)
-      .map(node => node.id);
+    const entryPoints: string[] = [];
+    nodes.forEach(node => {
+      const deps = dependencyMap.get(node.id) || [];
+      if (deps.length === 0) {
+        entryPoints.push(node.id);
+      }
+    });
     
     // Find exit points (nodes with no outputs)
-    const exitPoints = nodes
-      .filter(node => (outputMap.get(node.id) || []).length === 0)
-      .map(node => node.id);
+    const exitPoints: string[] = [];
+    nodes.forEach(node => {
+      const outputs = outputMap.get(node.id) || [];
+      if (outputs.length === 0) {
+        exitPoints.push(node.id);
+      }
+    });
     
     // Perform topological sort to get execution order
     const visitedNodes = new Set<string>();
@@ -109,11 +117,11 @@ export class ShaderPipelineBuilder {
     }
     
     // Finally, visit any remaining nodes
-    for (const nodeId of nodeMap.keys()) {
-      if (!visitedNodes.has(nodeId)) {
-        visit(nodeId);
+    nodes.forEach(node => {
+      if (!visitedNodes.has(node.id)) {
+        visit(node.id);
       }
-    }
+    });
     
     // Create shader pipeline nodes
     const pipelineNodes: ShaderPipelineNode[] = [];
