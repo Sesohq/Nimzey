@@ -430,28 +430,45 @@ const applyFilter = (
       if (nodeData && nodeData.texturePixels) {
         console.log("Image node: Using preloaded texture with blend mode:", blendMode);
         
-        // Get the texture pixels we preloaded during upload
-        const texturePixels = nodeData.texturePixels;
-        
-        // Create a temporary canvas for the texture
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) break;
-        
-        // Set dimensions to match our main canvas
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        
-        // Draw the texture pixels onto the temp canvas
-        // This will handle scaling/positioning of the texture
-        tempCtx.putImageData(texturePixels, 0, 0);
-        
-        // Blend the texture onto the main canvas with the specified blend mode
-        ctx.save();
-        ctx.globalAlpha = opacity / 100;
-        ctx.globalCompositeOperation = convertBlendMode(blendMode);
-        ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
+        try {
+          // Get the texture pixels we preloaded during upload
+          const texturePixels = nodeData.texturePixels;
+          
+          // Create a temporary canvas for the texture
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          if (!tempCtx) break;
+          
+          // Set dimensions to match the texture data's original size
+          tempCanvas.width = texturePixels.width;
+          tempCanvas.height = texturePixels.height;
+          
+          // Draw the texture pixels onto the temp canvas at original size
+          tempCtx.putImageData(texturePixels, 0, 0);
+          
+          // Blend the texture onto the main canvas with the specified blend mode
+          // Properly scale it to cover the entire canvas
+          ctx.save();
+          ctx.globalAlpha = opacity / 100;
+          ctx.globalCompositeOperation = convertBlendMode(blendMode);
+          
+          // Draw the texture scaled to fit the canvas
+          ctx.drawImage(
+            tempCanvas, 
+            0, 0, tempCanvas.width, tempCanvas.height,  // Source dimensions
+            0, 0, canvas.width, canvas.height  // Target dimensions (scaled to fit)
+          );
+          
+          ctx.restore();
+          
+          // Save the result back to the imageData variable for further processing
+          imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          data = imageData.data;
+          
+          console.log("Image node: Texture applied successfully");
+        } catch (error) {
+          console.error("Error applying texture from image node:", error);
+        }
       }
       break;
       
