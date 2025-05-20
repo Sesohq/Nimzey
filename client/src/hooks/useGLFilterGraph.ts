@@ -409,6 +409,17 @@ export function useGLFilterGraph() {
 
   // These will be defined later in the hook
 
+  // Create throttled and debounced processing functions
+  const throttledProcessing = useMemo(() => 
+    throttle((quality: QualityLevel) => requestProcessing(quality), 100, { leading: true }),
+    [requestProcessing]
+  );
+  
+  const debouncedHighQualityUpdate = useMemo(() => 
+    debounce((quality: QualityLevel) => requestProcessing(quality), 300),
+    [requestProcessing]
+  );
+  
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
     setNodes(nodes => 
@@ -436,12 +447,18 @@ export function useGLFilterGraph() {
       })
     );
     
+    // Update the node's thumbnail as well
+    const targetNode = nodes.find(n => n.id === nodeId);
+    if (targetNode) {
+      generateNodePreview(targetNode);
+    }
+    
     // For immediate feedback, use throttled low-res processing
     throttledProcessing('preview');
     
     // Also queue a higher quality update for when the user stops dragging
     debouncedHighQualityUpdate('draft');
-  }, [throttledProcessing, debouncedHighQualityUpdate]);
+  }, [throttledProcessing, debouncedHighQualityUpdate, nodes, generateNodePreview]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
