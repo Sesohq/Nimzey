@@ -92,13 +92,22 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[]): Node[] => 
     const node = nodes.find(n => n.id === currentNodeId);
     if (!node) break;
     
+    // Add node to the beginning of the path (we're working backward)
     path.unshift(node);
     
+    // Find the source node that connects to the current node
     const sourceNode = getSourceNode(currentNodeId, nodes, edges);
     if (!sourceNode) break;
     
+    // Move to the next node up the chain
     currentNodeId = sourceNode.id;
     iterations++;
+  }
+  
+  // Make sure we have the source image node at the start
+  const sourceImageNode = nodes.find(node => node.type === 'imageNode');
+  if (sourceImageNode && !path.some(node => node.id === sourceImageNode.id)) {
+    path.unshift(sourceImageNode);
   }
   
   return path;
