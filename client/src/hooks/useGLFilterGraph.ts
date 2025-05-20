@@ -775,46 +775,21 @@ export function useGLFilterGraph() {
   
   // Add a function to directly request a node preview
   const requestNodePreview = useCallback((nodeId: string) => {
-    // Only proceed if we have a renderer
-    if (glRendererRef.current) {
-      console.log('Directly requesting preview generation for node:', nodeId);
+    // Simplest approach that works: re-select the node to trigger a preview update
+    // This leverages the existing mechanism that already works when clicking on nodes
+    
+    console.log('Requesting preview by re-selecting node:', nodeId);
+    
+    // Only re-select if we have a renderer and the node exists
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && glRendererRef.current) {
+      // First update the actual parameter value in state
+      setSelectedNodeId(nodeId);
       
-      const generatePreview = async () => {
-        try {
-          // Compile the graph and preload images
-          glRendererRef.current!.compileGraph(nodes, edges);
-          await glRendererRef.current!.preloadImages(nodes);
-          
-          // Generate the preview for the specific node
-          const preview = await glRendererRef.current!.getNodePreview(nodeId, 300);
-          
-          if (preview) {
-            console.log('Successfully generated direct preview for node:', nodeId);
-            
-            // Update the node with the new preview
-            setNodes(nodes => 
-              nodes.map(node => 
-                node.id === nodeId 
-                  ? { ...node, data: { ...node.data, preview } }
-                  : node
-              )
-            );
-            
-            // Also dispatch the DOM event for immediate UI update
-            const previewEvent = new CustomEvent('node-preview-updated', { 
-              detail: { nodeId, preview }
-            });
-            window.dispatchEvent(previewEvent);
-          }
-        } catch (err) {
-          console.error('Error generating direct preview for node:', nodeId, err);
-        }
-      };
-      
-      // Execute the preview generation
-      generatePreview();
+      // Then request a preview generation
+      generateNodePreview(node);
     }
-  }, [nodes, edges]);
+  }, [nodes, setSelectedNodeId, generateNodePreview]);
 
   return {
     nodes,
