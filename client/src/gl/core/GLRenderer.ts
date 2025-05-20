@@ -9,6 +9,8 @@ import { Node, Edge } from 'reactflow';
 import { GLContext } from './GLContext';
 import { GraphCompiler, CompiledGraph, CompiledNode } from '../compiler/GraphCompiler';
 import { ShaderRegistry } from '../compiler/ShaderRegistry';
+import { GLGraphOptimizer } from '../compiler/GLGraphOptimizer';
+import { FUSED_SHADER_TEMPLATE } from '../shaders/fusedShaderTemplate';
 import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
 
 // Options for different rendering quality levels
@@ -16,24 +18,29 @@ export interface RenderOptions {
   quality: 'preview' | 'draft' | 'full';
   tileSize?: number;
   maxDimension?: number;
+  useFusion?: boolean; // Whether to use shader fusion optimization
 }
 
 export class GLRenderer {
   private context: GLContext;
   private shaderRegistry: ShaderRegistry;
   private graphCompiler: GraphCompiler;
+  private graphOptimizer: GLGraphOptimizer;
   private compiledGraph: CompiledGraph | null = null;
   private canvas: HTMLCanvasElement;
   
   // Track loaded images/textures
   private imageCache: Map<string, HTMLImageElement> = new Map();
   private renderInProgress: boolean = false;
+  private lastRenderTime: number = 0;
+  private animationTime: number = 0;
   
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.context = new GLContext(canvas);
     this.shaderRegistry = new ShaderRegistry();
     this.graphCompiler = new GraphCompiler(this.shaderRegistry);
+    this.graphOptimizer = new GLGraphOptimizer();
   }
   
   /**
@@ -43,10 +50,27 @@ export class GLRenderer {
     // Compile graph
     this.compiledGraph = this.graphCompiler.compile(nodes, edges);
     
-    // Apply fusion optimizations for single-pass rendering
-    this.compiledGraph = this.graphCompiler.fuseNodes(this.compiledGraph);
+    // Apply optimizations
+    this.compiledGraph = this.graphOptimizer.optimizeGraph(this.compiledGraph);
     
     console.log('Graph compiled:', this.compiledGraph);
+    
+    // Find execution paths for potential shader fusion
+    const paths = this.graphOptimizer.findExecutionPaths(this.compiledGraph);
+    console.log('Execution paths:', paths);
+    
+    // Try to generate fused shaders for longer paths
+    paths.filter(path => path.length > 2).forEach(path => {
+      const fusedShader = this.graphOptimizer.generatePathShader(
+        path, 
+        this.compiledGraph!, 
+        FUSED_SHADER_TEMPLATE
+      );
+      
+      if (fusedShader) {
+        console.log(`Generated fused shader for path: ${path.join(' → ')}`);
+      }
+    });
   }
   
   /**
@@ -105,7 +129,7 @@ export class GLRenderer {
   /**
    * Render the compiled graph to the canvas
    */
-  public async render(options: RenderOptions = { quality: 'full' }): Promise<string | null> {
+  public async render(options: RenderOptions = { quality: 'full', useFusion: true }): Promise<string | null> {
     if (!this.compiledGraph) {
       console.warn('No compiled graph to render');
       return null;
@@ -129,15 +153,21 @@ export class GLRenderer {
         height = Math.floor(height * scale);
       }
       
+      // Update animation time (for animated shaders)
+      const now = performance.now();
+      const deltaTime = (now - this.lastRenderTime) / 1000; // Convert to seconds
+      this.animationTime += deltaTime;
+      this.lastRenderTime = now;
+      
       // Create framebuffers for each node
       await this.setupFramebuffers(width, height);
       
       // If using tiles, render in tiles
       if (options.tileSize && options.quality !== 'full') {
-        await this.renderTiled(width, height, options.tileSize);
+        await this.renderTiled(width, height, options.tileSize, options.useFusion || false);
       } else {
         // Otherwise render in a single pass
-        await this.renderFullscreen(width, height);
+        await this.renderFullscreen(width, height, options.useFusion || false);
       }
       
       // Get final image as base64
@@ -195,7 +225,12 @@ export class GLRenderer {
   /**
    * Render graph in tiles for better performance during preview
    */
-  private async renderTiled(width: number, height: number, tileSize: number): Promise<void> {
+  private async renderTiled(
+    width: number, 
+    height: number, 
+    tileSize: number,
+    useFusion: boolean
+  ): Promise<void> {
     if (!this.compiledGraph) return;
     
     const gl = this.context.getGL();
@@ -208,44 +243,97 @@ export class GLRenderer {
     // Set viewport to full size
     gl.viewport(0, 0, width, height);
     
-    // Process nodes in topological order
-    for (const node of this.compiledGraph.nodes) {
-      // Render this node's shader to its framebuffer
-      for (let ty = 0; ty < tilesY; ty++) {
-        for (let tx = 0; tx < tilesX; tx++) {
-          // Calculate tile position and size
-          const tileX = tx * tileSize;
-          const tileY = ty * tileSize;
-          const tileW = Math.min(tileSize, width - tileX);
-          const tileH = Math.min(tileSize, height - tileY);
+    if (useFusion) {
+      // If using shader fusion, find the longest execution path
+      const paths = this.graphOptimizer.findExecutionPaths(this.compiledGraph);
+      
+      // Get the longest path (most likely to benefit from fusion)
+      const longestPath = paths.reduce((longest, current) => 
+        current.length > longest.length ? current : longest, []);
+      
+      if (longestPath.length > 2) {
+        // Generate a fused shader for this path
+        const fusedShader = this.graphOptimizer.generatePathShader(
+          longestPath, 
+          this.compiledGraph, 
+          FUSED_SHADER_TEMPLATE
+        );
+        
+        if (fusedShader) {
+          // Create a compiled node for the fused path
+          const fusedNode: CompiledNode = {
+            id: 'fused_' + longestPath.join('_'),
+            shader: fusedShader,
+            inputs: [longestPath[0]], // The first node in the path
+            output: longestPath[longestPath.length - 1], // The last node in the path
+            parameters: {} // Will be populated from shader uniforms
+          };
           
-          // Set scissor to only render this tile
-          gl.enable(gl.SCISSOR_TEST);
-          gl.scissor(tileX, height - tileY - tileH, tileW, tileH);
-          
-          // Setup uniforms for this shader
-          const uniforms = { ...node.shader.getUniformValues() };
-          
-          // Set input textures
-          if (node.inputs.length > 0) {
-            const inputNode = node.inputs[0]; // Just use first input for now
-            uniforms['u_inputTexture'] = this.context.getTexture(`tex_${inputNode}`);
+          // Render the fused shader in tiles
+          for (let ty = 0; ty < tilesY; ty++) {
+            for (let tx = 0; tx < tilesX; tx++) {
+              // Calculate tile position and size
+              const tileX = tx * tileSize;
+              const tileY = ty * tileSize;
+              const tileW = Math.min(tileSize, width - tileX);
+              const tileH = Math.min(tileSize, height - tileY);
+              
+              // Set scissor to only render this tile
+              gl.enable(gl.SCISSOR_TEST);
+              gl.scissor(tileX, height - tileY - tileH, tileW, tileH);
+              
+              // Setup uniforms for the fused shader
+              const uniforms = fusedShader.getUniformValues();
+              
+              // Set input texture
+              const inputNodeId = longestPath[0];
+              const inputTexture = this.context.getTexture(`img_${inputNodeId}`) || 
+                                  this.context.getTexture(`tex_${inputNodeId}`);
+              
+              if (inputTexture) {
+                uniforms['u_inputTexture'] = inputTexture;
+              }
+              
+              // Set other common uniforms
+              uniforms['u_resolution'] = [width, height];
+              uniforms['u_time'] = this.animationTime;
+              
+              // Render the fused shader directly to the output node's framebuffer
+              const outputNodeId = longestPath[longestPath.length - 1];
+              
+              this.context.drawQuad(
+                fusedShader.getName(),
+                `fbo_${outputNodeId}`,
+                uniforms
+              );
+            }
           }
           
-          // Set additional parameters specific to filter types
-          uniforms['u_resolution'] = [width, height];
+          // Disable scissor after all tiles are rendered
+          gl.disable(gl.SCISSOR_TEST);
           
-          // Draw quad with shader
-          this.context.drawQuad(
-            node.shader.getName(),
-            `fbo_${node.id}`,
-            uniforms
-          );
+          // Skip normal rendering for nodes in the fused path
+          const skippedNodes = new Set(longestPath);
+          
+          // Process remaining nodes in topological order
+          for (const node of this.compiledGraph.nodes) {
+            // Skip nodes that were included in the fusion
+            if (skippedNodes.has(node.id)) continue;
+            
+            // Render remaining nodes as normal
+            this.renderNodeTiled(node, width, height, tilesX, tilesY, tileSize);
+          }
+        } else {
+          // If fusion failed, fall back to normal rendering
+          this.renderAllNodesTiled(width, height, tilesX, tilesY, tileSize);
         }
+      } else {
+        // Not enough nodes for fusion, use normal rendering
+        this.renderAllNodesTiled(width, height, tilesX, tilesY, tileSize);
       }
-      
-      // Disable scissor after all tiles are rendered
-      gl.disable(gl.SCISSOR_TEST);
+    } else {
+      // Using normal node-by-node rendering
+      this.renderAllNodesTiled(width, height, tilesX, tilesY, tileSize);
     }
     
     // Final render to canvas
@@ -267,9 +355,85 @@ export class GLRenderer {
   }
   
   /**
+   * Render all nodes in tiles (when fusion is not used)
+   */
+  private renderAllNodesTiled(
+    width: number, 
+    height: number, 
+    tilesX: number, 
+    tilesY: number, 
+    tileSize: number
+  ): void {
+    if (!this.compiledGraph) return;
+    
+    // Process nodes in topological order
+    for (const node of this.compiledGraph.nodes) {
+      this.renderNodeTiled(node, width, height, tilesX, tilesY, tileSize);
+    }
+  }
+  
+  /**
+   * Render a single node in tiles
+   */
+  private renderNodeTiled(
+    node: CompiledNode,
+    width: number,
+    height: number,
+    tilesX: number,
+    tilesY: number,
+    tileSize: number
+  ): void {
+    const gl = this.context.getGL();
+    if (!gl) return;
+    
+    // Render this node's shader to its framebuffer
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        // Calculate tile position and size
+        const tileX = tx * tileSize;
+        const tileY = ty * tileSize;
+        const tileW = Math.min(tileSize, width - tileX);
+        const tileH = Math.min(tileSize, height - tileY);
+        
+        // Set scissor to only render this tile
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(tileX, height - tileY - tileH, tileW, tileH);
+        
+        // Setup uniforms for this shader
+        const uniforms = { ...node.shader.getUniformValues() };
+        
+        // Set input textures
+        if (node.inputs.length > 0) {
+          const inputNode = node.inputs[0]; // Just use first input for now
+          uniforms['u_inputTexture'] = this.context.getTexture(`tex_${inputNode}`) || 
+                                      this.context.getTexture(`img_${inputNode}`);
+        }
+        
+        // Set additional parameters specific to filter types
+        uniforms['u_resolution'] = [width, height];
+        uniforms['u_time'] = this.animationTime;
+        
+        // Draw quad with shader
+        this.context.drawQuad(
+          node.shader.getName(),
+          `fbo_${node.id}`,
+          uniforms
+        );
+      }
+    }
+    
+    // Disable scissor after all tiles are rendered
+    gl.disable(gl.SCISSOR_TEST);
+  }
+  
+  /**
    * Render full graph in a single pass (optimized)
    */
-  private async renderFullscreen(width: number, height: number): Promise<void> {
+  private async renderFullscreen(
+    width: number, 
+    height: number,
+    useFusion: boolean
+  ): Promise<void> {
     if (!this.compiledGraph) return;
     
     const gl = this.context.getGL();
@@ -278,26 +442,70 @@ export class GLRenderer {
     // Set viewport to full size
     gl.viewport(0, 0, width, height);
     
-    // Process nodes in topological order
-    for (const node of this.compiledGraph.nodes) {
-      // Setup uniforms for this shader
-      const uniforms = { ...node.shader.getUniformValues() };
+    if (useFusion) {
+      // If using shader fusion, find the longest execution path
+      const paths = this.graphOptimizer.findExecutionPaths(this.compiledGraph);
       
-      // Set input textures
-      if (node.inputs.length > 0) {
-        const inputNode = node.inputs[0]; // Just use first input for now
-        uniforms['u_inputTexture'] = this.context.getTexture(`tex_${inputNode}`);
+      // Get the longest path (most likely to benefit from fusion)
+      const longestPath = paths.reduce((longest, current) => 
+        current.length > longest.length ? current : longest, []);
+      
+      if (longestPath.length > 2) {
+        // Generate a fused shader for this path
+        const fusedShader = this.graphOptimizer.generatePathShader(
+          longestPath, 
+          this.compiledGraph, 
+          FUSED_SHADER_TEMPLATE
+        );
+        
+        if (fusedShader) {
+          // Setup uniforms for the fused shader
+          const uniforms = fusedShader.getUniformValues();
+          
+          // Set input texture
+          const inputNodeId = longestPath[0];
+          const inputTexture = this.context.getTexture(`img_${inputNodeId}`) || 
+                              this.context.getTexture(`tex_${inputNodeId}`);
+          
+          if (inputTexture) {
+            uniforms['u_inputTexture'] = inputTexture;
+          }
+          
+          // Set other common uniforms
+          uniforms['u_resolution'] = [width, height];
+          uniforms['u_time'] = this.animationTime;
+          
+          // Render the fused shader directly to the output node's framebuffer
+          const outputNodeId = longestPath[longestPath.length - 1];
+          
+          this.context.drawQuad(
+            fusedShader.getName(),
+            `fbo_${outputNodeId}`,
+            uniforms
+          );
+          
+          // Skip normal rendering for nodes in the fused path
+          const skippedNodes = new Set(longestPath);
+          
+          // Process remaining nodes in topological order
+          for (const node of this.compiledGraph.nodes) {
+            // Skip nodes that were included in the fusion
+            if (skippedNodes.has(node.id)) continue;
+            
+            // Render remaining nodes as normal
+            this.renderNode(node, width, height);
+          }
+        } else {
+          // If fusion failed, fall back to normal rendering
+          this.renderAllNodes(width, height);
+        }
+      } else {
+        // Not enough nodes for fusion, use normal rendering
+        this.renderAllNodes(width, height);
       }
-      
-      // Set additional parameters specific to filter types
-      uniforms['u_resolution'] = [width, height];
-      
-      // Draw quad with shader
-      this.context.drawQuad(
-        node.shader.getName(),
-        `fbo_${node.id}`,
-        uniforms
-      );
+    } else {
+      // Using normal node-by-node rendering
+      this.renderAllNodes(width, height);
     }
     
     // Final render to canvas
@@ -316,6 +524,44 @@ export class GLRenderer {
         );
       }
     }
+  }
+  
+  /**
+   * Render all nodes (when fusion is not used)
+   */
+  private renderAllNodes(width: number, height: number): void {
+    if (!this.compiledGraph) return;
+    
+    // Process nodes in topological order
+    for (const node of this.compiledGraph.nodes) {
+      this.renderNode(node, width, height);
+    }
+  }
+  
+  /**
+   * Render a single node
+   */
+  private renderNode(node: CompiledNode, width: number, height: number): void {
+    // Setup uniforms for this shader
+    const uniforms = { ...node.shader.getUniformValues() };
+    
+    // Set input textures
+    if (node.inputs.length > 0) {
+      const inputNode = node.inputs[0]; // Just use first input for now
+      uniforms['u_inputTexture'] = this.context.getTexture(`tex_${inputNode}`) || 
+                                  this.context.getTexture(`img_${inputNode}`);
+    }
+    
+    // Set additional parameters specific to filter types
+    uniforms['u_resolution'] = [width, height];
+    uniforms['u_time'] = this.animationTime;
+    
+    // Draw quad with shader
+    this.context.drawQuad(
+      node.shader.getName(),
+      `fbo_${node.id}`,
+      uniforms
+    );
   }
   
   /**
@@ -367,6 +613,13 @@ export class GLRenderer {
     this.context.resize(originalWidth, originalHeight);
     
     return previewUrl;
+  }
+  
+  /**
+   * Get the WebGL context
+   */
+  public getGL(): WebGL2RenderingContext | null {
+    return this.context.getGL();
   }
   
   /**
