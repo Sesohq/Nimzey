@@ -9,7 +9,7 @@
 import { Node, Edge } from 'reactflow';
 import { FilterType, FilterNodeData, ImageNodeData } from '@/types';
 import { GLShader } from '../core/GLShader';
-import { ShaderRegistry } from './ShaderRegistry';
+import { ShaderRegistry } from '../compiler/ShaderRegistry';
 
 // Types for compiled filter chains
 export interface CompiledNode {

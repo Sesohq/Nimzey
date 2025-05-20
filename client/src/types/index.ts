@@ -54,14 +54,21 @@ export type NodeColorTag = 'default' | 'red' | 'orange' | 'yellow' | 'green' | '
 
 export type FilterNodeData = {
   label: string;
-  filterType: FilterType;
-  params: FilterParam[];
+  filter?: {
+    type: FilterType;
+    params: FilterParam[];
+  };
+  filterType?: FilterType; // For backward compatibility
+  params?: FilterParam[]; // For backward compatibility
   enabled: boolean;
   preview?: string | null; // Preview image data URL
   colorTag: NodeColorTag;
   blendMode: BlendMode;
   opacity: number; // 0-100
   collapsed?: boolean;
+  imageUrl?: string; // For image filter nodes that have an embedded image
+  width?: number; // Image width
+  height?: number; // Image height
   // Parameter connections
   paramConnections?: {
     [paramId: string]: {
@@ -81,9 +88,15 @@ export type FilterNodeData = {
 };
 
 export type ImageNodeData = {
+  label?: string; // Adding label for UI consistency
   src: string | null;
+  imageUrl?: string; // URL for the image source
+  preview?: string | null; // Preview of the image for UI
+  width?: number; // Image width
+  height?: number; // Image height
+  enabled?: boolean; // Whether the node is enabled
   onUploadImage?: (file: File) => void;
-  texturePixels?: ImageData; // Add field for storing preloaded image data
+  texturePixels?: ImageData; // Field for storing preloaded image data
 };
 
 export type OutputNodeData = {
