@@ -396,7 +396,24 @@ export function useGLFilterGraph() {
       const previewUrl = await glRendererRef.current.getNodePreview(targetNode.id, 300);
       
       if (previewUrl) {
+        // Set node preview in main preview panel
         setNodePreview(previewUrl);
+        
+        // Update the node's thumbnail using normal state update
+        setNodes(nodes => 
+          nodes.map(node => {
+            if (node.id === targetNode.id) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  preview: previewUrl
+                }
+              };
+            }
+            return node;
+          })
+        );
       }
     } catch (err) {
       console.error('Error generating node preview:', err);

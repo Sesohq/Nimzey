@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -20,7 +20,7 @@ import OutputNode from './OutputNode';
 import ImageFilterNode from './ImageFilterNode';
 import { Badge } from '@/components/ui/badge';
 
-// Using a renderNode function instead of creating new nodeTypes object on each render
+// Using a fixed nodeTypes object to avoid ReactFlow warnings
 const nodeTypes: NodeTypes = {
   filterNode: FilterNode,
   imageNode: ImageNode,
@@ -57,6 +57,8 @@ export default function NodeCanvas({
 }: NodeCanvasProps) {
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
+  
+  // We're using the static nodeTypes object defined above
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
