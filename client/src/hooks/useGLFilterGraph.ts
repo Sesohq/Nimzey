@@ -409,8 +409,11 @@ export function useGLFilterGraph() {
 
   // These will be initialized after requestProcessing is defined
   
+  // Will be initialized after generateNodePreview is defined
+
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
+    // Update parameter value in the node data
     setNodes(nodes => 
       nodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
@@ -436,23 +439,12 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Update the node's thumbnail as well
-    const targetNode = nodes.find(n => n.id === nodeId);
-    if (targetNode) {
-      generateNodePreview(targetNode);
-    }
-    
-      // Process image at low quality for immediate feedback
+    // Immediately start a low-quality preview render
     requestProcessing('preview');
     
-    // Also update the node's thumbnail
-    setTimeout(() => {
-      const updatedNode = nodes.find(n => n.id === nodeId);
-      if (updatedNode) {
-        generateNodePreview(updatedNode);
-      }
-    }, 10);
-  }, [nodes, generateNodePreview, requestProcessing]);
+    // Since we already have the node ID, schedule a thumbnail update
+    // We'll handle this with a useEffect that watches for node changes
+  }, [nodes, requestProcessing]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
