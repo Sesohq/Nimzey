@@ -1,4 +1,5 @@
-import { memo, useState, useRef } from 'react';
+import { memo, useState, useRef, useMemo } from 'react';
+import { throttle } from 'lodash';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '@/components/ui/card';
@@ -113,6 +114,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   
   // Create handle references for connection lines to work properly
   const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  
+  // Create throttled refresh function to limit the rate of heavy rendering operations
+  const throttledRefresh = useMemo(
+    () => onPaneClick ? throttle(onPaneClick, 100, { leading: true, trailing: true }) : undefined,
+    [onPaneClick]
+  );
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -422,10 +429,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
                     onValueChange={(values) => {
                       // Apply change to update the UI immediately
                       handleParamChange(param.id || param.name, values[0]);
-                    }}
-                    onValueCommit={() => {
-                      // Trigger full quality preview update only when slider drag ends
-                      handleParamCommit();
+                      
+                      // Use throttled refresh to limit preview updates
+                      // This ensures the UI stays responsive during slider movement
+                      if (throttledRefresh) {
+                        throttledRefresh();
+                      }
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />
