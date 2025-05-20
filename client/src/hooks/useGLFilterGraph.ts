@@ -23,7 +23,6 @@ import { filterCategories } from '@/lib/filterCategories';
 import { toast } from '@/hooks/use-toast';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { ShaderRegistry } from '@/gl/compiler/ShaderRegistry';
-import { useRealtimeProcessing } from './useRealtimeProcessing';
 
 // Define LOD (Level of Detail) quality levels for rendering
 type QualityLevel = 'preview' | 'draft' | 'full';
@@ -404,9 +403,8 @@ export function useGLFilterGraph() {
   
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
-    // Simply update the nodes state - the useEffect will handle processing
-    setNodes(prevNodes => 
-      prevNodes.map(node => {
+    setNodes(nodes => 
+      nodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
           const updatedParams = node.data.filter?.params?.map((param: FilterParam) => {
             if (param.id === paramId) {
@@ -429,11 +427,14 @@ export function useGLFilterGraph() {
         return node;
       })
     );
+    
+    // Use debounced processing to avoid too many updates during slider dragging
+    debouncedRequestProcessing();
   }, []);
   
-  // Debounced processing request with immediate feedback
+  // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
-    // Cancel previous timer for high-quality renders
+    // Cancel previous timer
     if (updateTimerRef.current) {
       clearTimeout(updateTimerRef.current);
     }
@@ -441,16 +442,17 @@ export function useGLFilterGraph() {
     // Set quality to preview during interaction
     setQualityLevel('preview');
     
-    // Process immediately with preview quality for real-time feedback
-    // This ensures sliders provide instant visual updates
-    requestProcessing('preview');
-    
-    // Schedule a high-quality update after interaction stops
+    // Schedule new update at low quality first
     updateTimerRef.current = setTimeout(() => {
-      setQualityLevel('full');
-      requestProcessing('full');
-    }, 300);
-  }, [requestProcessing]);
+      requestProcessing('preview');
+      
+      // Schedule a high-quality update after interaction stops
+      updateTimerRef.current = setTimeout(() => {
+        setQualityLevel('full');
+        requestProcessing('full');
+      }, 500);
+    }, 100);
+  }, []);
   
   // Handle enabling/disabling a filter node
   const handleToggleEnabled = useCallback((nodeId: string, checked: boolean) => {
@@ -560,13 +562,8 @@ export function useGLFilterGraph() {
     setZoomLevel(prev => Math.max(prev - 10, 50));
   }, []);
   
-  // Forward declaration of requestProcessing for dependency purposes
+  // Process the filter graph using WebGL
   const requestProcessing = useCallback(async (quality: QualityLevel = 'draft') => {
-    // Implementation is below
-  }, []);
-
-  // Define the actual implementation after declaration
-  const processFilterGraph = async (quality: QualityLevel = 'draft') => {
     if (!glRendererRef.current || !nodes.length || !edges.length) return;
     
     // Find output nodes

@@ -101,11 +101,7 @@ const EditableValue = ({
   );
 };
 
-interface ExtendedNodeProps extends NodeProps<FilterNodeData> {
-  onPaneClick?: () => void;
-}
-
-const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
+const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
@@ -126,12 +122,6 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
-      
-      // Trigger immediate preview update by calling the same logic
-      // that happens when clicking on the background
-      if (onPaneClick) {
-        onPaneClick();
-      }
     }
   };
 
@@ -416,10 +406,7 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
                     color="warning"
                     size="md"
                     className="flex-1 mr-2"
-                    onValueChange={(values) => {
-                      // Apply change immediately for real-time preview updates
-                      handleParamChange(param.id || param.name, values[0]);
-                    }}
+                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled || param.isConnected}
                   />
                   {editingParam === (param.id || param.name) ? (

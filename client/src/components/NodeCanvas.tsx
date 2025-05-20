@@ -21,12 +21,12 @@ import ImageFilterNode from './ImageFilterNode';
 import { Badge } from '@/components/ui/badge';
 
 // Using a renderNode function instead of creating new nodeTypes object on each render
-const buildNodeTypes = (onPaneClick: () => void): NodeTypes => ({
-  filterNode: (props) => <FilterNode {...props} onPaneClick={onPaneClick} />,
+const nodeTypes: NodeTypes = {
+  filterNode: FilterNode,
   imageNode: ImageNode,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
-});
+};
 
 interface NodeCanvasProps {
   nodes: Node[];
@@ -97,7 +97,7 @@ export default function NodeCanvas({
           onPaneClick={handlePaneClick}
           onNodeClick={handleNodeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
-          nodeTypes={buildNodeTypes(handlePaneClick)}
+          nodeTypes={nodeTypes}
           fitView
           minZoom={0.1}
           maxZoom={2}
