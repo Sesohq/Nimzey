@@ -113,28 +113,44 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
     }
   }, [data.preview]);
   
-  // Subscribe to preview updates for this node
+  // Subscribe to preview updates for this node using custom DOM events
   useEffect(() => {
-    const handlePreviewUpdate = (nodeId: string, url: string) => {
-      if (nodeId === id) {
-        setPreviewThumb(url);
+    const handlePreviewUpdate = (e: any) => {
+      if (e.detail && e.detail.nodeId === id && e.detail.preview) {
+        console.log('Node', id, 'received preview update via DOM event');
+        setPreviewThumb(e.detail.preview);
+        
+        // Also update in the node data if callback is provided
+        if (data.onUpdatePreview) {
+          data.onUpdatePreview(id, e.detail.preview);
+        }
       }
     };
     
-    // Register the handler
-    onPreview(handlePreviewUpdate);
+    // Add event listener for our custom event
+    window.addEventListener('node-preview-updated', handlePreviewUpdate);
     
     // Clean up on unmount
     return () => {
-      offPreview(handlePreviewUpdate);
+      window.removeEventListener('node-preview-updated', handlePreviewUpdate);
     };
-  }, [id]);
+  }, [id, data.onUpdatePreview]);
   
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
         data.onParamChange(id, paramId, value);
+        
+        // Request a preview update immediately after param change
+        // This triggers the custom event that requests a new preview
+        setTimeout(() => {
+          console.log('Requesting preview update for node:', id);
+          const requestEvent = new CustomEvent('request-node-preview', {
+            detail: { nodeId: id }
+          });
+          window.dispatchEvent(requestEvent);
+        }, 0);
       }
     }, 100, { leading: true, trailing: true });
   }, [id, data.onParamChange]);

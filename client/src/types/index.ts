@@ -85,6 +85,7 @@ export type FilterNodeData = {
   onToggleCollapsed?: (nodeId: string, collapsed: boolean) => void;
   onConnectParam?: (nodeId: string, paramId: string, sourceNodeId: string, sourceParamId: string) => void;
   onDisconnectParam?: (nodeId: string, paramId: string) => void;
+  onUpdatePreview?: (nodeId: string, preview: string) => void;
 };
 
 export type ImageNodeData = {
