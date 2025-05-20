@@ -1,0 +1,73 @@
+1. Your WebGL “fused-pass” pipeline is fundamentally the same pattern Filter Forge uses
+
+In filterPipeline.ts you topologically sort the ReactFlow DAG, generate one big GLSL fragment shader (or series of WebGL calls) that covers Source → Blur → Image → … → Output in a single GPU pass.
+
+Filter Forge similarly compiles its node graph into optimized per-pixel code (C++/GLSL), fuses operations so it only does one canvas/tile pass per render, and uses GPU sampling for seamless textures and fast previews.
+
+Your implementation maps 1:1 onto that architecture:
+
+Graph compiler → your runFilterPipeline(path)
+
+Uniforms & samplers → you bind the source texture and uploaded images as WebGL samplers
+
+Fused fragment shader → you inline blur, noise, blend in one shader
+
+Tiled/LOD previews → you could already swap gl.viewport or render low-res frames for slider scrubbing
+
+That is exactly how Filter Forge “chunk-compiles” nodes into one per-pixel routine, so yes—your render system is now Filter Forge-style.
+
+2. Why previews only refresh on “background click” and not on slider drag
+Right now you’re relying on your pane-click handler to trigger a full rewrite of all node previews:
+
+tsx
+Copy
+Edit
+// NodeCanvas.tsx  
+const handlePaneClick = () => {  
+  onNodeClick('');     // parent sees selectedNodeId change → re-run previews  
+};  
+<ReactFlow onPaneClick={handlePaneClick} …>
+That means you only kick off processImage() (or your per-node preview loop) when you click the canvas background NodeCanvas. Slider changes in a FilterNode mutate the data but never fire that pane-click, so nothing redraws until you manually clear the selection.
+
+How to fix it: trigger preview updates on parameter change
+You have two straightforward approaches:
+
+A) Fire the same “pane-click” logic from the slider’s onValueChange
+In your FilterNode (the file with the CustomSlider), after you call:
+
+ts
+Copy
+Edit
+data.onParamChange(id, paramId, newValue);
+also call your background-click handler:
+
+ts
+Copy
+Edit
+// inside handleParamChange or the slider callback
+if (data.onPaneClick) {
+  data.onPaneClick(); // reuse the canvas-refresh trigger
+}
+You’ll need to pass onPaneClick down from NodeCanvas into every node via props, so each node can invoke it when its controls change.
+
+B) Move your preview logic into a useEffect that watches nodes
+Rather than coupling redraw to clicks, redraw every time any node’s data changes. In your useFilterGraph (or wherever you live-update previews), add:
+
+ts
+Copy
+Edit
+// after your `nodes` state
+useEffect(() => {
+  // run your GPU pipeline on every node
+  processImage();          // final output
+  generateNodePreviews();  // per-node previews
+}, [nodes]);
+This way, any change to nodes—including slider movements—automatically re-runs the whole chain. You can throttle or debounce it if performance becomes an issue, but it keeps previews in sync with controls immediately.
+
+Recap & next steps
+Confirmed: your WebGL shader-fusion matches Filter Forge’s compiled DAG approach.
+
+Fix preview refresh by either
+
+a) invoking your pane-click handler (onPaneClick) from each node’s slider callback, or
+

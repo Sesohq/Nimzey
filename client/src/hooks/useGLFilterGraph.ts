@@ -401,12 +401,11 @@ export function useGLFilterGraph() {
     }
   }, [nodes, edges]);
   
-  // Handle parameter change for a filter node - with immediate updates
+  // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
-    // Update the nodes state
-    setNodes(prevNodes => {
-      // Create modified nodes array with updated parameter
-      const updatedNodes = prevNodes.map(node => {
+    // Simply update the nodes state - the useEffect will handle processing
+    setNodes(prevNodes => 
+      prevNodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
           const updatedParams = node.data.filter?.params?.map((param: FilterParam) => {
             if (param.id === paramId) {
@@ -427,31 +426,9 @@ export function useGLFilterGraph() {
           };
         }
         return node;
-      });
-      
-      // Process in next tick to ensure state is updated
-      setTimeout(() => {
-        // Force immediate preview quality processing for responsive UI
-        if (glRendererRef.current) {
-          setQualityLevel('preview');
-          glRendererRef.current.compileGraph(updatedNodes, edges);
-          glRendererRef.current.render({ quality: 'preview' });
-          
-          // Schedule a higher quality update after interaction stops
-          if (updateTimerRef.current) {
-            clearTimeout(updateTimerRef.current);
-          }
-          
-          updateTimerRef.current = setTimeout(() => {
-            setQualityLevel('full');
-            glRendererRef.current?.render({ quality: 'full' });
-          }, 300);
-        }
-      }, 0);
-      
-      return updatedNodes;
-    });
-  }, [edges]);
+      })
+    );
+  }, []);
   
   // Debounced processing request with immediate feedback
   const debouncedRequestProcessing = useCallback(() => {
