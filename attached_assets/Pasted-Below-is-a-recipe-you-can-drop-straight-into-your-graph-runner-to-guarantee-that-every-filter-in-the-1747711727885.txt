@@ -1,0 +1,100 @@
+Below is a recipe you can drop straight into your graph-runner to guarantee that every filter in the chain (Source → Blur → Image → … → Output) sees the right input and produces the right output. If you swap your existing processImage or generateNodePreview for this, you’ll immediately get:
+
+The blur applied to the source
+
+Then your uploaded image blended on top
+
+Then the final output rendered in your Output node
+
+And you’ll regain per-node previews automatically.
+
+1. Build a linear pipeline with reduce
+First, get the ordered list of node-IDs from the Source up to the one you want to preview (or to the Output). Let’s call that array path: string[].
+
+ts
+Copy
+Edit
+// e.g. ["sourceNodeId", "blurNodeId", "imageNodeId", "outputNodeId"]
+const path = getPathToNode(outputNodeId);
+Then:
+
+ts
+Copy
+Edit
+async function runPipeline(path: string[]) {
+  // 1) load the very first image once
+  const sourceNode = getNode(path[0]) as SourceNodeData;
+  let currentImage = await loadImageData(sourceNode.data.params.find(p => p.name==='imageData')!.value);
+
+  // 2) step through each filter in order
+  for (let i = 1; i < path.length; i++) {
+    const nodeId = path[i];
+    const node = getNode(nodeId);
+    const params = node.data.params;
+
+    switch (node.type) {
+      case FilterType.Blur:
+        currentImage = applyBlur(currentImage, params.radius.value, params.quality.value);
+        break;
+      case FilterType.Image:
+        // your uploaded texture is already in params.imageData.value
+        // AND you pre-decoded it to ImageData on upload
+        const texture = (node.data as ImageNodeData).texturePixels;
+        currentImage = blendImage(currentImage, texture, params.blendMode.value, params.opacity.value);
+        break;
+      // … other filters here …
+      case FilterType.Output:
+        // final — just draw it
+        break;
+    }
+
+    // 3) write a per-node preview
+    const previewUrl = imageDataToDataURL(currentImage);
+    setNodes(nds => nds.map(n => n.id === nodeId
+      ? { ...n, data: { ...n.data, preview: previewUrl } }
+      : n
+    ));
+  }
+
+  // 4) return the final image for the Output panel
+  return imageDataToDataURL(currentImage);
+}
+Key points:
+
+loadImageData(srcUrl): creates an offscreen <img>…await img.decode()…draw to tmp canvas…getImageData().
+
+blendImage(base: ImageData, overlay: ImageData, mode, opacity): loops over .data channels, applies your composite math (multiply, overlay, etc) into base, then returns it.
+
+You only ever call imageDataToDataURL after each filter step, so your blur-node preview and image-node preview always match reality.
+
+2. Hook it into your existing runner
+Replace your old “process every node in a nested loop, then fire off a million setNodes” with:
+
+ts
+Copy
+Edit
+async function processImage() {
+  const finalUrl = await runPipeline(getPathToNode(outputNodeId));
+  setProcessedImage(finalUrl);
+}
+And your preview-panel will update automatically.
+
+3. Why this fixes your two bugs
+Full-chain integrity
+By feeding the output of blur into your image-blend function, you’ll see the blurred source behind your overlay. No more “only the overlay shows.”
+
+Stable previews
+Because every node’s preview is written exactly once—in the correct order—you no longer accidentally overwrite texture nodes with upstream previews.
+
+Next steps
+Swap in the above runPipeline skeleton into your useFilterGraph or wherever you do processImage.
+
+Implement small helpers:
+
+loadImageData(src: string): Promise<ImageData>
+
+imageDataToDataURL(imgData: ImageData): string
+
+blendImage(base: ImageData, overlay: ImageData, mode: string, opacity: number): ImageData
+
+Test with console-logs at each step to confirm “source → blur → image → output.”

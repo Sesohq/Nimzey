@@ -295,8 +295,118 @@ export function useFilterGraph() {
     processNextNode();
   }, [edges, nodes, getHiddenCanvas]);
 
+  // Utility function to convert ImageData to a data URL
+  const imageDataToDataURL = useCallback((imageData: ImageData): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL();
+  }, []);
+  
+  // Utility function to load an image from URL to ImageData
+  const loadImageData = useCallback(async (src: string): Promise<ImageData | null> => {
+    if (!src) return null;
+    
+    try {
+      // Create a new image and pre-decode it
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      
+      // Create a temporary canvas to convert the image to ImageData
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      
+      // Draw the image and get its pixel data
+      ctx.drawImage(img, 0, 0);
+      return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } catch (error) {
+      console.error('Error loading image:', error);
+      return null;
+    }
+  }, []);
+  
+  // Blend two images with the specified blend mode and opacity
+  const blendImages = useCallback((
+    baseImageData: ImageData, 
+    overlayImageData: ImageData, 
+    blendMode: string = 'normal', 
+    opacity: number = 100
+  ): ImageData => {
+    // Create a canvas for blending
+    const canvas = document.createElement('canvas');
+    canvas.width = baseImageData.width;
+    canvas.height = baseImageData.height;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return baseImageData;
+    
+    // First draw the base image
+    ctx.putImageData(baseImageData, 0, 0);
+    
+    // Create a temp canvas for the overlay
+    const overlayCanvas = document.createElement('canvas');
+    overlayCanvas.width = overlayImageData.width;
+    overlayCanvas.height = overlayImageData.height;
+    
+    const overlayCtx = overlayCanvas.getContext('2d');
+    if (!overlayCtx) return baseImageData;
+    
+    // Draw the overlay image
+    overlayCtx.putImageData(overlayImageData, 0, 0);
+    
+    // Now blend the overlay onto the base using the specified blend mode
+    ctx.save();
+    ctx.globalAlpha = opacity / 100;
+    ctx.globalCompositeOperation = convertBlendMode(blendMode);
+    
+    // Scale the overlay to fit if needed
+    ctx.drawImage(
+      overlayCanvas, 
+      0, 0, overlayCanvas.width, overlayCanvas.height,
+      0, 0, canvas.width, canvas.height
+    );
+    
+    ctx.restore();
+    
+    // Return the combined result
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }, []);
+  
+  // Helper function to convert blend mode string to canvas blend mode
+  const convertBlendMode = (mode: string): GlobalCompositeOperation => {
+    switch (mode) {
+      case 'normal': return 'source-over';
+      case 'multiply': return 'multiply';
+      case 'screen': return 'screen';
+      case 'overlay': return 'overlay';
+      case 'darken': return 'darken';
+      case 'lighten': return 'lighten';
+      case 'color-dodge': return 'color-dodge';
+      case 'color-burn': return 'color-burn';
+      case 'hard-light': return 'hard-light';
+      case 'soft-light': return 'soft-light';
+      case 'difference': return 'difference';
+      case 'exclusion': return 'exclusion';
+      default: return 'source-over';
+    }
+  };
+  
+  // Get a node by ID
+  const getNodeById = useCallback((id: string) => {
+    return nodes.find(node => node.id === id);
+  }, [nodes]);
+  
   // Process the image through the filter chain
-  const processImage = useCallback(() => {
+  const processImage = useCallback(async () => {
     if (!sourceImageRef.current || !sourceImage) return;
     
     // First, update any connected parameters
