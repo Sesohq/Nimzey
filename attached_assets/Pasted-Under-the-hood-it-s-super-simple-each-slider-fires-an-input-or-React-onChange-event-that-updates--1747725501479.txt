@@ -1,0 +1,68 @@
+Under the hood it’s super simple: each slider fires an input (or React onChange) event that updates its value and then immediately re‐draws your canvas with the new settings. Here’s the vanilla-JS pattern we used in the preview HTML, which you can drop into your Replit setup:
+
+js
+Copy
+Edit
+// grab your DOM elements
+const brightnessInput = document.getElementById('brightness');
+const contrastInput   = document.getElementById('contrast');
+const previewCanvas   = document.getElementById('canvas');
+const ctx             = previewCanvas.getContext('2d');
+
+// this is the one redraw function that applies all filters
+function applyFilters() {
+  // 1) draw the original image to the canvas
+  ctx.drawImage(imageElem, 0, 0, previewCanvas.width, previewCanvas.height);
+
+  // 2) grab pixel data
+  const imageData = ctx.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
+  const data      = imageData.data;
+
+  // 3) apply your brightness & contrast math
+  const b = parseInt(brightnessInput.value, 10);
+  const c = parseInt(contrastInput.value, 10);
+  const factor = (259 * (c + 255)) / (255 * (259 - c));
+  for (let i = 0; i < data.length; i += 4) {
+    for (let ch = 0; ch < 3; ch++) {
+      data[i + ch] = factor * (data[i + ch] - 128) + 128 + b;
+    }
+  }
+
+  // 4) write the pixels back
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// 5) wire up events for “live” preview
+[brightnessInput, contrastInput].forEach((slider) => {
+  slider.addEventListener('input', applyFilters);
+});
+How It Works
+Single redraw function (applyFilters) reads the sliders, processes the pixel buffer, and repaints the canvas.
+
+Event listeners on each <input type="range"> call that function on every change, so your preview updates instantly as you drag.
+
+You can extend this to any number of sliders (threshold, noise, ditherSize, etc.) by grabbing their values inside applyFilters and folding them into your pixel math.
+
+React-style Equivalent
+If you’re in React, you’d store each slider in state:
+
+jsx
+Copy
+Edit
+const [brightness, setBrightness] = useState(0);
+const [contrast, setContrast]   = useState(0);
+
+useEffect(() => {
+  applyFilters();  // runs whenever brightness or contrast changes
+}, [brightness, contrast]);
+And hook your sliders:
+
+jsx
+Copy
+Edit
+<input
+  type="range"
+  value={brightness}
+  onChange={e => setBrightness(+e.target.value)}
+/>
+This same pattern gives a smooth, real-time preview in your Replit app.

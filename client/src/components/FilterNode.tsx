@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useMemo } from 'react';
+import { memo, useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import NodeControls from './NodeControls';
+import CanvasPreview from './CanvasPreview';
 
 // Color tag backgrounds
 const colorTagBg: Record<NodeColorTag, string> = {
