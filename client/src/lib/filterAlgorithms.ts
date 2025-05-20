@@ -413,8 +413,8 @@ const applyFilter = (
   canvas: HTMLCanvasElement,
   params: { name: string; value: number | string }[]
 ): void => {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
+  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let data = imageData.data;
   
   switch (filterType) {
     case 'image':
@@ -423,28 +423,49 @@ const applyFilter = (
       const blendMode = params.find(p => p.name === 'blendMode')?.value as string || 'normal';
       const opacity = Number(params.find(p => p.name === 'opacity')?.value || 100);
       
+      // First put the current image data back to the canvas
+      ctx.putImageData(imageData, 0, 0);
+      
       if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue !== '') {
-        // Write back the current image data
-        ctx.putImageData(imageData, 0, 0);
-        
-        // Load the overlay image
+        // Create a new image from the uploaded image data
         const overlayImage = new Image();
+        overlayImage.crossOrigin = "anonymous"; // To handle CORS
         overlayImage.src = imageDataValue;
         
-        if (overlayImage.complete) {
-          // Apply image overlay
-          applyImageBlending(ctx, canvas, overlayImage, blendMode, opacity);
+        // Important fix: Use a synchronous approach for already loaded images
+        if (overlayImage.complete && overlayImage.naturalWidth > 0) {
+          // Save context state before blending
+          ctx.save();
+          
+          // Apply blend mode and opacity
+          ctx.globalAlpha = opacity / 100;
+          ctx.globalCompositeOperation = convertBlendMode(blendMode);
+          
+          // Draw the overlay image to cover the whole canvas
+          try {
+            ctx.drawImage(overlayImage, 0, 0, canvas.width, canvas.height);
+          } catch (err) {
+            console.error("Error drawing overlay image:", err);
+          }
+          
+          // Restore context
+          ctx.restore();
         } else {
-          // If image is not loaded, set up a load handler 
-          // (usually happens only the first time)
+          // For images not yet loaded (first time)
+          console.log("Image not loaded yet, setting up load handler");
           overlayImage.onload = () => {
-            applyImageBlending(ctx, canvas, overlayImage, blendMode, opacity);
+            // Apply the same blend operation when image loads
+            ctx.save();
+            ctx.globalAlpha = opacity / 100;
+            ctx.globalCompositeOperation = convertBlendMode(blendMode);
+            ctx.drawImage(overlayImage, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
           };
         }
-        
-        // Get the updated canvas data after overlay is applied
-        return; // Early return, as we've modified the canvas directly
       }
+      
+      // Instead of reassigning variables, put the modified data back to canvas
+      ctx.putImageData(ctx.getImageData(0, 0, canvas.width, canvas.height), 0, 0);
       break;
       
     case 'blur':
