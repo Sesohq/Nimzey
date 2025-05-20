@@ -1,5 +1,68 @@
 import { Node, Edge } from 'reactflow';
-import { FilterNodeData, FilterType, ImageNodeData } from '@/types';
+import { FilterNodeData, FilterType, ImageNodeData, BlendMode } from '@/types';
+
+// Function to apply image overlay with blend mode and opacity
+function applyImageOverlay(
+  ctx: CanvasRenderingContext2D, 
+  canvas: HTMLCanvasElement, 
+  overlayImage: HTMLImageElement, 
+  blendMode: string = 'normal',
+  opacity: number = 100
+) {
+  // Save current context state
+  ctx.save();
+  
+  // Set global alpha for opacity
+  ctx.globalAlpha = opacity / 100;
+  
+  // Set blend mode
+  ctx.globalCompositeOperation = convertBlendMode(blendMode);
+  
+  // Calculate dimensions to maintain aspect ratio but fill the canvas
+  const canvasRatio = canvas.width / canvas.height;
+  const imageRatio = overlayImage.width / overlayImage.height;
+  
+  let drawWidth, drawHeight, drawX, drawY;
+  
+  if (canvasRatio > imageRatio) {
+    // Canvas is wider than image - scale image to fill width
+    drawWidth = canvas.width;
+    drawHeight = canvas.width / imageRatio;
+    drawX = 0;
+    drawY = (canvas.height - drawHeight) / 2;
+  } else {
+    // Canvas is taller than image - scale image to fill height
+    drawHeight = canvas.height;
+    drawWidth = canvas.height * imageRatio;
+    drawX = (canvas.width - drawWidth) / 2;
+    drawY = 0;
+  }
+  
+  // Draw the overlay image
+  ctx.drawImage(overlayImage, drawX, drawY, drawWidth, drawHeight);
+  
+  // Restore context to previous state (except for the pixels we've drawn)
+  ctx.restore();
+}
+
+// Convert our blend mode strings to canvas globalCompositeOperation values
+function convertBlendMode(blendMode: string): GlobalCompositeOperation {
+  switch (blendMode) {
+    case 'normal': return 'source-over';
+    case 'multiply': return 'multiply';
+    case 'screen': return 'screen';
+    case 'overlay': return 'overlay';
+    case 'darken': return 'darken';
+    case 'lighten': return 'lighten';
+    case 'color-dodge': return 'color-dodge';
+    case 'color-burn': return 'color-burn';
+    case 'hard-light': return 'hard-light';
+    case 'soft-light': return 'soft-light';
+    case 'difference': return 'difference';
+    case 'exclusion': return 'exclusion';
+    default: return 'source-over';
+  }
+}
 
 // Helper function to find target nodes from a source node
 const getTargetNodes = (sourceNodeId: string, nodes: Node[], edges: Edge[]): Node[] => {
@@ -108,19 +171,56 @@ export const applyFilters = (
   // Apply each filter in the chain
   for (let i = 1; i < nodesToProcess.length; i++) {
     const node = nodesToProcess[i];
-    if (node.type !== 'filterNode') continue;
     
-    const filterData = node.data as FilterNodeData;
-    // Skip disabled filters
-    if (!filterData.enabled) continue;
-    
-    // Convert FilterParam array to the expected format (only using name and value)
-    const convertedParams = filterData.params.map(param => ({
-      name: param.name,
-      value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
-    }));
-    
-    applyFilter(filterData.filterType, ctx, canvas, convertedParams);
+    if (node.type === 'filterNode') {
+      const filterData = node.data as FilterNodeData;
+      // Skip disabled filters
+      if (!filterData.enabled) continue;
+      
+      // Convert FilterParam array to the expected format (only using name and value)
+      const convertedParams = filterData.params.map(param => ({
+        name: param.name,
+        value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
+      }));
+      
+      applyFilter(filterData.filterType, ctx, canvas, convertedParams);
+    } 
+    else if (node.type === 'imageFilterNode') {
+      // Handle Image Filter Node - blend the uploaded image with current canvas
+      const imageNodeData = node.data as FilterNodeData;
+      if (!imageNodeData.enabled) continue;
+      
+      // Find the image data parameter
+      const imageParam = imageNodeData.params.find(p => p.id === 'image-data');
+      if (imageParam && typeof imageParam.value === 'string' && imageParam.value) {
+        // Create a new image from the image data
+        const overlayImage = new Image();
+        overlayImage.src = imageParam.value;
+        
+        // We need to wait for the image to load
+        if (overlayImage.complete) {
+          // Apply the image with blend mode
+          applyImageOverlay(ctx, canvas, overlayImage, imageNodeData.blendMode, imageNodeData.opacity);
+        } else {
+          // For synchronous operation, we'll use a temporary approach
+          // In a production app, this should be handled asynchronously
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          if (tempCtx) {
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            
+            // Draw original content to temp canvas
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            // Set up a one-time load event handler
+            overlayImage.onload = () => {
+              applyImageOverlay(ctx, canvas, overlayImage, imageNodeData.blendMode, imageNodeData.opacity);
+            };
+          }
+        }
+      }
+    }
   }
   
   return canvas.toDataURL();
