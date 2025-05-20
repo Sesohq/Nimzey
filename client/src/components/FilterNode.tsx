@@ -126,12 +126,15 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
-      
-      // Trigger immediate preview update by calling the same logic
-      // that happens when clicking on the background
-      if (onPaneClick) {
-        onPaneClick();
-      }
+      // Don't trigger refresh on every change - will happen on commit
+    }
+  };
+  
+  // This function will be called when the slider drag ends
+  const handleParamCommit = () => {
+    // Trigger preview update by calling the same logic used when clicking on the background
+    if (onPaneClick) {
+      onPaneClick();
     }
   };
 
@@ -417,8 +420,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => {
-                      // Apply change immediately for real-time preview updates
+                      // Apply change to update the UI immediately
                       handleParamChange(param.id || param.name, values[0]);
+                    }}
+                    onValueCommit={() => {
+                      // Trigger full quality preview update only when slider drag ends
+                      handleParamCommit();
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />
