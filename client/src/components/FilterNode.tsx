@@ -102,7 +102,11 @@ const EditableValue = ({
   );
 };
 
-const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
+  generateNodePreview?: (nodeId: string) => void;
+}
+
+const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
