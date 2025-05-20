@@ -1,0 +1,121 @@
+Let’s rip out all of the “background-click only” logic and hook your thumbnail generator directly into the parameter changes. We’ll pass your generateNodePreview callback all the way down into FilterNode, then call it on every slider move (or at least at throttled intervals). That guarantees the in-node thumbnail always reflects the latest setting.
+
+1) Expose generateNodePreview from your graph hook
+In useGLFilterGraph.ts (or useFilterGraph), make sure you return both your onParamChange and generateNodePreview:
+
+ts
+Copy
+Edit
+// inside useGLFilterGraph.ts
+const generateNodePreview = useCallback(
+  async (nodeId: string) => {
+    if (!sourceImageRef.current) return;
+    const url = await runFilterPipeline(
+      nodes,
+      edges,
+      sourceImageRef.current,
+      nodeId,
+      { maxDimension: 144 }   // low-res for fast thumbnail
+    );
+    setNodes(cur =>
+      cur.map(n =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, preview: url } }
+          : n
+      )
+    );
+  },
+  [nodes, edges]
+);
+
+return {
+  nodes,
+  edges,
+  onParamChange,
+  generateNodePreview,
+  /* … */
+};
+2) Pass it down in your NodeCanvas
+In NodeCanvas.tsx, build your nodeTypes factory to inject both onParamChange and generateNodePreview into FilterNode:
+
+tsx
+Copy
+Edit
+// NodeCanvas.tsx
+const buildNodeTypes = (graph: ReturnType<typeof useGLFilterGraph>) => ({
+  filterNode: props => (
+    <FilterNode
+      {...props}
+      onParamChange={graph.onParamChange}
+      generateNodePreview={graph.generateNodePreview}
+    />
+  ),
+  // … your other node types …
+});
+
+// then in your ReactFlow:
+<ReactFlow
+  nodes={nodes}
+  edges={edges}
+  onNodesChange={setNodes}
+  nodeTypes={buildNodeTypes(graph)}
+  /* … */
+>
+3) Call it on every slider move (throttled)
+In FilterNode.tsx, destructure that new prop and fire it in your slider callback:
+
+tsx
+Copy
+Edit
+// FilterNode.tsx
+const FilterNode = ({
+  id,
+  data: { params, onParamChange, generateNodePreview },
+}: NodeProps<FilterNodeData> & {
+  generateNodePreview: (id: string) => void;
+}) => {
+  // throttle so we don’t smash the GPU on 60fps drags
+  const throttledPreview = useMemo(
+    () => throttle(generateNodePreview, 50),
+    [generateNodePreview]
+  );
+
+  return (
+    <div>
+      {/* your header, etc. */}
+      {params.map(param => (
+        <CustomSlider
+          key={param.id}
+          value={[param.value]}
+          min={param.min}
+          max={param.max}
+          step={param.step}
+
+          // update the model so thumb moves instantly
+          onValueChange={([v]) => {
+            onParamChange(id, param.id, v);
+            // then schedule a thumbnail refresh
+            throttledPreview(id);
+          }}
+
+          disabled={param.isConnected}
+        />
+      ))}
+
+      {/* show your thumbnail */}
+      {data.preview && (
+        <img
+          src={data.preview}
+          alt="thumb"
+          style={{ width: 80, height: 80, objectFit: 'cover' }}
+        />
+      )}
+    </div>
+  );
+};
+Why this finally fixes it
+No more background clicks: every slider move directly enqueues a thumbnail refresh.
+
+Throttled at ~20 fps (50 ms) so you get fluid drags and still see a near–real-time preview.
+
+Low-res (144px) so each preview is cheap—your GPU pipeline still runs, but at tiny dimensions.

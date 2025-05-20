@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { memo, useState, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
@@ -102,88 +102,31 @@ const EditableValue = ({
   );
 };
 
-const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
-  // Add local state for the preview thumbnail - fallback to data.preview
-  const [previewThumb, setPreviewThumb] = useState(data.preview || '');
-  
-  // Also update local state if data.preview changes (for initial load)
-  useEffect(() => {
-    if (data.preview) {
-      setPreviewThumb(data.preview);
-    }
-  }, [data.preview]);
-  
-  // Function to directly request a preview update via custom event
-  const requestPreviewUpdate = useCallback(() => {
-    console.log('Requesting direct preview update for node:', id);
-    
-    // Dispatch the request event directly
-    const requestEvent = new CustomEvent('request-node-preview', {
-      detail: { nodeId: id }
-    });
-    window.dispatchEvent(requestEvent);
-    
-    // Also request a preview through the callback if available
-    // (belt-and-suspenders approach to ensure preview updates)
-    if (data.onRequestNodePreview) {
-      data.onRequestNodePreview(id);
-    }
-  }, [id, data.onRequestNodePreview]);
-  
-  // Make the function globally available for debugging
-  useEffect(() => {
-    if (!(window as any).requestPreviewForNode) {
-      (window as any).requestPreviewForNode = function(nodeId: string) {
-        console.log('Global: Requesting preview for node:', nodeId);
-        const event = new CustomEvent('request-node-preview', { 
-          detail: { nodeId } 
-        });
-        window.dispatchEvent(event);
-      };
-    }
-  }, []);
-  
-  // Subscribe to preview updates for this node using custom DOM events
-  useEffect(() => {
-    const handlePreviewUpdate = (e: any) => {
-      if (e.detail && e.detail.nodeId === id && e.detail.preview) {
-        console.log('Node', id, 'received preview update via DOM event');
-        setPreviewThumb(e.detail.preview);
-        
-        // Also update in the node data if callback is provided
-        if (data.onUpdatePreview) {
-          data.onUpdatePreview(id, e.detail.preview);
-        }
+interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
+  generateNodePreview?: (nodeId: string) => void;
+}
+
+const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
+  // Create throttled version of the preview generator
+  const throttledPreview = useMemo(() => {
+    return throttle(() => {
+      // Trigger the thumbnail generation
+      if (generateNodePreview) {
+        generateNodePreview(id);
       }
-    };
-    
-    // Add event listener for our custom event
-    window.addEventListener('node-preview-updated', handlePreviewUpdate);
-    
-    // Clean up on unmount
-    return () => {
-      window.removeEventListener('node-preview-updated', handlePreviewUpdate);
-    };
-  }, [id, data.onUpdatePreview]);
+    }, 100, { leading: false, trailing: true });
+  }, [id, generateNodePreview]);
   
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
-        // First, update the parameter value
         data.onParamChange(id, paramId, value);
-        
-        // Request preview update using our direct DOM event system
-        requestPreviewUpdate();
-        
-        // Also use the callback if available (for backward compatibility)
-        if (data.onRequestNodePreview) {
-          data.onRequestNodePreview(id);
-        }
+        // Also schedule a thumbnail update
+        throttledPreview();
       }
-    }, 30, { leading: true, trailing: true }); // Even faster throttle for better responsiveness
-  }, [id, data.onParamChange, data.onRequestNodePreview, requestPreviewUpdate]);
-  
+    }, 100, { leading: true, trailing: true });
+  }, [id, data.onParamChange, throttledPreview]);
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
@@ -422,15 +365,14 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             </div>
           </div>
           
-          {/* Image Preview - Using local state for more reliable updates */}
-          {previewThumb && (
+          {/* Image Preview */}
+          {data.preview && (
             <div className="mb-3">
               <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
                 <img 
-                  src={previewThumb} 
+                  src={data.preview} 
                   alt={`${data.label} preview`}
                   className="w-full h-full object-cover"
-                  data-node-preview-id={id}  // Add data attribute for direct DOM manipulation
                 />
               </div>
             </div>
@@ -494,8 +436,6 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                       handleParamChange(param.id || param.name, values[0]);
                       // Use throttled processing for WebGL rendering
                       throttledParamChange(param.id || param.name, values[0]);
-                      // Also directly request a preview update immediately
-                      requestPreviewUpdate();
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />
