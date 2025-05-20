@@ -102,31 +102,15 @@ const EditableValue = ({
   );
 };
 
-interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
-  generateNodePreview?: (nodeId: string) => void;
-}
-
-const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
-  // Create throttled version of the preview generator
-  const throttledPreview = useMemo(() => {
-    return throttle(() => {
-      // Trigger the thumbnail generation
-      if (generateNodePreview) {
-        generateNodePreview(id);
-      }
-    }, 100, { leading: false, trailing: true });
-  }, [id, generateNodePreview]);
-  
+const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
         data.onParamChange(id, paramId, value);
-        // Also schedule a thumbnail update
-        throttledPreview();
       }
     }, 100, { leading: true, trailing: true });
-  }, [id, data.onParamChange, throttledPreview]);
+  }, [id, data.onParamChange]);
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);

@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -20,15 +20,13 @@ import OutputNode from './OutputNode';
 import ImageFilterNode from './ImageFilterNode';
 import { Badge } from '@/components/ui/badge';
 
-// Create node types factory to inject additional props
-const createNodeTypes = (generateNodePreview?: (nodeId: string) => void) => ({
-  filterNode: (props: any) => (
-    <FilterNode {...props} generateNodePreview={generateNodePreview} />
-  ),
+// Using a renderNode function instead of creating new nodeTypes object on each render
+const nodeTypes: NodeTypes = {
+  filterNode: FilterNode,
   imageNode: ImageNode,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
-});
+};
 
 interface NodeCanvasProps {
   nodes: Node[];
@@ -86,16 +84,6 @@ export default function NodeCanvas({
     // Apply the change
     onEdgesChange([removeChange]);
   };
-
-  // Create node types dynamically to pass required props
-  const nodeTypes = useMemo(() => createNodeTypes((nodeId) => {
-    // When a node parameter changes, find the node and trigger a preview
-    const targetNode = nodes.find((n) => n.id === nodeId);
-    if (targetNode && onNodeClick && nodeId) {
-      // First select the node (required for some preview systems)
-      onNodeClick(nodeId);
-    }
-  }), [nodes, onNodeClick]);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
