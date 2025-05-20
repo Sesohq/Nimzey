@@ -1,0 +1,204 @@
+Here's how I solved the Image node implementation with click-to-upload functionality, along with the key code involved:
+
+Solution Overview
+The implementation required changes to two main files:
+
+The Image node component (ImageNode.tsx)
+The filter graph hook (useFilterGraph.ts)
+1. Image Node Component (ImageNode.tsx)
+The Image node uses a simple pattern - a hidden file input with a clickable container that triggers it:
+
+const ImageNode = memo(({ data }: NodeProps<ImageNodeData>) => {
+  const { id, preview, uploadNodeImage, updateNodeParameter, parameters } = data;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Local state for immediate preview feedback
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Sync local state with node data
+  useEffect(() => {
+    if (preview) {
+      setImagePreview(preview);
+    } else if (parameters?.imageData?.value) {
+      setImagePreview(parameters.imageData.value);
+    } else {
+      setImagePreview(null);
+    }
+  }, [preview, parameters]);
+  
+  // Open file picker when node is clicked
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent React Flow from capturing the click
+    fileInputRef.current?.click();
+  };
+  
+  // Handle the selected file
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Show immediate local preview
+      const localPreviewUrl = URL.createObjectURL(file);
+      setImagePreview(localPreviewUrl);
+      
+      // Upload via filter graph hook
+      if (uploadNodeImage) {
+        uploadNodeImage(id, file);
+      }
+    }
+  };
+  
+  return (
+    <div className="node-container bg-gray-900 border border-gray-700 rounded-md p-2 w-64 shadow-md">
+      {/* Node header */}
+      <div className="node-header flex justify-between items-center mb-2 text-gray-200">
+        <div className="flex items-center">
+          <ImageIcon size={16} className="mr-2 text-purple-500" />
+          <span>Image</span>
+        </div>
+      </div>
+      
+      {/* Clickable image area */}
+      <div 
+        className="node-content cursor-pointer"
+        onClick={handleClick}
+      >
+        {imagePreview ? (
+          <div className="preview-container rounded-md overflow-hidden bg-gray-800">
+            <img 
+              src={imagePreview} 
+              alt="Preview" 
+              className="w-full h-32 object-contain"
+            />
+            <div className="text-center py-1 text-xs text-gray-400 bg-gray-800/80">
+              Click to change image
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-40 bg-gray-800 rounded-md border border-dashed border-gray-600">
+            <ImageIcon size={32} className="text-gray-600 mb-2" />
+            <span className="text-gray-500 text-sm">Click to upload image</span>
+          </div>
+        )}
+        
+        {/* Hidden file input */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </div>
+      
+      {/* Output connection point */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        className="w-2 h-2 rounded-full bg-purple-500 node-port"
+      />
+    </div>
+  );
+});
+2. Filter Graph Hook (useFilterGraph.ts)
+The hook handles the image upload process and updates the node data:
+
+// Upload image to a specific node (particularly for Image nodes)
+const uploadNodeImage = useCallback((nodeId: string, file: File) => {
+  console.log(`Uploading image to node ${nodeId}`);
+  
+  // Create FileReader to convert the file to a data URL
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const imageDataUrl = e.target?.result as string;
+    
+    if (imageDataUrl) {
+      console.log(`Image loaded for node ${nodeId}, updating data`);
+      
+      // Create an actual image to get dimensions
+      const img = new Image();
+      img.onload = () => {
+        // Update the node with the image data
+        setNodes(prevNodes => prevNodes.map(node => {
+          if (node.id === nodeId) {
+            console.log(`Updating node ${nodeId} with new image data`);
+            
+            // Create a deep copy of parameters to avoid reference issues
+            const updatedParams = { ...node.data.parameters };
+            
+            // Ensure imageData parameter exists
+            if (!updatedParams.imageData) {
+              updatedParams.imageData = {
+                id: 'imageData',
+                label: 'Image Data',
+                inputType: 'image',
+                outputType: 'image',
+                defaultValue: null,
+                value: null,
+                linkedNodeId: null,
+                uiControl: 'imagePicker',
+                isEditable: true
+              };
+            }
+            
+            // Set the value with image data
+            updatedParams.imageData.value = imageDataUrl;
+            
+            // Return updated node
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                parameters: updatedParams,
+                preview: imageDataUrl,
+                uploadNodeImage
+              }
+            };
+          }
+          return node;
+        }));
+        
+        // Trigger processing the updated node
+        const event = new CustomEvent('image-uploaded', {
+          detail: { nodeId }
+        });
+        window.dispatchEvent(event);
+        
+        // User feedback
+        toast({
+          title: "Image uploaded",
+          description: "The image has been uploaded to the node",
+          variant: "default"
+        });
+      };
+      
+      // Start loading the image
+      img.src = imageDataUrl;
+    }
+  };
+  
+  reader.onerror = () => {
+    console.error("Error reading file");
+    toast({
+      title: "Upload failed",
+      description: "Could not read the image file",
+      variant: "destructive"
+    });
+  };
+  
+  reader.readAsDataURL(file);
+}, [setNodes]);
+3. Adding the Upload Function to Nodes
+In the node creation function, I made sure to pass the upload function to Image nodes:
+
+// For Image nodes, add the upload function
+if (type === FilterType.Image) {
+  nodeData.uploadNodeImage = uploadNodeImage;
+}
+Key Implementation Details
+Direct Click Handling: The entire node is clickable, making it intuitive to use
+Local Image Preview: Using URL.createObjectURL() for immediate feedback
+True Data Storage: The image data gets stored properly in node parameters
+Visual Cues: Clear instructions ("Click to upload image") and feedback
+Error Handling: Toast notifications keep users informed about upload status
+This implementation provides a seamless, user-friendly experience for adding images directly through nodes on the canvas.
