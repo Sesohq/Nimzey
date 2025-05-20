@@ -5,7 +5,7 @@
  * Adapts the existing filter graph system to use hardware-accelerated rendering.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { 
   Node, 
   Edge,
@@ -18,6 +18,7 @@ import {
   MarkerType
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
+import { debounce, throttle } from 'lodash';
 import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { toast } from '@/hooks/use-toast';
@@ -401,6 +402,8 @@ export function useGLFilterGraph() {
     }
   }, [nodes, edges]);
   
+
+
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
     setNodes(nodes => 
@@ -428,9 +431,12 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Use debounced processing to avoid too many updates during slider dragging
-    debouncedRequestProcessing();
-  }, []);
+    // Use throttled processing for immediate feedback at low resolution
+    throttledRequestProcessing('preview');
+    
+    // Also queue a higher quality update for when the user stops dragging
+    debouncedRequestProcessing('draft');
+  }, [throttledRequestProcessing, debouncedRequestProcessing]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
@@ -563,7 +569,7 @@ export function useGLFilterGraph() {
   }, []);
   
   // Process the filter graph using WebGL
-  const requestProcessing = useCallback(async (quality: QualityLevel = 'draft') => {
+  const requestProcessing = useCallback(async (quality: QualityLevel = 'draft', options: { maxDimension?: number } = {}) => {
     if (!glRendererRef.current || !nodes.length || !edges.length) return;
     
     // Find output nodes
