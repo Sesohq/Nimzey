@@ -771,4 +771,23 @@ export function useGLFilterGraph() {
     qualityLevel,
     setQualityLevel,
   };
+  
+  // Add effect to auto-refresh thumbnails when nodes or parameters change
+  useEffect(() => {
+    // Skip if no node is selected
+    if (!selectedNodeId) return;
+    
+    // Find the selected node
+    const targetNode = nodes.find(n => n.id === selectedNodeId);
+    if (targetNode && targetNode.type === 'filterNode') {
+      // Use a small delay to avoid too many renders during rapid changes
+      const debounceTimer = setTimeout(() => {
+        generateNodePreview(targetNode);
+      }, 100);
+      
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [nodes, selectedNodeId, generateNodePreview]);
+  
+  return graphData;
 }
