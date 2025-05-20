@@ -13,7 +13,8 @@ export type FilterType =
   | 'pixelate'
   | 'findEdges'
   | 'glow'
-  | 'halftone';
+  | 'halftone'
+  | 'image';
 
 export type NodeType = 'filterNode' | 'imageNode' | 'outputNode';
 

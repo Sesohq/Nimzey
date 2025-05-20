@@ -1,6 +1,25 @@
 import { FilterCategory } from '@/types';
 
 export const filterCategories: Record<string, FilterCategory> = {
+  utility: {
+    name: 'Utility',
+    filters: [
+      {
+        name: 'Image',
+        type: 'image',
+        params: [
+          {
+            id: 'image-data',
+            name: 'imageData',
+            label: 'Image Data',
+            controlType: 'select',
+            paramType: 'image',
+            value: ''
+          }
+        ]
+      }
+    ]
+  },
   basic: {
     name: 'Basic Filters',
     filters: [
