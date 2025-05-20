@@ -335,6 +335,7 @@ export function useGLFilterGraph() {
         handleOpacityChange(id, opacity),
       onChangeColorTag: (id: string, colorTag: NodeColorTag) => 
         handleColorTagChange(id, colorTag),
+      onRequestNodePreview: (id: string) => requestNodePreview(id),
       blendMode: 'normal',
       opacity: 100,
       colorTag: 'default'
@@ -772,6 +773,49 @@ export function useGLFilterGraph() {
     });
   }, []);
   
+  // Add a function to directly request a node preview
+  const requestNodePreview = useCallback((nodeId: string) => {
+    // Only proceed if we have a renderer
+    if (glRendererRef.current) {
+      console.log('Directly requesting preview generation for node:', nodeId);
+      
+      const generatePreview = async () => {
+        try {
+          // Compile the graph and preload images
+          glRendererRef.current!.compileGraph(nodes, edges);
+          await glRendererRef.current!.preloadImages(nodes);
+          
+          // Generate the preview for the specific node
+          const preview = await glRendererRef.current!.getNodePreview(nodeId, 300);
+          
+          if (preview) {
+            console.log('Successfully generated direct preview for node:', nodeId);
+            
+            // Update the node with the new preview
+            setNodes(nodes => 
+              nodes.map(node => 
+                node.id === nodeId 
+                  ? { ...node, data: { ...node.data, preview } }
+                  : node
+              )
+            );
+            
+            // Also dispatch the DOM event for immediate UI update
+            const previewEvent = new CustomEvent('node-preview-updated', { 
+              detail: { nodeId, preview }
+            });
+            window.dispatchEvent(previewEvent);
+          }
+        } catch (err) {
+          console.error('Error generating direct preview for node:', nodeId, err);
+        }
+      };
+      
+      // Execute the preview generation
+      generatePreview();
+    }
+  }, [nodes, edges]);
+
   return {
     nodes,
     edges,
@@ -799,5 +843,6 @@ export function useGLFilterGraph() {
     resetNodePositions,
     qualityLevel,
     setQualityLevel,
+    onRequestNodePreview: requestNodePreview,
   };
 }

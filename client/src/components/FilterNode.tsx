@@ -140,20 +140,16 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
+        // First, update the parameter value
         data.onParamChange(id, paramId, value);
         
-        // Request a preview update immediately after param change
-        // This triggers the custom event that requests a new preview
-        setTimeout(() => {
-          console.log('Requesting preview update for node:', id);
-          const requestEvent = new CustomEvent('request-node-preview', {
-            detail: { nodeId: id }
-          });
-          window.dispatchEvent(requestEvent);
-        }, 0);
+        // Then, directly request a node preview update through the callback
+        if (data.onRequestNodePreview) {
+          data.onRequestNodePreview(id);
+        }
       }
-    }, 100, { leading: true, trailing: true });
-  }, [id, data.onParamChange]);
+    }, 50, { leading: true, trailing: true }); // Faster throttle for better responsiveness
+  }, [id, data.onParamChange, data.onRequestNodePreview]);
   
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
