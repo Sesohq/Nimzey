@@ -88,7 +88,15 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
   const handleClearImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setImagePreview(null);
-    if (data.onParamChange) {
+    
+    // Use global function if available for consistent behavior
+    if (window.uploadNodeImage) {
+      // Create an empty 1x1 transparent PNG
+      const emptyImage = new Blob([new Uint8Array(0)], { type: 'image/png' });
+      const emptyFile = new File([emptyImage], 'empty.png', { type: 'image/png' });
+      window.uploadNodeImage(id, emptyFile);
+    } else if (data.onParamChange) {
+      // Fallback to direct param change
       data.onParamChange(id, 'image-data', '');
     }
   };

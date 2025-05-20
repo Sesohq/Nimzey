@@ -426,7 +426,9 @@ const applyFilter = (
       // First put the current filter chain data back to the canvas
       ctx.putImageData(imageData, 0, 0);
       
-      if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue !== '') {
+      // IMPORTANT: This is the key change - if image node has no uploaded texture, don't do anything
+      // just pass through the existing image without applying the source image
+      if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue.length > 10) {
         console.log("Image node: Applying texture image with blend mode:", blendMode);
         // Create a new image from the uploaded texture image data
         const textureImage = new Image();
@@ -463,6 +465,11 @@ const applyFilter = (
         } else {
           // Otherwise set up an onload handler
           textureImage.onload = applyTexture;
+          
+          // Add error handling to prevent hanging on invalid images
+          textureImage.onerror = () => {
+            console.error("Failed to load texture image");
+          };
         }
       }
       break;
