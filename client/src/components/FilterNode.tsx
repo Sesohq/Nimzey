@@ -126,6 +126,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
+      
+      // Trigger immediate preview update by calling the same logic
+      // that happens when clicking on the background
+      if (onPaneClick) {
+        onPaneClick();
+      }
     }
   };
 
