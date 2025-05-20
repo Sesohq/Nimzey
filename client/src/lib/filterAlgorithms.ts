@@ -105,14 +105,14 @@ const getPathToNode = (nodeId: string, nodes: Node[], edges: Edge[]): Node[] => 
 };
 
 // Main function to apply filters
-export const applyFilters = (
+export const applyFilters = async (
   sourceImage: HTMLImageElement,
   nodes: Node[],
   edges: Edge[],
   canvas: HTMLCanvasElement,
   targetNodeId?: string,
   outputNodeId?: string
-): string | null => {
+): Promise<string | null> => {
   // Find the source node
   const sourceNode = nodes.find(node => node.type === 'imageNode');
   if (!sourceNode) return null;
@@ -189,7 +189,7 @@ export const applyFilters = (
         convertedParams.push({ name: 'opacity', value: filterData.opacity });
       }
       
-      applyFilter(filterData.filterType, ctx, canvas, convertedParams);
+      await applyFilter(filterData.filterType, ctx, canvas, convertedParams);
     }
   }
   
@@ -407,12 +407,12 @@ function applyGlowFilter(
 }
 
 // Apply a specific filter based on type
-const applyFilter = (
+const applyFilter = async (
   filterType: FilterType,
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   params: { name: string; value: number | string }[]
-): void => {
+): Promise<void> => {
   let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let data = imageData.data;
   
@@ -426,50 +426,48 @@ const applyFilter = (
       // First put the current filter chain data back to the canvas
       ctx.putImageData(imageData, 0, 0);
       
-      // IMPORTANT: This is the key change - if image node has no uploaded texture, don't do anything
-      // just pass through the existing image without applying the source image
+      // IMPORTANT: If the node has an uploaded texture image, load and apply it properly
       if (imageDataValue && typeof imageDataValue === 'string' && imageDataValue.length > 10) {
-        console.log("Image node: Applying texture image with blend mode:", blendMode);
-        // Create a new image from the uploaded texture image data
-        const textureImage = new Image();
-        textureImage.crossOrigin = "anonymous"; // To handle CORS
-        textureImage.src = imageDataValue;
+        console.log("Image node: Loading texture image with blend mode:", blendMode);
         
-        // Setup a temporary canvas to hold the texture
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) break;
-        
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        
-        // Define the blend function to apply when the texture is loaded
-        const applyTexture = () => {
-          if (!tempCtx) return;
+        try {
+          // Create a new image and load it SYNCHRONOUSLY
+          const textureImage = new Image();
+          textureImage.crossOrigin = "anonymous";
           
-          // Clear the temp canvas and draw the texture image
+          // Use a promise to properly wait for the image to load
+          await new Promise<void>((resolve, reject) => {
+            textureImage.onload = () => resolve();
+            textureImage.onerror = () => {
+              console.error("Failed to load texture image");
+              reject();
+            };
+            textureImage.src = imageDataValue;
+          });
+          
+          // Image is now fully loaded, apply it to the canvas
+          console.log("Image node: Texture image loaded, applying blend");
+          
+          // Setup a temporary canvas for the texture
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          if (!tempCtx) break;
+          
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = canvas.height;
+          
+          // Draw the texture onto the temp canvas
           tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
           tempCtx.drawImage(textureImage, 0, 0, tempCanvas.width, tempCanvas.height);
           
-          // Now apply the texture to the main canvas with the blend mode
+          // Blend the texture onto the main canvas
           ctx.save();
           ctx.globalAlpha = opacity / 100;
           ctx.globalCompositeOperation = convertBlendMode(blendMode);
           ctx.drawImage(tempCanvas, 0, 0);
           ctx.restore();
-        };
-        
-        // Apply immediately if the image is already loaded
-        if (textureImage.complete && textureImage.naturalWidth > 0) {
-          applyTexture();
-        } else {
-          // Otherwise set up an onload handler
-          textureImage.onload = applyTexture;
-          
-          // Add error handling to prevent hanging on invalid images
-          textureImage.onerror = () => {
-            console.error("Failed to load texture image");
-          };
+        } catch (error) {
+          console.error("Error in image node processing:", error);
         }
       }
       break;
