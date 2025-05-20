@@ -221,10 +221,10 @@ export class ShaderFusion {
     source: string, 
     startPattern: string, 
     endPattern: string
-  ): string | null {
+  ): string {
     const startRegex = new RegExp(startPattern);
     const startMatch = startRegex.exec(source);
-    if (!startMatch) return null;
+    if (!startMatch) return '';
     
     const startIdx = startMatch.index;
     
@@ -235,7 +235,7 @@ export class ShaderFusion {
     
     const endRegex = new RegExp(endPattern);
     const endMatch = endRegex.exec(source.substring(startIdx));
-    if (!endMatch) return null;
+    if (!endMatch) return '';
     
     const endIdx = startIdx + endMatch.index;
     
@@ -245,9 +245,9 @@ export class ShaderFusion {
   /**
    * Extract code between the innermost set of braces
    */
-  private static extractBetweenBraces(source: string): string | null {
+  private static extractBetweenBraces(source: string): string {
     const braceStart = source.indexOf('{');
-    if (braceStart === -1) return null;
+    if (braceStart === -1) return '';
     
     // Find matching closing brace
     let braceCount = 1;
@@ -263,7 +263,7 @@ export class ShaderFusion {
       position++;
     }
     
-    if (braceCount !== 0) return null;
+    if (braceCount !== 0) return '';
     
     // Return content between braces
     return source.substring(braceStart + 1, position - 1).trim();

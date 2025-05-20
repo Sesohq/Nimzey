@@ -205,12 +205,14 @@ export function useGLFilterGraph() {
           type: 'imageNode',
           position: { x: 100, y: 100 },
           data: {
+            src: e.target?.result as string,
             imageUrl: e.target?.result as string,
             width: img.width,
             height: img.height,
             onUploadImage: (file: File) => uploadNodeImage(nodeId, file),
             preview: e.target?.result as string,
             enabled: true,
+            label: 'Source Image'
           }
         };
         
@@ -404,7 +406,7 @@ export function useGLFilterGraph() {
     setNodes(nodes => 
       nodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
-          const updatedParams = node.data.filter?.params?.map(param => {
+          const updatedParams = node.data.filter?.params?.map((param: FilterParam) => {
             if (param.id === paramId) {
               return { ...param, value };
             }

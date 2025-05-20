@@ -97,6 +97,17 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
     setZoom(prev => Math.max(prev - 0.1, 0.5));
   };
   
+  // Handle mouse move for position tracking
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!previewContainerRef.current) return;
+    
+    const rect = previewContainerRef.current.getBoundingClientRect();
+    const x = Math.round(e.clientX - rect.left);
+    const y = Math.round(e.clientY - rect.top);
+    
+    setHoverPosition({ x, y });
+  };
+  
   // Handle preview generated callback
   const handlePreviewGenerated = (dataUrl: string | null) => {
     if (selectedNode) {
@@ -250,7 +261,7 @@ const WebGLPreviewPanel: React.FC<WebGLPreviewPanelProps> = ({
               <SelectItem value="webp">WebP</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="secondary" size="sm" onClick={handleExportClick} className="h-8">
+          <Button variant="secondary" onClick={handleExportClick} className="h-8 text-sm">
             <Download className="h-4 w-4 mr-1" />
             Export
           </Button>
