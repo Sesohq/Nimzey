@@ -19,6 +19,7 @@ import {
 } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
 import { debounce, throttle } from 'lodash';
+import { emitPreview } from '@/lib/previewBus';
 import { FilterType, FilterNodeData, ImageNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import { filterCategories } from '@/lib/filterCategories';
 import { toast } from '@/hooks/use-toast';
@@ -399,7 +400,11 @@ export function useGLFilterGraph() {
         // Set node preview in main preview panel
         setNodePreview(previewUrl);
         
-        // Update the node's thumbnail using normal state update
+        // Emit the preview update event - this will update all subscribed nodes
+        emitPreview(targetNode.id, previewUrl);
+        
+        // Also update the node data in React Flow's state for persistence
+        // This won't trigger re-renders in FilterNode thanks to our event system
         setNodes(nodes => 
           nodes.map(node => {
             if (node.id === targetNode.id) {

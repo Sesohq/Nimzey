@@ -1,4 +1,5 @@
-import { memo, useState, useRef, useMemo } from 'react';
+import { memo, useState, useRef, useMemo, useEffect } from 'react';
+import { onPreview, offPreview } from '../lib/previewBus';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
@@ -103,6 +104,26 @@ const EditableValue = ({
 };
 
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+  // Add local state for the preview thumbnail
+  const [previewThumb, setPreviewThumb] = useState(data.preview || '');
+  
+  // Subscribe to preview updates for this node
+  useEffect(() => {
+    const handlePreviewUpdate = (nodeId: string, url: string) => {
+      if (nodeId === id) {
+        setPreviewThumb(url);
+      }
+    };
+    
+    // Register the handler
+    onPreview(handlePreviewUpdate);
+    
+    // Clean up on unmount
+    return () => {
+      offPreview(handlePreviewUpdate);
+    };
+  }, [id]);
+  
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
@@ -111,6 +132,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       }
     }, 100, { leading: true, trailing: true });
   }, [id, data.onParamChange]);
+  
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
@@ -349,12 +371,12 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             </div>
           </div>
           
-          {/* Image Preview */}
-          {data.preview && (
+          {/* Image Preview - Using local state for more reliable updates */}
+          {previewThumb && (
             <div className="mb-3">
               <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
                 <img 
-                  src={data.preview} 
+                  src={previewThumb} 
                   alt={`${data.label} preview`}
                   className="w-full h-full object-cover"
                 />
