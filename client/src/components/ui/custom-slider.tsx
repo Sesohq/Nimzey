@@ -48,6 +48,7 @@ const CustomSlider = React.forwardRef<
           "relative flex w-full touch-none select-none items-center",
           className
         )}
+        onValueCommit={props.onValueChange}
         {...props}
       >
         <SliderPrimitive.Track

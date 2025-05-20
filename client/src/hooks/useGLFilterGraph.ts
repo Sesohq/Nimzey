@@ -401,10 +401,12 @@ export function useGLFilterGraph() {
     }
   }, [nodes, edges]);
   
-  // Handle parameter change for a filter node
+  // Handle parameter change for a filter node - with immediate updates
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
-    setNodes(nodes => 
-      nodes.map(node => {
+    // Update the nodes state
+    setNodes(prevNodes => {
+      // Create modified nodes array with updated parameter
+      const updatedNodes = prevNodes.map(node => {
         if (node.id === nodeId && node.type === 'filterNode') {
           const updatedParams = node.data.filter?.params?.map((param: FilterParam) => {
             if (param.id === paramId) {
@@ -425,16 +427,31 @@ export function useGLFilterGraph() {
           };
         }
         return node;
-      })
-    );
-    
-    // Process the update immediately to provide real-time feedback
-    // This is crucial for slider interactions to show immediate visual updates
-    requestProcessing('preview');
-    
-    // Also use debounced processing for higher quality updates
-    debouncedRequestProcessing();
-  }, [requestProcessing, debouncedRequestProcessing]);
+      });
+      
+      // Process in next tick to ensure state is updated
+      setTimeout(() => {
+        // Force immediate preview quality processing for responsive UI
+        if (glRendererRef.current) {
+          setQualityLevel('preview');
+          glRendererRef.current.compileGraph(updatedNodes, edges);
+          glRendererRef.current.render({ quality: 'preview' });
+          
+          // Schedule a higher quality update after interaction stops
+          if (updateTimerRef.current) {
+            clearTimeout(updateTimerRef.current);
+          }
+          
+          updateTimerRef.current = setTimeout(() => {
+            setQualityLevel('full');
+            glRendererRef.current?.render({ quality: 'full' });
+          }, 300);
+        }
+      }, 0);
+      
+      return updatedNodes;
+    });
+  }, [edges]);
   
   // Debounced processing request with immediate feedback
   const debouncedRequestProcessing = useCallback(() => {

@@ -406,7 +406,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     color="warning"
                     size="md"
                     className="flex-1 mr-2"
-                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                    onValueChange={(values) => {
+                      // Apply change immediately for real-time preview updates
+                      handleParamChange(param.id || param.name, values[0]);
+                    }}
                     disabled={!data.enabled || param.isConnected}
                   />
                   {editingParam === (param.id || param.name) ? (
