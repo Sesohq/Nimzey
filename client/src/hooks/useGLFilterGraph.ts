@@ -29,8 +29,6 @@ import { ShaderRegistry } from '@/gl/compiler/ShaderRegistry';
 type QualityLevel = 'preview' | 'draft' | 'full';
 
 export function useGLFilterGraph() {
-  // Create debounced preview generator for thumbnail updates
-  // This will be properly initialized in a useEffect after all dependencies are available
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -409,16 +407,7 @@ export function useGLFilterGraph() {
 
   // These will be defined later in the hook
 
-  // Create throttled and debounced processing functions
-  const throttledProcessing = useMemo(() => 
-    throttle((quality: QualityLevel) => requestProcessing(quality), 100, { leading: true }),
-    [requestProcessing]
-  );
-  
-  const debouncedHighQualityUpdate = useMemo(() => 
-    debounce((quality: QualityLevel) => requestProcessing(quality), 300),
-    [requestProcessing]
-  );
+  // These will be initialized after requestProcessing is defined
   
   // Handle parameter change for a filter node
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
@@ -453,12 +442,17 @@ export function useGLFilterGraph() {
       generateNodePreview(targetNode);
     }
     
-    // For immediate feedback, use throttled low-res processing
-    throttledProcessing('preview');
+      // Process image at low quality for immediate feedback
+    requestProcessing('preview');
     
-    // Also queue a higher quality update for when the user stops dragging
-    debouncedHighQualityUpdate('draft');
-  }, [throttledProcessing, debouncedHighQualityUpdate, nodes, generateNodePreview]);
+    // Also update the node's thumbnail
+    setTimeout(() => {
+      const updatedNode = nodes.find(n => n.id === nodeId);
+      if (updatedNode) {
+        generateNodePreview(updatedNode);
+      }
+    }, 10);
+  }, [nodes, generateNodePreview, requestProcessing]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
