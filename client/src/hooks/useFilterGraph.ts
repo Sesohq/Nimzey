@@ -257,10 +257,11 @@ export function useFilterGraph() {
             [targetNodeId]: processedImageUrl
           }));
           
-          // Update the node preview
+          // Update the node preview, but only if it's not an imageFilterNode
+          // This prevents overwriting the uploaded image in image nodes
           setNodes(currentNodes =>
             currentNodes.map(node => {
-              if (node.id === targetNodeId) {
+              if (node.id === targetNodeId && node.type !== 'imageFilterNode') {
                 return {
                   ...node,
                   data: {
