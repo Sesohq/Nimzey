@@ -23,6 +23,7 @@ import { filterCategories } from '@/lib/filterCategories';
 import { toast } from '@/hooks/use-toast';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { ShaderRegistry } from '@/gl/compiler/ShaderRegistry';
+import { useRealtimeProcessing } from './useRealtimeProcessing';
 
 // Define LOD (Level of Detail) quality levels for rendering
 type QualityLevel = 'preview' | 'draft' | 'full';

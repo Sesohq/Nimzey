@@ -101,7 +101,11 @@ const EditableValue = ({
   );
 };
 
-const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
+interface ExtendedNodeProps extends NodeProps<FilterNodeData> {
+  onPaneClick?: () => void;
+}
+
+const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
