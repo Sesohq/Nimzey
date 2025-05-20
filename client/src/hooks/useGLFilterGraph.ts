@@ -432,9 +432,9 @@ export function useGLFilterGraph() {
     debouncedRequestProcessing();
   }, []);
   
-  // Debounced processing request to avoid too frequent updates
+  // Debounced processing request with immediate feedback
   const debouncedRequestProcessing = useCallback(() => {
-    // Cancel previous timer
+    // Cancel previous timer for high-quality renders
     if (updateTimerRef.current) {
       clearTimeout(updateTimerRef.current);
     }
@@ -442,17 +442,16 @@ export function useGLFilterGraph() {
     // Set quality to preview during interaction
     setQualityLevel('preview');
     
-    // Schedule new update at low quality first
+    // Process immediately with preview quality for real-time feedback
+    // This ensures sliders provide instant visual updates
+    requestProcessing('preview');
+    
+    // Schedule a high-quality update after interaction stops
     updateTimerRef.current = setTimeout(() => {
-      requestProcessing('preview');
-      
-      // Schedule a high-quality update after interaction stops
-      updateTimerRef.current = setTimeout(() => {
-        setQualityLevel('full');
-        requestProcessing('full');
-      }, 500);
-    }, 100);
-  }, []);
+      setQualityLevel('full');
+      requestProcessing('full');
+    }, 300);
+  }, [requestProcessing]);
   
   // Handle enabling/disabling a filter node
   const handleToggleEnabled = useCallback((nodeId: string, checked: boolean) => {
