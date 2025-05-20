@@ -9,7 +9,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Node, Edge } from 'reactflow';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { FilterNodeData, ImageNodeData } from '@/types';
-import { emitPreview } from '@/lib/previewBus';
 
 interface WebGLFilterCanvasProps {
   nodes: Node[];
@@ -45,6 +44,39 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
     // Create renderer
     rendererRef.current = new GLRenderer(canvasRef.current);
     
+    // Add handler for preview requests
+    const handlePreviewRequest = (e: any) => {
+      if (e.detail && e.detail.nodeId && rendererRef.current) {
+        console.log('WebGLFilterCanvas received preview request for:', e.detail.nodeId);
+        
+        // Generate preview asynchronously to avoid blocking the UI
+        setTimeout(async () => {
+          try {
+            // Compile the graph first
+            rendererRef.current!.compileGraph(nodes, edges);
+            
+            // Preload necessary images
+            await rendererRef.current!.preloadImages(nodes);
+            
+            // Generate the node preview
+            const preview = await rendererRef.current!.getNodePreview(e.detail.nodeId, 300);
+            if (preview) {
+              // Dispatch the preview update event
+              const previewEvent = new CustomEvent('node-preview-updated', { 
+                detail: { nodeId: e.detail.nodeId, preview }
+              });
+              window.dispatchEvent(previewEvent);
+            }
+          } catch (err) {
+            console.error('Error generating requested preview:', err);
+          }
+        }, 0);
+      }
+    };
+    
+    // Add event listener for our custom event
+    window.addEventListener('request-node-preview', handlePreviewRequest);
+    
     // Clean up on unmount
     return () => {
       // Cancel animation frame if active
@@ -53,13 +85,16 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         animationFrameRef.current = null;
       }
       
+      // Remove event listener
+      window.removeEventListener('request-node-preview', handlePreviewRequest);
+      
       // Dispose renderer
       if (rendererRef.current) {
         rendererRef.current.dispose();
         rendererRef.current = null;
       }
     };
-  }, []);
+  }, [nodes, edges]);
   
   // Update canvas size when dimensions change
   useEffect(() => {
@@ -114,8 +149,13 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         if (selectedNodeId) {
           const nodePreview = await rendererRef.current!.getNodePreview(selectedNodeId, 300);
           if (nodePreview) {
-            // Emit the preview update event to notify all subscribed nodes
-            emitPreview(selectedNodeId, nodePreview);
+            console.log('Generated preview for node:', selectedNodeId);
+            
+            // Dispatch a custom DOM event with the preview
+            const previewEvent = new CustomEvent('node-preview-updated', { 
+              detail: { nodeId: selectedNodeId, preview: nodePreview }
+            });
+            window.dispatchEvent(previewEvent);
             
             // Also call the callback if provided
             if (onPreviewGenerated) {

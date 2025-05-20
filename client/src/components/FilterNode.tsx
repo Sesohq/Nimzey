@@ -1,5 +1,4 @@
 import { memo, useState, useRef, useMemo, useEffect } from 'react';
-import { onPreview, offPreview } from '../lib/previewBus';
 import { Input } from '@/components/ui/input';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { throttle } from 'lodash';
