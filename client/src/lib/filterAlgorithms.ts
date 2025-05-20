@@ -435,6 +435,10 @@ const applyFilter = (
       // First put the current filter chain data back to the canvas
       ctx.putImageData(imageData, 0, 0);
       
+      // Get current canvas content (previous filter results) before applying the image
+      // Note: We must preserve the original state of the canvas that was passed to this node
+      const currentCanvasData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
       // Use pre-loaded texture pixels if available (from the node data)
       if (nodeData && nodeData.texturePixels) {
         console.log("Image node: Using preloaded texture with blend mode:", blendMode);
@@ -448,29 +452,44 @@ const applyFilter = (
           const tempCtx = tempCanvas.getContext('2d');
           if (!tempCtx) break;
           
-          // Set dimensions to match the texture data's original size
-          tempCanvas.width = texturePixels.width;
-          tempCanvas.height = texturePixels.height;
+          // Set dimensions for the temp canvas (same as main canvas)
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = canvas.height;
           
-          // Draw the texture pixels onto the temp canvas at original size
-          tempCtx.putImageData(texturePixels, 0, 0);
+          // First, draw the current canvas content (the result of previous filters)
+          tempCtx.putImageData(currentCanvasData, 0, 0);
           
-          // Blend the texture onto the main canvas with the specified blend mode
-          // Properly scale it to cover the entire canvas
-          ctx.save();
-          ctx.globalAlpha = opacity / 100;
-          ctx.globalCompositeOperation = convertBlendMode(blendMode);
+          // Create another canvas just for the texture image
+          const textureCanvas = document.createElement('canvas');
+          const textureCtx = textureCanvas.getContext('2d');
+          if (!textureCtx) break;
           
-          // Draw the texture scaled to fit the canvas
-          ctx.drawImage(
-            tempCanvas, 
-            0, 0, tempCanvas.width, tempCanvas.height,  // Source dimensions
-            0, 0, canvas.width, canvas.height  // Target dimensions (scaled to fit)
+          // Adjust texture canvas to original texture size
+          textureCanvas.width = texturePixels.width;
+          textureCanvas.height = texturePixels.height;
+          
+          // Draw the texture pixels
+          textureCtx.putImageData(texturePixels, 0, 0);
+          
+          // Now apply the texture with blend mode on the temp canvas
+          tempCtx.save();
+          tempCtx.globalAlpha = opacity / 100;
+          tempCtx.globalCompositeOperation = convertBlendMode(blendMode);
+          
+          // Draw the texture scaled to fit the temp canvas
+          tempCtx.drawImage(
+            textureCanvas, 
+            0, 0, textureCanvas.width, textureCanvas.height,
+            0, 0, tempCanvas.width, tempCanvas.height
           );
           
-          ctx.restore();
+          tempCtx.restore();
           
-          // Save the result back to the imageData variable for further processing
+          // Now draw the combined result back to the main canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(tempCanvas, 0, 0);
+          
+          // Update the imageData variable to reflect the updated canvas
           imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           data = imageData.data;
           
