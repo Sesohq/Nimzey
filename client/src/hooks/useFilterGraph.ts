@@ -685,7 +685,7 @@ export function useFilterGraph() {
     processImage();
   }, [processImage, updateConnectedParams]);
 
-  // Upload an image function
+  // Upload an image function for the source node
   const uploadImage = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -752,11 +752,71 @@ export function useFilterGraph() {
     };
     reader.readAsDataURL(file);
   }, [processImage]);
+  
+  // Upload an image to an Image filter node (separate from the source node)
+  const uploadNodeImage = useCallback((nodeId: string, file: File) => {
+    console.log(`Uploading image to node ${nodeId}`);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      if (e.target && e.target.result) {
+        const imageDataUrl = e.target.result as string;
+        
+        setNodes(prev =>
+          prev.map(node => {
+            if (node.id !== nodeId) return node;
+            
+            // Update the *params* array, not a custom parameters object
+            const newParams = (node.data as FilterNodeData).params.map(p => {
+              if (p.id === 'image-data' || p.name === 'imageData') {
+                return { ...p, value: imageDataUrl };
+              }
+              return p;
+            });
+            
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                params: newParams,
+                // Also update the "preview" so the node UI shows it immediately
+                preview: imageDataUrl
+              }
+            };
+          })
+        );
+        
+        // Re-run the processing to make the new texture flow through the chain
+        processImage();
+        
+        toast({
+          title: "Image uploaded",
+          description: "The image has been uploaded to the node",
+          variant: "default"
+        });
+      }
+    };
+    
+    reader.onerror = () => {
+      toast({
+        title: "Upload failed",
+        description: "Could not read the image file",
+        variant: "destructive"
+      });
+    };
+    
+    reader.readAsDataURL(file);
+  }, [setNodes, processImage, toast]);
 
   // Set the upload function reference for use in image nodes
   useEffect(() => {
     uploadFunctionRef.current = uploadImage;
-  }, [uploadImage]);
+    
+    // Make uploadNodeImage available globally for direct access by the image filter node
+    if (typeof window !== 'undefined') {
+      window.uploadNodeImage = uploadNodeImage;
+    }
+  }, [uploadImage, uploadNodeImage]);
   
   // Function to set the active output node
   const setActiveOutput = useCallback((nodeId: string | null) => {

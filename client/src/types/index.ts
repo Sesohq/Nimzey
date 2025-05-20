@@ -91,3 +91,10 @@ export type OutputNodeData = {
 };
 
 export type NodeData = FilterNodeData | ImageNodeData | OutputNodeData;
+
+// Global declarations
+declare global {
+  interface Window {
+    uploadNodeImage?: (nodeId: string, file: File) => void;
+  }
+}

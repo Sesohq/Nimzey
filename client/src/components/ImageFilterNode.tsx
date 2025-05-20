@@ -48,7 +48,7 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
   // Handle the selected file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0 && data.onParamChange) {
+    if (files && files.length > 0) {
       const file = files[0];
       
       // Verify file is an image
@@ -61,38 +61,26 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
         return;
       }
       
-      // Create FileReader to convert the file to a data URL
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        if (event.target && event.target.result) {
-          const imageDataUrl = event.target.result as string;
-          
-          // Show immediate local preview
-          setImagePreview(imageDataUrl);
-          
-          // Update the parameter value
-          if (data.onParamChange) {
-            data.onParamChange(id, 'image-data', imageDataUrl);
+      // Use our global uploadNodeImage function
+      if (window.uploadNodeImage) {
+        // Call the global function which properly updates the params array
+        window.uploadNodeImage(id, file);
+        
+        // Show immediate local preview (this will actually get updated properly by our useEffect)
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target && event.target.result) {
+            setImagePreview(event.target.result as string);
           }
-          
-          toast({
-            title: "Image uploaded",
-            description: "Image has been successfully loaded",
-            variant: "default"
-          });
-        }
-      };
-      
-      reader.onerror = () => {
+        };
+        reader.readAsDataURL(file);
+      } else {
         toast({
-          title: "Upload failed",
-          description: "Could not read the image file",
+          title: "Upload error",
+          description: "Image upload handler is not available",
           variant: "destructive"
         });
-      };
-      
-      reader.readAsDataURL(file);
+      }
     }
   };
   
