@@ -55,7 +55,6 @@ export default function NodeCanvas({
   zoomLevel,
   onUploadImage
 }: NodeCanvasProps) {
-  // NodeCanvas component - renders the node-based editor
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
 

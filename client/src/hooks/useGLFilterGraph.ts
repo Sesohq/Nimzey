@@ -445,13 +445,11 @@ export function useGLFilterGraph() {
       // Process image at low quality for immediate feedback
     requestProcessing('preview');
     
-    // Also update the node's thumbnail
-    setTimeout(() => {
-      const updatedNode = nodes.find(n => n.id === nodeId);
-      if (updatedNode) {
-        generateNodePreview(updatedNode);
-      }
-    }, 10);
+    // Also update the node's thumbnail immediately
+    const updatedNode = nodes.find(n => n.id === nodeId);
+    if (updatedNode) {
+      generateNodePreview(updatedNode);
+    }
   }, [nodes, generateNodePreview, requestProcessing]);
   
   // Debounced processing request to avoid too frequent updates
