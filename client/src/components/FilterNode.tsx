@@ -115,11 +115,7 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   // Create handle references for connection lines to work properly
   const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
-  // Create throttled refresh function to limit the rate of heavy rendering operations
-  const throttledRefresh = useMemo(
-    () => onPaneClick ? throttle(onPaneClick, 100, { leading: true, trailing: true }) : undefined,
-    [onPaneClick]
-  );
+  // Simple approach for slider updates
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -133,15 +129,6 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
     if (data.onParamChange) {
       data.onParamChange(id, paramId, value);
-      // Don't trigger refresh on every change - will happen on commit
-    }
-  };
-  
-  // This function will be called when the slider drag ends
-  const handleParamCommit = () => {
-    // Trigger preview update by calling the same logic used when clicking on the background
-    if (onPaneClick) {
-      onPaneClick();
     }
   };
 
@@ -427,13 +414,12 @@ const FilterNode = ({ data, selected, id, onPaneClick }: ExtendedNodeProps) => {
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => {
-                      // Apply change to update the UI immediately
+                      // Simple direct update of the parameter
                       handleParamChange(param.id || param.name, values[0]);
                       
-                      // Use throttled refresh to limit preview updates
-                      // This ensures the UI stays responsive during slider movement
-                      if (throttledRefresh) {
-                        throttledRefresh();
+                      // Directly trigger update
+                      if (onPaneClick) {
+                        onPaneClick();
                       }
                     }}
                     disabled={!data.enabled || param.isConnected}
