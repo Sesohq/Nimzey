@@ -107,12 +107,6 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
       case 'invert':
         applyInvertFilter(data, params);
         break;
-      case 'brightness':
-        applyBrightnessFilter(data, params);
-        break;
-      case 'contrast':
-        applyContrastFilter(data, params);
-        break;
       case 'noise':
         applyNoiseFilter(data, params);
         break;
@@ -122,7 +116,13 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
       case 'pixelate':
         applyPixelateFilter(data, canvasWidth, canvasHeight, params);
         break;
-      // Add other filters as needed
+      // For image type, we don't need to apply any filter
+      case 'image':
+        break;
+      // Default case - just display the original image
+      default:
+        console.log(`Filter type ${filterType} not implemented in fast preview`);
+        break;
     }
 
     // Put the processed data back to canvas
@@ -352,6 +352,299 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
             data[i + 2] = b;
           }
         }
+      }
+    }
+  };
+
+  const applyFindEdgesFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    // Simple Sobel edge detection implementation
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+
+    // First convert to grayscale
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (tempData[i] * 0.299 + tempData[i + 1] * 0.587 + tempData[i + 2] * 0.114);
+      tempData[i] = avg;
+      tempData[i + 1] = avg;
+      tempData[i + 2] = avg;
+    }
+
+    // Apply edge detection
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        // Sobel kernels
+        const gx = [
+          -1, 0, 1,
+          -2, 0, 2,
+          -1, 0, 1
+        ];
+        const gy = [
+          -1, -2, -1,
+          0, 0, 0,
+          1, 2, 1
+        ];
+
+        let valueX = 0;
+        let valueY = 0;
+
+        // Apply the kernels
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const idx = ((y + ky) * width + (x + kx)) * 4;
+            const kernelIdx = (ky + 1) * 3 + (kx + 1);
+            
+            valueX += tempData[idx] * gx[kernelIdx];
+            valueY += tempData[idx] * gy[kernelIdx];
+          }
+        }
+
+        // Calculate gradient magnitude
+        const magnitude = Math.min(255, Math.sqrt(valueX * valueX + valueY * valueY));
+        
+        const idx = (y * width + x) * 4;
+        data[idx] = magnitude;
+        data[idx + 1] = magnitude;
+        data[idx + 2] = magnitude;
+      }
+    }
+  };
+
+  const applyGlowFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    const intensityParam = params.find(p => p.name === 'intensity');
+    const radiusParam = params.find(p => p.name === 'radius');
+    
+    const intensity = intensityParam ? Number(intensityParam.value) / 100 : 0.5;
+    const radius = radiusParam ? Math.min(Math.max(Number(radiusParam.value), 1), 20) : 5;
+    
+    // Create a copy of the original image data
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Apply blur for the glow effect
+    const blurSize = Math.floor(radius);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let r = 0, g = 0, b = 0, count = 0;
+        
+        for (let ky = -blurSize; ky <= blurSize; ky++) {
+          const yy = y + ky;
+          if (yy < 0 || yy >= height) continue;
+          
+          for (let kx = -blurSize; kx <= blurSize; kx++) {
+            const xx = x + kx;
+            if (xx < 0 || xx >= width) continue;
+            
+            const i = (yy * width + xx) * 4;
+            r += tempData[i];
+            g += tempData[i + 1];
+            b += tempData[i + 2];
+            count++;
+          }
+        }
+        
+        // Brighten the blurred result for the glow
+        r = Math.min(255, r / count * (1 + intensity));
+        g = Math.min(255, g / count * (1 + intensity));
+        b = Math.min(255, b / count * (1 + intensity));
+        
+        // Blend the glow with the original image
+        const i = (y * width + x) * 4;
+        data[i] = Math.min(255, tempData[i] * (1 - intensity) + r * intensity);
+        data[i + 1] = Math.min(255, tempData[i + 1] * (1 - intensity) + g * intensity);
+        data[i + 2] = Math.min(255, tempData[i + 2] * (1 - intensity) + b * intensity);
+      }
+    }
+  };
+
+  const applyHalftoneFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    const sizeParam = params.find(p => p.name === 'size');
+    const size = sizeParam ? Math.max(1, Number(sizeParam.value)) : 4;
+    
+    // Create a copy of the original data
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Clear the original data to black
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+    }
+    
+    // Apply halftone pattern
+    for (let y = 0; y < height; y += size) {
+      for (let x = 0; x < width; x += size) {
+        // Calculate average brightness for this cell
+        let totalBrightness = 0;
+        let count = 0;
+        
+        for (let py = 0; py < size && y + py < height; py++) {
+          for (let px = 0; px < size && x + px < width; px++) {
+            const i = ((y + py) * width + (x + px)) * 4;
+            const brightness = (tempData[i] + tempData[i + 1] + tempData[i + 2]) / 3;
+            totalBrightness += brightness;
+            count++;
+          }
+        }
+        
+        const avgBrightness = totalBrightness / count;
+        const dotSize = (avgBrightness / 255) * size;
+        
+        // Draw the dot
+        for (let py = 0; py < size && y + py < height; py++) {
+          for (let px = 0; px < size && x + px < width; px++) {
+            const i = ((y + py) * width + (x + px)) * 4;
+            
+            // Calculate distance from center of the cell
+            const centerX = x + size / 2;
+            const centerY = y + size / 2;
+            const distX = px + x - centerX;
+            const distY = py + y - centerY;
+            const dist = Math.sqrt(distX * distX + distY * distY);
+            
+            if (dist < dotSize / 2) {
+              data[i] = 255;
+              data[i + 1] = 255;
+              data[i + 2] = 255;
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const applyWaveFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    const amplitudeParam = params.find(p => p.name === 'amplitude');
+    const frequencyParam = params.find(p => p.name === 'frequency');
+    
+    const amplitude = amplitudeParam ? Number(amplitudeParam.value) : 10;
+    const frequency = frequencyParam ? Number(frequencyParam.value) / 100 : 0.1;
+    
+    // Create a temporary buffer for the result
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Apply wave distortion
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Calculate source position with wave distortion
+        const xOffset = Math.sin(y * frequency) * amplitude;
+        const srcX = Math.floor(x + xOffset);
+        
+        // Get pixel if within bounds, otherwise use original pixel
+        if (srcX >= 0 && srcX < width) {
+          const srcIdx = (y * width + srcX) * 4;
+          const destIdx = (y * width + x) * 4;
+          
+          data[destIdx] = tempData[srcIdx];
+          data[destIdx + 1] = tempData[srcIdx + 1];
+          data[destIdx + 2] = tempData[srcIdx + 2];
+        }
+      }
+    }
+  };
+
+  const applyExtrudeFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    const depthParam = params.find(p => p.name === 'depth');
+    const depth = depthParam ? Number(depthParam.value) : 5;
+    
+    // Create a temporary buffer for the result
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Apply extrude effect
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const currentIdx = (y * width + x) * 4;
+        const brightness = (tempData[currentIdx] + tempData[currentIdx + 1] + tempData[currentIdx + 2]) / 3;
+        
+        // Use brightness to determine the extrusion amount
+        const extrudeAmount = (brightness / 255) * depth;
+        
+        // Sample from the offset position
+        const srcX = Math.floor(x - extrudeAmount);
+        const srcY = Math.floor(y - extrudeAmount);
+        
+        if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+          const srcIdx = (srcY * width + srcX) * 4;
+          
+          data[currentIdx] = tempData[srcIdx];
+          data[currentIdx + 1] = tempData[srcIdx + 1];
+          data[currentIdx + 2] = tempData[srcIdx + 2];
+        }
+      }
+    }
+  };
+
+  const applyTextureFilter = (
+    data: Uint8ClampedArray, 
+    width: number, 
+    height: number, 
+    params: FilterParam[]
+  ) => {
+    const strengthParam = params.find(p => p.name === 'strength');
+    const scaleParam = params.find(p => p.name === 'scale');
+    
+    const strength = strengthParam ? Number(strengthParam.value) / 100 : 0.3;
+    const scale = scaleParam ? Number(scaleParam.value) : 10;
+    
+    // Create a temporary buffer for the result
+    const tempData = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i++) {
+      tempData[i] = data[i];
+    }
+    
+    // Simple noise texture
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // Generate noise at the given scale
+        const noiseX = Math.floor(x / scale);
+        const noiseY = Math.floor(y / scale);
+        
+        // Simple deterministic noise function (Perlin-like)
+        const noise = Math.sin(noiseX * 0.1) * Math.cos(noiseY * 0.1) * 255;
+        
+        // Blend the noise with the original color
+        data[idx] = Math.min(255, Math.max(0, tempData[idx] * (1 - strength) + noise * strength));
+        data[idx + 1] = Math.min(255, Math.max(0, tempData[idx + 1] * (1 - strength) + noise * strength));
+        data[idx + 2] = Math.min(255, Math.max(0, tempData[idx + 2] * (1 - strength) + noise * strength));
       }
     }
   };

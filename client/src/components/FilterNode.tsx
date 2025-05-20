@@ -477,10 +477,20 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
                     size="md"
                     className="flex-1 mr-2"
                     onValueChange={(values) => {
+                      // Show fast preview while adjusting slider
+                      setShowFastPreview(true);
+                      
                       // Update node data immediately so the thumb moves
                       handleParamChange(param.id || param.name, values[0]);
-                      // Use throttled processing for WebGL rendering
-                      throttledParamChange(param.id || param.name, values[0]);
+                    }}
+                    onValueCommit={(values) => {
+                      // When slider interaction ends, hide fast preview after a delay 
+                      // and generate the high-quality preview
+                      setTimeout(() => {
+                        setShowFastPreview(false);
+                        // Use throttled processing for WebGL rendering
+                        throttledParamChange(param.id || param.name, values[0]);
+                      }, 300);
                     }}
                     disabled={!data.enabled || param.isConnected}
                   />
