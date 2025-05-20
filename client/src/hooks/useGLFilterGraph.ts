@@ -428,9 +428,13 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Use debounced processing to avoid too many updates during slider dragging
+    // Process the update immediately to provide real-time feedback
+    // This is crucial for slider interactions to show immediate visual updates
+    requestProcessing('preview');
+    
+    // Also use debounced processing for higher quality updates
     debouncedRequestProcessing();
-  }, []);
+  }, [requestProcessing, debouncedRequestProcessing]);
   
   // Debounced processing request with immediate feedback
   const debouncedRequestProcessing = useCallback(() => {
@@ -561,8 +565,13 @@ export function useGLFilterGraph() {
     setZoomLevel(prev => Math.max(prev - 10, 50));
   }, []);
   
-  // Process the filter graph using WebGL
+  // Forward declaration of requestProcessing for dependency purposes
   const requestProcessing = useCallback(async (quality: QualityLevel = 'draft') => {
+    // Implementation is below
+  }, []);
+
+  // Define the actual implementation after declaration
+  const processFilterGraph = async (quality: QualityLevel = 'draft') => {
     if (!glRendererRef.current || !nodes.length || !edges.length) return;
     
     // Find output nodes
