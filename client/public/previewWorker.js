@@ -279,19 +279,6 @@ self.onmessage = async function(e) {
       ctx.putImageData(imageData, 0, 0);
     }
     
-    // Start with a visible gradient background so it's not black
-    const gradient = ctx.createLinearGradient(0, 0, 0, nodeCanvas.height);
-    gradient.addColorStop(0, '#2c3e50');
-    gradient.addColorStop(1, '#4a5568');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, nodeCanvas.width, nodeCanvas.height);
-    
-    // Draw some text to show the filter type
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(filterType, nodeCanvas.width/2, nodeCanvas.height/2);
-    
     // Apply the filter
     applyFilter(ctx, params || {}, filterType);
     

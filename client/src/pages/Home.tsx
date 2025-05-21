@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
@@ -29,8 +29,7 @@ export default function Home() {
     zoomOut,
     zoomLevel,
     nodePreview,
-    isProcessing,
-    setNodes
+    isProcessing
   } = useFilterGraph();
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
@@ -76,12 +75,8 @@ export default function Home() {
         />
       </div>
 
-      {/* Node preview container using the recursive image processing system */}
-      <NodePreviewContainer 
-        nodes={nodes} 
-        edges={edges}
-        setNodes={setNodes}
-      />
+      {/* Node Preview System - Hidden container that manages node thumbnails */}
+      <NodePreviewContainer nodes={nodes} />
     </div>
   );
 }

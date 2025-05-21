@@ -1417,7 +1417,6 @@ export function useFilterGraph() {
     zoomOut,
     zoomLevel,
     nodePreview,
-    isProcessing,
-    setNodes
+    isProcessing
   };
 }
