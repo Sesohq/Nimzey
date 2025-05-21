@@ -240,7 +240,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
-    if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
     
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
@@ -252,7 +252,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   // Handle finishing the edit and updating the value
   const handleFinishEditing = () => {
     if (editingParam && editingValue !== '') {
-      const param = data.params.find(p => p.id === editingParam);
+      const param = data.params?.find(p => p.id === editingParam);
       if (param) {
         // Convert value based on parameter type
         let parsedValue: number | string | boolean;
@@ -423,21 +423,25 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           </div>
           
           {/* Image Preview - Using local state for more reliable updates */}
-          {previewThumb && (
-            <div className="mb-3">
-              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
+          <div className="mb-3">
+            <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '120px' }}>
+              {previewThumb ? (
                 <img 
                   src={previewThumb} 
                   alt={`${data.label} preview`}
                   className="w-full h-full object-cover"
                   data-node-preview-id={id}  // Add data attribute for direct DOM manipulation
                 />
-              </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-700">
+                  <span className="text-gray-500">Processing...</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
           
           {/* Parameters with connection handles */}
-          {data.params.map((param) => (
+          {data.params?.map((param) => (
             <div key={param.id || param.name} className="mb-4 relative">
               {/* Parameter connection handle */}
               <Handle
