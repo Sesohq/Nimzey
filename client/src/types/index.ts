@@ -66,7 +66,6 @@ export type FilterNodeData = {
   blendMode: BlendMode;
   opacity: number; // 0-100
   collapsed?: boolean;
-  previewLocked?: boolean; // Whether the preview is locked and shouldn't update
   imageUrl?: string; // For image filter nodes that have an embedded image
   width?: number; // Image width
   height?: number; // Image height
@@ -88,7 +87,6 @@ export type FilterNodeData = {
   onDisconnectParam?: (nodeId: string, paramId: string) => void;
   onUpdatePreview?: (nodeId: string, preview: string) => void;
   onRequestNodePreview?: (nodeId: string) => void;
-  onTogglePreviewLock?: (nodeId: string, locked: boolean) => void;
 };
 
 export type ImageNodeData = {
@@ -114,8 +112,5 @@ export type NodeData = FilterNodeData | ImageNodeData | OutputNodeData;
 declare global {
   interface Window {
     uploadNodeImage?: (nodeId: string, file: File) => void;
-    toggleNodePreviewLock?: (nodeId: string) => void;
-    updateNodePreview?: (nodeId: string) => void;
-    nodeThumbnails?: Record<string, HTMLCanvasElement>;
   }
 }
