@@ -43,9 +43,6 @@ export default function Home() {
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
       <Header onNewProject={resetCanvas} />
       
-      {/* Add the PreviewManager component outside the visible UI */}
-      <PreviewManager previewSize={128} />
-      
       <div className="flex flex-1 overflow-hidden">
         <FilterPanel 
           width={filtersPanelWidth} 
