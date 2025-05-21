@@ -2,29 +2,21 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FilterType } from '@/types';
-import { Upload, FilterIcon, ImageIcon } from 'lucide-react';
-
-// Filter categories and their available filters
-const filterCategories = {
-  basic: {
-    name: 'Basic Filters',
-    filters: [
-      { name: 'Blur', type: 'blur' },
-      { name: 'Sharpen', type: 'sharpen' },
-      { name: 'Grayscale', type: 'grayscale' },
-      { name: 'Invert', type: 'invert' }
-    ]
-  },
-  texture: {
-    name: 'Texture Filters',
-    filters: [
-      { name: 'Noise', type: 'noise' },
-      { name: 'Dither', type: 'dither' },
-      { name: 'Pixelate', type: 'pixelate' }
-    ]
-  }
-};
+import { filterCategories } from '@/lib/filterCategories';
+import { 
+  Upload, 
+  Plus, 
+  FilterIcon, 
+  Layers, 
+  Wand2, 
+  ImageIcon, 
+  Move3d, 
+  LucideIcon, 
+  Stars,
+  Sparkles,
+  Brush
+} from 'lucide-react';
+import { NodeType, FilterType } from '@/types';
 
 interface FilterPanelProps {
   width: number;
@@ -35,88 +27,115 @@ interface FilterPanelProps {
 }
 
 export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceImage, onAddOutputNode }: FilterPanelProps) {
-  const fileInputRef = useState<HTMLInputElement | null>(null);
-  
-  // Handle filter drag start
+  const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
+
   const handleFilterDragStart = (e: React.DragEvent, filter: FilterType) => {
     e.dataTransfer.setData('application/reactflow', filter);
-    e.dataTransfer.effectAllowed = 'move';
+    setDraggedFilter(filter);
+  };
+
+  const handleFilterDragEnd = () => {
+    setDraggedFilter(null);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onUploadImage(e.target.files[0]);
+    }
   };
   
-  // Handle filter click to add it directly
-  const handleFilterClick = (filter: FilterType) => {
-    onAddFilter(filter);
-  };
-  
-  // Handle image upload
-  const handleUploadClick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        onUploadImage(file);
-      }
-    };
-    input.click();
+  // Function to get the appropriate icon based on category
+  const getCategoryIcon = (categoryId: string) => {
+    switch(categoryId) {
+      case 'basic':
+        return <Wand2 size={16} />;
+      case 'texture':
+        return <Brush size={16} />;
+      case 'distortion':
+        return <Move3d size={16} />;
+      case 'photo':
+        return <ImageIcon size={16} />;
+      case 'edge':
+        return <FilterIcon size={16} />;
+      case 'artistic':
+        return <Sparkles size={16} />;
+      case 'special':
+        return <Stars size={16} />;
+      case 'effect':
+        return <Sparkles size={16} />;
+      default:
+        return <FilterIcon size={16} />;
+    }
   };
 
   return (
-    <div className="h-full overflow-hidden border-r border-gray-800 bg-gray-900 text-white" style={{ width: `${width}px` }}>
-      <div className="p-4 space-y-4">
-        <h2 className="text-lg font-semibold mb-4">Filter Library</h2>
-        
-        {/* Image upload section */}
-        <div className="mb-4">
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={handleUploadClick}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Image
-          </Button>
+    <div className="filter-panel flex flex-col" style={{ width: `${width}px` }}>
+      <div className="filter-panel-header">
+        <div className="icon-container basic-filters mr-3" style={{width: '32px', height: '32px', minWidth: '32px'}}>
+          <Layers className="h-5 w-5" />
         </div>
-        
-        {/* Add output node button */}
-        {onAddOutputNode && (
-          <Button 
-            variant="outline" 
-            className="w-full justify-start mb-4"
-            onClick={onAddOutputNode}
-          >
-            <ImageIcon className="mr-2 h-4 w-4" />
-            Add Output Node
-          </Button>
-        )}
-        
-        {/* Filter categories */}
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <Accordion type="multiple" defaultValue={['basic', 'texture']}>
-            {Object.entries(filterCategories).map(([key, category]) => (
-              <AccordionItem value={key} key={key}>
-                <AccordionTrigger className="py-2">{category.name}</AccordionTrigger>
-                <AccordionContent>
-                  <div className="grid grid-cols-2 gap-2 p-1">
-                    {category.filters.map((filter) => (
-                      <div
-                        key={filter.type}
-                        className="flex flex-col items-center justify-center p-3 bg-gray-800 rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
-                        draggable
-                        onDragStart={(e) => handleFilterDragStart(e, filter.type as FilterType)}
-                        onClick={() => handleFilterClick(filter.type as FilterType)}
-                      >
-                        <FilterIcon className="mb-1 h-4 w-4" />
-                        <span className="text-xs">{filter.name}</span>
-                      </div>
-                    ))}
+        <span className="text-lg">Filters</span>
+      </div>
+      
+      <ScrollArea className="flex-1">
+        <div className="p-3">
+          <Accordion type="multiple" defaultValue={Object.keys(filterCategories)} className="space-y-3">
+            {Object.entries(filterCategories).map(([categoryId, category]) => (
+              <AccordionItem value={categoryId} key={categoryId} className="filter-category border-0">
+                <AccordionTrigger className={`filter-category-header py-2 px-3 no-underline ${categoryId}-header`}>
+                  <div className="flex items-center">
+                    <div className={`icon-container ${categoryId}-filters mr-3`} style={{width: '26px', height: '26px', minWidth: '26px'}}>
+                      {getCategoryIcon(categoryId)}
+                    </div>
+                    <span>{category.name}</span>
                   </div>
+                </AccordionTrigger>
+                <AccordionContent className="filter-list">
+                  {category.filters.map(filter => (
+                    <div
+                      key={filter.type}
+                      className={`btn-glitch ${categoryId}-filters ${draggedFilter === filter.type ? 'dragging' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleFilterDragStart(e, filter.type)}
+                      onDragEnd={handleFilterDragEnd}
+                      onClick={() => onAddFilter(filter.type)}
+                    >
+                      <div className="text-container">
+                        // {filter.name}
+                      </div>
+                      <div className="icon-container">
+                        <Plus size={16} />
+                      </div>
+                    </div>
+                  ))}
                 </AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
-        </ScrollArea>
+        </div>
+      </ScrollArea>
+      
+      <div className="p-4" style={{backgroundColor: '#000'}}>
+        <div 
+          className="btn-glitch special-filters"
+          onClick={() => document.getElementById('imageUpload')?.click()}
+          style={{marginBottom: 0}}
+        >
+          <div className="text-container font-semibold">
+            // Upload Image
+          </div>
+          <div className="icon-container" style={{backgroundColor: '#FF7D00'}}>
+            <Upload size={16} />
+          </div>
+        </div>
+        
+        <input 
+          type="file" 
+          id="imageUpload" 
+          className="hidden" 
+          accept="image/*"
+          onChange={handleImageUpload}
+        />
       </div>
     </div>
   );

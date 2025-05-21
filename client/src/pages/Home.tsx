@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
-import NodePreviewContainer from '@/components/NodePreviewContainer';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
-import '@/App.css';
 
 export default function Home() {
   const {
@@ -74,9 +72,6 @@ export default function Home() {
           isProcessing={isProcessing}
         />
       </div>
-
-      {/* Node Preview System - Hidden container that manages node thumbnails */}
-      <NodePreviewContainer nodes={nodes} />
     </div>
   );
 }

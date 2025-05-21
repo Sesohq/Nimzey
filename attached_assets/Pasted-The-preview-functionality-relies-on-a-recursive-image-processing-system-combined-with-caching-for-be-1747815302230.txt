@@ -1,4 +1,3 @@
-How the Node Previews Work
 The preview functionality relies on a recursive image processing system combined with caching for better performance. Here's how it works:
 
 Canvas Workflow:
@@ -174,3 +173,14 @@ const clearDownstreamCache = useCallback((nodeId: string) => {
     processedImageCache.current.delete(id);
   });
 }, [edges]);
+The preview system follows these steps whenever a node needs to be displayed:
+
+First, check if the processed result is already cached
+If not, check if it's an image source (then just return the image)
+If it's a filter, find its input source
+Process that source image (recursively if needed)
+Apply the filter to the source image
+Cache the result and update the node's preview display
+When connections or settings change, clear affected caches
+This creates an efficient system where each node displays a live preview of its processing stage in the filter chain.
+
