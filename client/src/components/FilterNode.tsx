@@ -85,7 +85,7 @@ const EditableValue = ({
       />
     );
   }
-  
+
   return (
     <span 
       className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
@@ -105,31 +105,31 @@ const EditableValue = ({
 const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   // Add local state for the preview thumbnail - fallback to data.preview
   const [previewThumb, setPreviewThumb] = useState(data.preview || '');
-  
+
   // Also update local state if data.preview changes (for initial load)
   useEffect(() => {
     if (data.preview) {
       setPreviewThumb(data.preview);
     }
   }, [data.preview]);
-  
+
   // Function to directly request a preview update via custom event
   const requestPreviewUpdate = useCallback(() => {
     console.log('Requesting direct preview update for node:', id);
-    
+
     // Dispatch the request event directly
     const requestEvent = new CustomEvent('request-node-preview', {
       detail: { nodeId: id }
     });
     window.dispatchEvent(requestEvent);
-    
+
     // Also request a preview through the callback if available
     // (belt-and-suspenders approach to ensure preview updates)
     if (data.onRequestNodePreview) {
       data.onRequestNodePreview(id);
     }
   }, [id, data.onRequestNodePreview]);
-  
+
   // Make the function globally available for debugging
   useEffect(() => {
     if (!(window as any).requestPreviewForNode) {
@@ -142,40 +142,40 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       };
     }
   }, []);
-  
+
   // Subscribe to preview updates for this node using custom DOM events
   useEffect(() => {
     const handlePreviewUpdate = (e: any) => {
       if (e.detail && e.detail.nodeId === id && e.detail.preview) {
         console.log('Node', id, 'received preview update via DOM event');
         setPreviewThumb(e.detail.preview);
-        
+
         // Also update in the node data if callback is provided
         if (data.onUpdatePreview) {
           data.onUpdatePreview(id, e.detail.preview);
         }
       }
     };
-    
+
     // Add event listener for our custom event
     window.addEventListener('node-preview-updated', handlePreviewUpdate);
-    
+
     // Clean up on unmount
     return () => {
       window.removeEventListener('node-preview-updated', handlePreviewUpdate);
     };
   }, [id, data.onUpdatePreview]);
-  
+
   // Create throttled version of the parameter change handler for slider interactions
   const throttledParamChange = useMemo(() => {
     return throttle((paramId: string, value: number | string | boolean) => {
       if (data.onParamChange) {
         // First, update the parameter value
         data.onParamChange(id, paramId, value);
-        
+
         // Request preview update using our direct DOM event system
         requestPreviewUpdate();
-        
+
         // Also use the callback if available (for backward compatibility)
         if (data.onRequestNodePreview) {
           data.onRequestNodePreview(id);
@@ -183,12 +183,14 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       }
     }, 30, { leading: true, trailing: true }); // Even faster throttle for better responsiveness
   }, [id, data.onParamChange, data.onRequestNodePreview, requestPreviewUpdate]);
-  
+
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
-  
+    // Ref to track if the slider is currently being dragged
+  const isDraggingRef = useRef(false);
+
   // Create handle references for connection lines to work properly
   const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -237,18 +239,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       data.onDisconnectParam(id, paramId);
     }
   };
-  
+
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
     if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
-    
+
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
-    
+
     setEditingParam(paramId);
     setEditingValue(String(value));
   };
-  
+
   // Handle finishing the edit and updating the value
   const handleFinishEditing = () => {
     if (editingParam && editingValue !== '') {
@@ -256,7 +258,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
       if (param) {
         // Convert value based on parameter type
         let parsedValue: number | string | boolean;
-        
+
         if (param.paramType === 'float') {
           parsedValue = parseFloat(editingValue);
         } else if (param.paramType === 'integer') {
@@ -264,13 +266,13 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         } else {
           parsedValue = editingValue;
         }
-        
+
         // Clamp the value if min/max are defined
         if (typeof parsedValue === 'number' && !isNaN(parsedValue)) {
           if (param.min !== undefined) parsedValue = Math.max(param.min, parsedValue);
           if (param.max !== undefined) parsedValue = Math.min(param.max, parsedValue);
         }
-        
+
         handleParamChange(editingParam, parsedValue);
       }
     }
@@ -311,7 +313,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -353,7 +355,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
               <Select 
@@ -376,7 +378,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               </Select>
             </div>
           </div>
-          
+
           <div className="mt-2">
             <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
             <Slider
@@ -410,7 +412,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                 zIndex: 10
               }}
             />
-            
+
             <div className="flex justify-between items-center">
               <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
               <Badge 
@@ -421,7 +423,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               </Badge>
             </div>
           </div>
-          
+
           {/* Image Preview - Using local state for more reliable updates */}
           <div className="mb-3">
             <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '120px' }}>
@@ -439,7 +441,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               )}
             </div>
           </div>
-          
+
           {/* Parameters with connection handles */}
           {data.params?.map((param) => (
             <div key={param.id || param.name} className="mb-4 relative">
@@ -459,7 +461,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   zIndex: 10
                 }}
               />
-              
+
               <div className="flex justify-between items-center">
                 <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
                 <div className="flex items-center">
@@ -480,9 +482,9 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   </Badge>
                 </div>
               </div>
-              
+
               {/* Parameter connection indicators removed */}
-              
+
               {param.controlType === 'range' && (
                 <div className="flex items-center mt-1">
                   <CustomSlider
@@ -493,12 +495,19 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     color="warning"
                     size="md"
                     className="flex-1 mr-2"
-                    onValueChange={(values) => {
-                      // Update node data immediately so the thumb moves
-                      handleParamChange(param.id || param.name, values[0]);
-                      // Use throttled processing for WebGL rendering
-                      throttledParamChange(param.id || param.name, values[0]);
-                      // Also directly request a preview update immediately
+                     onValueChange={(values) => {
+                      // Batch the parameter change and preview request
+                      const paramId = param.id || param.name;
+
+                      // Track if the slider is currently being dragged
+                      isDraggingRef.current = true;
+                      handleParamChange(paramId, values[0]);
+
+                      // Use a more aggressive throttle for WebGL updates during sliding
+                      throttledParamChange(paramId, values[0], 'preview');
+                    }}
+                    onValueChangeEnd={() => {
+                      isDraggingRef.current = false;
                       requestPreviewUpdate();
                     }}
                     disabled={!data.enabled || param.isConnected}
@@ -552,7 +561,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   )}
                 </div>
               )}
-              
+
               {param.controlType === 'select' && (
                 <Select 
                   value={param.value as string} 
@@ -571,7 +580,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   </SelectContent>
                 </Select>
               )}
-              
+
               {param.controlType === 'checkbox' && (
                 <Checkbox 
                   checked={param.value as boolean}
@@ -595,7 +604,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           className="w-6 h-6 rounded-full -ml-3 bg-blue-600 opacity-0" /* Made invisible */
           style={{ top: 16, transform: 'translateY(-50%)' }}
         />
-        
+
         {/* Single output handle - bottom right corner */}
         <Handle
           id="node-output"
