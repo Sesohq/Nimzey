@@ -240,7 +240,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
-    if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
     
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
@@ -251,7 +251,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
   
   // Handle finishing the edit and updating the value
   const handleFinishEditing = () => {
-    if (editingParam && editingValue !== '') {
+    if (editingParam && editingValue !== '' && data.params) {
       const param = data.params.find(p => p.id === editingParam);
       if (param) {
         // Convert value based on parameter type
@@ -453,13 +453,11 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                   }
                 }}
                 className="absolute bottom-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-black/60"
-                title={data.previewLocked ? "Unlock preview" : "Lock preview"}
+                title={(data.previewLocked ? "Unlock preview" : "Lock preview")}
               >
-                {data.previewLocked ? (
-                  <span className="text-xs">🔒</span>
-                ) : (
-                  <span className="text-xs">🔓</span>
-                )}
+                <span className="text-xs">
+                  {data.previewLocked ? "🔒" : "🔓"}
+                </span>
               </button>
             </div>
           </div>
