@@ -422,22 +422,50 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
             </div>
           </div>
           
-          {/* Image Preview - Using local state for more reliable updates */}
-          {previewThumb && (
-            <div className="mb-3">
-              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
-                <img 
-                  src={previewThumb} 
-                  alt={`${data.label} preview`}
+          {/* Node Preview Thumbnail */}
+          <div className="mb-3">
+            <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
+              {/* Use our NodeThumbnail component instead of a regular img */}
+              <div id={`node-thumbnail-container-${id}`} className="w-full h-full">
+                <canvas 
+                  id={`node-thumb-${id}`}
+                  width="128"
+                  height="128"
                   className="w-full h-full object-cover"
-                  data-node-preview-id={id}  // Add data attribute for direct DOM manipulation
+                  data-node-id={id}
                 />
+                {/* Fallback to image if canvas isn't working */}
+                {previewThumb && (
+                  <img 
+                    src={previewThumb} 
+                    alt={`${data.label} preview`}
+                    className="hidden"
+                    data-node-preview-id={id}
+                  />
+                )}
               </div>
+              {/* Add lock/unlock control */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.toggleNodePreviewLock) {
+                    window.toggleNodePreviewLock(id);
+                  }
+                }}
+                className="absolute bottom-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-black/60"
+                title={data.previewLocked ? "Unlock preview" : "Lock preview"}
+              >
+                {data.previewLocked ? (
+                  <span className="text-xs">🔒</span>
+                ) : (
+                  <span className="text-xs">🔓</span>
+                )}
+              </button>
             </div>
-          )}
+          </div>
           
           {/* Parameters with connection handles */}
-          {data.params.map((param) => (
+          {data.params?.map((param) => (
             <div key={param.id || param.name} className="mb-4 relative">
               {/* Parameter connection handle */}
               <Handle

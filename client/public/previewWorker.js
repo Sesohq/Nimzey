@@ -256,7 +256,7 @@ self.onmessage = async function(e) {
   // If we received a canvas, store its context
   if (canvas) {
     const ctx = canvas.getContext('2d');
-    canvasContexts.set(nodeId, { ctx, canvas });
+    canvasContexts.set(nodeId, { ctx, nodeCanvas: canvas });
   }
   
   // Get the context for this node
@@ -266,7 +266,7 @@ self.onmessage = async function(e) {
     return;
   }
   
-  const { ctx, canvas } = contextData;
+  const { ctx, nodeCanvas } = contextData;
   
   try {
     // If we have source image data, draw it to the canvas
@@ -283,7 +283,7 @@ self.onmessage = async function(e) {
     applyFilter(ctx, params || {}, filterType);
     
     // Create an ImageBitmap from the canvas
-    const bitmap = await canvas.transferToImageBitmap();
+    const bitmap = await nodeCanvas.transferToImageBitmap();
     
     // Send the result back to the main thread
     self.postMessage({ nodeId, bitmap }, [bitmap]);
