@@ -1,0 +1,94 @@
+Below is a step-by-step refactor showing how to fire the exact node-param-changed event from your slider code in FilterNode, and how NodePreviewContainer picks it up to call window.updateNodePreview. This guarantees your thumbnail canvas re-renders immediately as you drag.
+
+1. In FilterNode (FilterNode.tsx)
+a) Remove any request-node-preview dispatch
+Search for where you fire that event in your throttled handler (around FilterNode (1)). Replace it with node-param-changed:
+
+diff
+Copy
+Edit
+// Before (in your throttledParamChange callback)
+if (data.onParamChange) {
+  data.onParamChange(id, paramId, value);
+  
+  // Old preview trigger (remove these two lines)
+- const requestEvent = new CustomEvent('request-node-preview', { detail: { nodeId: id } });
+- window.dispatchEvent(requestEvent);
+
+  // Belt-and-suspenders callback (you can keep or remove)
+  if (data.onRequestNodePreview) {
+    data.onRequestNodePreview(id);
+  }
+}
+b) Fire the unified event after updating params
+Immediately after calling data.onParamChange, emit our semantic event (so the container already listening will catch it):
+
+jsx
+Copy
+Edit
+// FilterNode.tsx — inside throttle or onValueChange
+data.onParamChange(id, paramId, value);
+
+// NEW: dispatch the one event NodePreviewContainer listens for
+window.dispatchEvent(
+  new CustomEvent('node-param-changed', { detail: { nodeId: id } })
+);
+You only need that single dispatchEvent once—no need for both old and new events.
+
+2. In NodePreviewContainer (NodePreviewContainer.tsx)
+You already have this listener wired up (around NodePreviewContainer):
+
+ts
+Copy
+Edit
+// NodePreviewContainer.tsx
+useEffect(() => {
+  const handleParamChange = (e: CustomEvent) => {
+    if (e.detail && e.detail.nodeId) {
+      // Calls into the worker via updateNodePreview
+      window.updateNodePreview?.(e.detail.nodeId);
+    }
+  };
+
+  window.addEventListener('node-param-changed', handleParamChange as EventListener);
+  return () => {
+    window.removeEventListener('node-param-changed', handleParamChange as EventListener);
+  };
+}, []);
+No changes needed here—this is exactly the hook that will now fire on every slider move, triggering the offscreen-canvas render and posting back the new thumbnail.
+
+3. Verify the Flow
+Slider Move
+
+User drags a range slider in FilterNode
+
+Param Update
+
+data.onParamChange(id, paramId, value) updates graph state
+
+Event Dispatch
+
+window.dispatchEvent(new CustomEvent('node-param-changed', { detail: { nodeId: id } })) fires immediately
+
+Container Listener
+
+NodePreviewContainer catches that event and calls window.updateNodePreview(id) NodePreviewContainer
+
+Worker Render
+
+Worker re-draws only that node’s 128×128 canvas offscreen and sends back an ImageBitmap NodePreviewContainer
+
+Thumbnail Update
+
+Canvas in NodeThumbnail (or the <canvas id="node-thumb-{id}">) receives the bitmap and re-paints instantly NodeThumbnail
+
+Quick Checklist
+ Remove all request-node-preview dispatches from FilterNode
+
+ Add a single node-param-changed dispatch after onParamChange
+
+ Confirm NodePreviewContainer is mounted and listening (it already is)
+
+ Ensure window.updateNodePreview is defined and worker is running
+
+With that in place, every slider adjustment will immediately mark the node “dirty,” re-render its offscreen canvas, and swap in the new thumbnail—no extra background clicks needed.

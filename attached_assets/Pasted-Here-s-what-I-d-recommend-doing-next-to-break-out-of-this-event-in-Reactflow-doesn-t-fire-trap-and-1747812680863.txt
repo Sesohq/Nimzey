@@ -1,0 +1,95 @@
+Here’s what I’d recommend doing next to break out of this “event-in-Reactflow doesn’t fire” trap and get your thumbnails updating again:
+
+1. Switch from DOM events to React state for previews
+Instead of trying to make Reactflow nodes listen to window events (which can be swallowed by the Reactflow SVG layers), push your new preview URLs into the node’s data.preview via the standard ReactFlow setNodes API. Once you update the node’s data in state, Reactflow will re-render that node and your <NodeThumbnail> (or the inline <img src={data.preview}>) will update automatically.
+
+a) Expose an onUpdatePreview callback in your node data
+In your App.tsx (or wherever you build your node array), pass down a callback that writes the new preview into the node:
+
+ts
+Copy
+Edit
+// App.tsx
+// … inside your component…
+const [nodes, setNodes] = useState<Node[]>(initialNodes);
+
+function handleUpdatePreview(nodeId: string, previewDataUrl: string) {
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId
+        ? { 
+            ...n,
+            data: { 
+              ...n.data,
+              preview: previewDataUrl    // push it into React state
+            }
+          }
+        : n
+    )
+  );
+}
+
+// when you construct a filterNode:
+{
+  id: '42',
+  type: 'filterNode',
+  position: {...},
+  data: {
+    ...otherData,
+    preview: null,
+    onUpdatePreview: handleUpdatePreview,   // <— pass this handler in
+  }
+}
+b) In your Worker message handler, call that callback
+Replace your window.dispatchEvent('node-preview-updated') in NodePreviewContainer with a direct call:
+
+ts
+Copy
+Edit
+// NodePreviewContainer.tsx, inside worker.onmessage:
+if (bitmap && nodeId) {
+  // draw to the offscreen canvas...
+  const dataUrl = canvas.toDataURL('image/png');
+
+  // OLD: dispatch CustomEvent
+  // window.dispatchEvent(new CustomEvent('node-preview-updated',{detail:{nodeId,preview:dataUrl}}));
+
+  // NEW: call the callback
+  const node = nodes.find(n => n.id === nodeId)!
+  const data = node.data as FilterNodeData;
+  data.onUpdatePreview?.(nodeId, dataUrl);
+}
+Because handleUpdatePreview is a real React state setter, that will cause the node’s data to update, and Reactflow will re-render that node with the new thumbnail.
+
+2. Simplify your NodeThumbnail to read from data.preview
+Now your <NodeThumbnail> (or wherever you show previewThumb) can just use:
+
+tsx
+Copy
+Edit
+// FilterNode.tsx (or NodeThumbnail.tsx)
+useEffect(() => {
+  if (data.preview) {
+    setPreviewThumb(data.preview);
+  }
+}, [data.preview]);
+No more worrying about missed DOM events—React’s props+state guarantees you see every update.
+
+3. Wire your sliders to mark the node dirty and trigger the worker
+Keep your existing throttledParamChange that calls:
+
+ts
+Copy
+Edit
+data.onParamChange(id,paramId,value);
+data.onRequestNodePreview?.(id);  // still tells the worker “recompute”
+But now the worker returns the new previewDataUrl and routes it through onUpdatePreview, which pushes into React state. Boom—instant thumbnail update.
+
+Why this works
+Reactflow nodes always re-render when their data object changes via setNodes
+
+No more cross-window events that Reactflow might swallow
+
+State-driven previews are infinitely more reliable than CustomEvent hacks
+
+Give that a shot and your thumbnails will snap to life again the moment your worker finishes rendering—no extra clicks or fiddling required.

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
-import PreviewManager from '@/components/PreviewManager';
+import StateBasedNodePreviewContainer from '@/components/StateBasedNodePreviewContainer';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
-import { usePreviewStore } from '@/store/previewStore';
+import '@/App.css';
 
 export default function Home() {
   const {
@@ -29,15 +29,29 @@ export default function Home() {
     zoomOut,
     zoomLevel,
     nodePreview,
-    isProcessing
+    isProcessing,
+    setNodes
   } = useFilterGraph();
+  
+  // Handler to update node previews via React state
+  const handleUpdatePreview = useCallback((nodeId: string, previewUrl: string) => {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                preview: previewUrl
+              }
+            }
+          : node
+      )
+    );
+  }, [setNodes]);
 
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
-
-  // Get the quality level from the preview store
-  const qualityLevel = usePreviewStore(state => state.qualityLevel);
-  const setQualityLevel = usePreviewStore(state => state.setQualityLevel);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
@@ -76,10 +90,14 @@ export default function Home() {
           nodes={nodes}
           edges={edges}
           isProcessing={isProcessing}
-          qualityLevel={qualityLevel}
-          onQualityChange={setQualityLevel}
         />
       </div>
+
+      {/* State-based node preview container to update node previews via React state */}
+      <StateBasedNodePreviewContainer 
+        nodes={nodes} 
+        onUpdatePreview={handleUpdatePreview} 
+      />
     </div>
   );
 }

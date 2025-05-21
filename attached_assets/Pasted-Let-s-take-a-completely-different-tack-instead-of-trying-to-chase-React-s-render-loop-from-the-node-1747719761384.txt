@@ -1,0 +1,84 @@
+Let’s take a completely different tack: instead of trying to chase React’s render-loop from the node component, let’s use React Flow’s own API to force each custom node to re-render when its preview URL changes.
+
+1. Use updateNodeInternals in your canvas
+In your NodeCanvas.tsx, grab the React Flow instance and, whenever your nodes state changes (i.e. after you setNodes with a new data.preview), call updateNodeInternals(nodeId) for each node whose preview changed. That will re-mount your FilterNode component with the fresh data.preview.
+
+tsx
+Copy
+Edit
+// NodeCanvas.tsx
+import { ReactFlowProvider, ReactFlow, useReactFlow } from 'reactflow';
+import { useEffect, useRef } from 'react';
+
+function CanvasInner({ nodes, edges, ...rest }) {
+  const { updateNodeInternals } = useReactFlow();
+  const prevPreviews = useRef<Record<string,string>>({});
+
+  useEffect(() => {
+    nodes.forEach((n) => {
+      const prev = prevPreviews.current[n.id];
+      const curr = (n.data as any).preview;
+      if (curr && curr !== prev) {
+        // force React Flow to re-render that node
+        updateNodeInternals(n.id);
+        prevPreviews.current[n.id] = curr;
+      }
+    });
+  }, [nodes, updateNodeInternals]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      {...rest}
+    />
+  );
+}
+
+export function NodeCanvas(props) {
+  return (
+    <ReactFlowProvider>
+      <CanvasInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+What this does:
+
+Keeps a ref of the last preview URL for each node.
+
+On every nodes update, it compares the old vs. new data.preview.
+
+Whenever it sees a change, it calls updateNodeInternals(id), which tells React Flow “please re-render that custom node.”
+
+Your FilterNode component will mount again and pick up the new <img src={data.preview}> immediately, with no background-click needed.
+
+2. Keep your preview-generation logic the same
+All your existing generateNodePreview(nodeId) → setNodes(...) calls remain. Now, as soon as you call that and update the node’s data.preview, CanvasInner will notice and re-draw that one node for you.
+
+3. (Optional) Integrate with your slider throttle
+You can now reinstate your throttle on generateNodePreview or keep it raw:
+
+tsx
+Copy
+Edit
+// in FilterNode.tsx
+const throttledPreview = useMemo(
+  () => throttle(generateNodePreview, 100),
+  [generateNodePreview]
+);
+
+<CustomSlider
+  onValueChange={([v]) => {
+    onParamChange(id, param.id, v);
+    throttledPreview(id);
+  }}
+  …
+/>
+Even if you fire throttledPreview(id) only, NodeCanvas will detect the changed preview in nodes and immediately re-render that node’s thumbnail.
+
+Why this will finally work:
+You’re no longer relying on ReactFlow to diff props on its own—you explicitly tell it which node to update.
+
+Your slider logic can be as aggressive or as throttled as you like, and the canvas will pick up each new URL as soon as it lands in state.
+
+No more background clicks; no mysterious useEffects chasing parameter arrays—instead, a clear “preview changed? update that node.”

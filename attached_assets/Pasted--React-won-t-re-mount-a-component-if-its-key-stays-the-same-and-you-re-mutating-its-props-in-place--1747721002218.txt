@@ -1,0 +1,65 @@
+“React won’t re-mount a component if its key stays the same and you’re mutating its props in place” situation. Your thumbnails live inside a custom node whose id never changes and ReactFlow only does a shallow props compare on mount—so unless you force it, your new data.preview string never actually causes the node component to tear down and rebuild itself.
+
+Here’s a two-part “nuclear” fix that’s guaranteed to make those little <img src={preview}>s update immediately:
+
+1) Use ReactFlow’s applyNodeChanges to bump the node version
+Instead of doing
+
+ts
+Copy
+Edit
+// ❌ Mutating in place + setNodes(map) often doesn’t trigger ReactFlow internals
+setNodes(ns =>
+  ns.map(n =>
+    n.id === nodeId
+      ? { ...n, data: { ...n.data, preview: newUrl } }
+      : n
+  )
+);
+switch to applyNodeChanges with a change of type "update":
+
+ts
+Copy
+Edit
+import { applyNodeChanges } from 'reactflow';
+
+function updatePreview(nodeId: string, newUrl: string) {
+  setNodes(ns =>
+    applyNodeChanges(
+      [{ id: nodeId, type: 'update', data: { ...getNode(nodeId).data, preview: newUrl } }],
+      ns
+    )
+  );
+}
+That will deep-patch the node in ReactFlow’s internal state and cause that node to re-render.
+
+2) Give your node component a changing key
+ReactFlow by default re-uses your custom node component instance as long as the id is the same. You can override that by passing an explicit key prop (e.g. your preview URL) when you register the node:
+
+tsx
+Copy
+Edit
+// NodeCanvas.tsx
+const buildNodeTypes = (graph) => ({
+  filterNode: (props) => {
+    const { data: { preview }, id } = props;
+    return (
+      <FilterNode
+        {...props}
+        key={preview ? `${id}::${preview}` : id}
+        onParamChange={graph.onParamChange}
+      />
+    );
+  },
+  // … other nodes …
+});
+By doing key={${id}::${preview}}, React will throw away the old node component and mount a fresh one whenever preview changes.
+
+Putting it together
+In your graph hook, after generating a new preview URL, call updatePreview(nodeId, url) (the applyNodeChanges version above).
+
+In your NodeCanvas, register your filterNode with that key={previewKey}.
+
+That combination will instantly force ReactFlow to re-mount each custom node component whenever its preview string changes. You’ll see the <img src={preview}> snap to the new thumbnail immediately—even mid-drag—without needing any background clicks.
+
+Give that a shot and those little in-node previews should finally come alive in real time.

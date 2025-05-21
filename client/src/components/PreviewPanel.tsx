@@ -20,7 +20,6 @@ import { Node, Edge } from 'reactflow';
 import { FilterNodeData, ImageNodeData } from '@/types';
 import { Maximize2, Minimize2, ExternalLink, X, Settings } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import PreviewQualityControl from './PreviewQualityControl';
 
 interface PreviewPanelProps {
   width: number;
@@ -32,8 +31,6 @@ interface PreviewPanelProps {
   nodes: Node[];
   edges: Edge[];
   isProcessing?: boolean;
-  qualityLevel?: 'preview' | 'draft' | 'full';
-  onQualityChange?: (quality: 'preview' | 'draft' | 'full') => void;
 }
 
 export default function PreviewPanel({ 
@@ -45,9 +42,7 @@ export default function PreviewPanel({
   onExportImage,
   nodes,
   edges,
-  isProcessing = false,
-  qualityLevel = 'draft',
-  onQualityChange
+  isProcessing = false
 }: PreviewPanelProps) {
   const [exportFormat, setExportFormat] = useState('png');
   const [width, setWidth] = useState(initialWidth);
@@ -319,12 +314,7 @@ export default function PreviewPanel({
             </div>
             <span className="text-lg">Preview</span>
           </div>
-          <div className="flex items-center space-x-2">
-            {/* Add quality control here */}
-            {onQualityChange && (
-              <PreviewQualityControl className="mr-2" />
-            )}
-            
+          <div className="flex space-x-2">
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="Fullscreen">
               <Maximize2 className="h-4 w-4" />
             </Button>
