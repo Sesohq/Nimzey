@@ -425,26 +425,47 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
           {/* Node Preview Thumbnail */}
           <div className="mb-3">
             <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
-              {/* Use our NodeThumbnail component instead of a regular img */}
-              <div id={`node-thumbnail-container-${id}`} className="w-full h-full">
-                <canvas 
-                  id={`node-thumb-${id}`}
-                  width="128"
-                  height="128"
-                  className="w-full h-full object-cover"
-                  data-node-id={id}
-                />
-                {/* Fallback to image if canvas isn't working */}
+              {/* Temporary simplified preview while OffscreenCanvas implementation is refined */}
+              <div 
+                className="w-full h-full bg-gradient-to-b from-gray-700 to-gray-900 flex flex-col items-center justify-center"
+                id={`node-thumbnail-container-${id}`}
+              >
+                {/* Filter type and icon */}
+                <div className="text-white text-xs font-medium mb-1">{data.filter?.type || "filter"}</div>
+                
+                {/* Visual indicator of filter intensity */}
+                <div className="w-16 h-4 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500"
+                    style={{ 
+                      width: `${data.params?.find(p => p.id === 'intensity')?.value 
+                        ? Math.min(100, Number(data.params?.find(p => p.id === 'intensity')?.value) * 100) 
+                        : 50}%` 
+                    }}
+                  ></div>
+                </div>
+                
+                {/* Original preview image as fallback */}
                 {previewThumb && (
                   <img 
                     src={previewThumb} 
                     alt={`${data.label} preview`}
-                    className="hidden"
+                    className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay"
                     data-node-preview-id={id}
                   />
                 )}
+                
+                {/* Maintain canvas for future use */}
+                <canvas 
+                  id={`node-thumb-${id}`}
+                  width="128"
+                  height="128"
+                  className="hidden"
+                  data-node-id={id}
+                />
               </div>
-              {/* Add lock/unlock control */}
+              
+              {/* Lock/unlock control */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
