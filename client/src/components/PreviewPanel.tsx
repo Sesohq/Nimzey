@@ -31,6 +31,8 @@ interface PreviewPanelProps {
   nodes: Node[];
   edges: Edge[];
   isProcessing?: boolean;
+  qualityLevel?: 'preview' | 'draft' | 'full';
+  onQualityChange?: (quality: 'preview' | 'draft' | 'full') => void;
 }
 
 export default function PreviewPanel({ 
@@ -42,7 +44,9 @@ export default function PreviewPanel({
   onExportImage,
   nodes,
   edges,
-  isProcessing = false
+  isProcessing = false,
+  qualityLevel = 'draft',
+  onQualityChange
 }: PreviewPanelProps) {
   const [exportFormat, setExportFormat] = useState('png');
   const [width, setWidth] = useState(initialWidth);

@@ -3,7 +3,9 @@ import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
+import PreviewManager from '@/components/PreviewManager';
 import { useFilterGraph } from '@/hooks/useFilterGraph';
+import { usePreviewStore } from '@/store/previewStore';
 
 export default function Home() {
   const {
@@ -33,9 +35,16 @@ export default function Home() {
   const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
   const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
 
+  // Get the quality level from the preview store
+  const qualityLevel = usePreviewStore(state => state.qualityLevel);
+  const setQualityLevel = usePreviewStore(state => state.setQualityLevel);
+
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
       <Header onNewProject={resetCanvas} />
+      
+      {/* Add the PreviewManager component outside the visible UI */}
+      <PreviewManager previewSize={128} />
       
       <div className="flex flex-1 overflow-hidden">
         <FilterPanel 
@@ -70,6 +79,8 @@ export default function Home() {
           nodes={nodes}
           edges={edges}
           isProcessing={isProcessing}
+          qualityLevel={qualityLevel}
+          onQualityChange={setQualityLevel}
         />
       </div>
     </div>
