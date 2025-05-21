@@ -484,13 +484,15 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
               {/* Parameter connection indicators removed */}
               
               {param.controlType === 'range' && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <Slider
+                <div className="flex items-center mt-1">
+                  <CustomSlider
                     value={[param.value as number]}
                     min={param.min}
                     max={param.max}
                     step={param.step}
-                    className="flex-1 accent-primary"
+                    color="warning"
+                    size="md"
+                    className="flex-1 mr-2"
                     onValueChange={(values) => {
                       // Update node data immediately so the thumb moves
                       handleParamChange(param.id || param.name, values[0]);
@@ -500,19 +502,21 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                       requestPreviewUpdate();
                     }}
                     disabled={!data.enabled || param.isConnected}
-                  />
-                  <Input
-                    type="number"
-                    min={param.min}
-                    max={param.max}
-                    value={param.value as number}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      handleParamChange(param.id || param.name, value);
-                      requestPreviewUpdate();
-                    }}
-                    className="w-16 h-8 bg-gray-700 text-white text-xs p-1 rounded"
-                    disabled={!data.enabled || param.isConnected}
+                    endContent={
+                      <Input
+                        type="number"
+                        min={param.min}
+                        max={param.max}
+                        value={param.value as number}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          handleParamChange(param.id || param.name, value);
+                          requestPreviewUpdate();
+                        }}
+                        className="w-16 h-8 bg-gray-700 text-white text-xs p-1 rounded"
+                        disabled={!data.enabled || param.isConnected}
+                      />
+                    }
                   />
                   {editingParam === (param.id || param.name) ? (
                     <Input
