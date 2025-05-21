@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { 
   Node, 
   Edge, 
@@ -10,7 +10,7 @@ import {
   addEdge 
 } from 'reactflow';
 import { FilterNodeData, BlendMode, NodeColorTag, FilterType } from '@/types';
-import { applyFilter } from '@/lib/filters';
+import { applyFilter, getFilterSettings } from '@/lib/filters';
 import { v4 as uuidv4 } from 'uuid';
 
 export function useFilterGraph() {
@@ -126,7 +126,7 @@ export function useFilterGraph() {
   }, []);
 
   // Add a new node to the graph
-  const addFilterNode = useCallback((filterType: FilterType) => {
+  const addNode = useCallback((filterType: FilterType) => {
     const id = uuidv4();
     const capitalizedType = filterType.charAt(0).toUpperCase() + filterType.slice(1);
     
@@ -315,6 +315,63 @@ export function useFilterGraph() {
     link.click();
   }, [processedImage]);
   
+  // Get the selected node
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return nodes.find(node => node.id === selectedNodeId) || null;
+  }, [nodes, selectedNodeId]);
+  
+  // For zoom controls in the UI
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  }, []);
+  
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  }, []);
+  
+  // For canvas reset
+  const resetCanvas = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+    setProcessedImage(null);
+    processedImageCache.current.clear();
+  }, []);
+  
+  // For adding an output node
+  const addOutputNode = useCallback(() => {
+    const id = uuidv4();
+    const newNode: Node = {
+      id,
+      type: 'outputNode',
+      position: { x: 500, y: 200 },
+      data: {
+        preview: null,
+        isActive: true
+      }
+    };
+    
+    setNodes(nodes => [...nodes, newNode]);
+    return id;
+  }, [addNode]);
+  
+  // Get the source image if any
+  const sourceImage = useMemo(() => {
+    const imageNode = nodes.find(node => node.type === 'imageNode');
+    return imageNode?.data.src || null;
+  }, [nodes]);
+  
+  // Create a map of processed images for all nodes
+  const processedImages = useRef<Record<string, string>>({});
+  
+  // Get preview for a specific node
+  const nodePreview = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return processedImageCache.current.get(selectedNodeId) || null;
+  }, [selectedNodeId, processedImageCache]);
+
   return {
     nodes,
     edges,
@@ -322,13 +379,23 @@ export function useFilterGraph() {
     onEdgesChange,
     onConnect,
     selectedNodeId,
-    onNodeClick,
-    addFilterNode,
+    selectedNode,
+    onNodeClick: onNodeClick,
+    onNodeSelect: onNodeClick, // Alias for Home component
+    addNode,
+    addOutputNode,
     uploadImage,
     processedImage,
+    processedImages: processedImages.current,
     processGraph,
     isProcessing,
     exportImage,
-    getProcessedImage
+    getProcessedImage,
+    sourceImage,
+    resetCanvas,
+    zoomIn,
+    zoomOut,
+    zoomLevel,
+    nodePreview
   };
 }

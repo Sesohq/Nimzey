@@ -4,11 +4,8 @@
  * Component for displaying node preview thumbnails with offline canvas support.
  * Provides a consistent interface for node preview rendering across the application.
  */
-
-import React, { useEffect, useRef, useState } from 'react';
-import { Node } from 'reactflow';
-import { FilterNodeData, FilterType } from '@/types';
-import { Lock, Unlock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { FilterType } from '@/types';
 
 interface NodeThumbnailProps {
   nodeId: string;
@@ -23,77 +20,94 @@ interface NodeThumbnailProps {
 export default function NodeThumbnail({
   nodeId,
   filterType,
-  size = 100,
+  size = 120,
   className = '',
   isLocked = false,
   onToggleLock,
-  showLockControls = false
+  showLockControls = true
 }: NodeThumbnailProps) {
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
   
-  // Subscribe to preview updates for this node
+  // Set up the canvas on mount
   useEffect(() => {
-    const handlePreviewUpdate = (e: any) => {
+    if (canvasRef.current) {
+      // Register this canvas with the global thumbnail system
+      if (!window.nodeThumbnails) {
+        window.nodeThumbnails = {};
+      }
+      window.nodeThumbnails[nodeId] = canvasRef.current;
+      
+      // Clean up on unmount
+      return () => {
+        if (window.nodeThumbnails) {
+          delete window.nodeThumbnails[nodeId];
+        }
+      };
+    }
+  }, [nodeId]);
+  
+  // Listen for thumbnail updates
+  useEffect(() => {
+    const handleThumbnailUpdate = (e: CustomEvent) => {
       if (e.detail && e.detail.nodeId === nodeId && e.detail.preview) {
-        setDataUrl(e.detail.preview);
+        setThumbnail(e.detail.preview);
       }
     };
     
     // Add event listener for our custom event
-    window.addEventListener('node-preview-updated', handlePreviewUpdate);
+    window.addEventListener('node-preview-updated' as any, handleThumbnailUpdate);
     
     // Clean up on unmount
     return () => {
-      window.removeEventListener('node-preview-updated', handlePreviewUpdate);
+      window.removeEventListener('node-preview-updated' as any, handleThumbnailUpdate);
     };
   }, [nodeId]);
   
-  // Register this canvas with the preview system
-  useEffect(() => {
-    if (!canvasRef.current) return;
+  const handleRequestPreview = () => {
+    if (isLocked) return;
     
-    // Add data attribute for direct DOM manipulation
-    canvasRef.current.setAttribute('data-node-thumbnail', nodeId);
-    
-    // Make the canvas globally available for the worker
-    if (!(window as any).nodeThumbnails) {
-      (window as any).nodeThumbnails = {};
+    // Signal for a new preview
+    if (window.updateNodePreview) {
+      window.updateNodePreview(nodeId);
+    } else {
+      // Fallback - trigger preview update through DOM events
+      const event = new CustomEvent('request-node-preview', { 
+        detail: { nodeId } 
+      });
+      window.dispatchEvent(event);
     }
-    (window as any).nodeThumbnails[nodeId] = canvasRef.current;
-    
-    return () => {
-      // Clean up on unmount
-      if ((window as any).nodeThumbnails) {
-        delete (window as any).nodeThumbnails[nodeId];
-      }
-    };
-  }, [nodeId]);
+  };
+  
+  const filterIcon = getFilterIcon(filterType);
   
   return (
-    <div className={`relative ${className}`}>
-      {/* Canvas for direct rendering from worker */}
-      <canvas
+    <div 
+      className={`relative ${className}`} 
+      style={{ width: size, height: size }}
+      onClick={handleRequestPreview}
+    >
+      <canvas 
         ref={canvasRef}
-        width={128}
-        height={128}
-        style={{ width: size, height: size }}
-        className="rounded-md"
-        id={`node-thumb-${nodeId}`}
+        width={size}
+        height={size}
+        className="w-full h-full object-cover"
+        data-node-id={nodeId}
       />
       
-      {/* Fallback image if canvas rendering fails */}
-      {dataUrl && (
-        <img
-          src={dataUrl}
+      {thumbnail ? (
+        <img 
+          src={thumbnail} 
           alt={`${filterType} preview`}
-          className="absolute top-0 left-0 w-full h-full object-cover rounded-md opacity-0"
-          style={{ opacity: canvasRef.current ? 0 : 1 }}
-          data-node-preview-id={nodeId}
+          className="absolute top-0 left-0 w-full h-full object-cover"
+          style={{ display: canvasRef.current ? 'none' : 'block' }}
         />
+      ) : (
+        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-700">
+          <span className="text-gray-400">{filterIcon}</span>
+        </div>
       )}
       
-      {/* Lock/unlock control */}
       {showLockControls && onToggleLock && (
         <button
           onClick={(e) => {
@@ -101,15 +115,28 @@ export default function NodeThumbnail({
             onToggleLock();
           }}
           className="absolute bottom-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-black/60"
-          title={isLocked ? "Unlock preview" : "Lock preview"}
+          title={isLocked ? "Unlock preview (auto-update)" : "Lock preview (prevent auto-update)"}
         >
-          {isLocked ? (
-            <Lock size={14} />
-          ) : (
-            <Unlock size={14} />
-          )}
+          <span className="text-xs material-icons">
+            {isLocked ? 'lock' : 'lock_open'}
+          </span>
         </button>
       )}
     </div>
   );
+}
+
+// Helper to get an icon based on filter type
+function getFilterIcon(filterType: FilterType): string {
+  switch (filterType) {
+    case 'blur': return '●';
+    case 'sharpen': return '⚡';
+    case 'grayscale': return '◐';
+    case 'invert': return '⟲';
+    case 'noise': return '⋮';
+    case 'dither': return '⋰';
+    case 'pixelate': return '▦';
+    case 'image': return '🖼️';
+    default: return '▢';
+  }
 }
