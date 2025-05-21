@@ -75,8 +75,7 @@ export default function Home() {
         />
       </div>
 
-      {/* Node Preview System - Hidden container that manages node thumbnails */}
-      <NodePreviewContainer nodes={nodes} />
+      {/* We'll remove this temporarily while we fix the basic visual previews */}
     </div>
   );
 }
