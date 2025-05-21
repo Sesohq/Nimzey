@@ -1081,7 +1081,11 @@ export function useFilterGraph() {
     const nodeData: FilterNodeData = {
       label: `${filterDef.name}`,
       filterType,
-      params: processedParams,
+      filter: {
+        type: filterType,
+        params: processedParams
+      },
+      params: processedParams, // Keep for backward compatibility
       enabled: true,
       preview: null,
       colorTag: 'default',
@@ -1095,7 +1099,8 @@ export function useFilterGraph() {
       onChangeColorTag: handleColorTagChange,
       onToggleCollapsed: handleToggleCollapsed,
       onConnectParam: handleConnectParam,
-      onDisconnectParam: handleDisconnectParam
+      onDisconnectParam: handleDisconnectParam,
+      onRequestNodePreview: generateNodePreview
     };
 
     const newNode = {

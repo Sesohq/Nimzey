@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 
 // Using a fixed nodeTypes object to avoid ReactFlow warnings
 const nodeTypes: NodeTypes = {
-  filterNode: EnhancedFilterNode, // Use our enhanced version
+  filterNode: FilterNode, // Reverting to original FilterNode to fix controls
   imageNode: ImageNode,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
