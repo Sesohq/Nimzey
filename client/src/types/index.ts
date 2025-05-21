@@ -70,6 +70,7 @@ export type FilterNodeData = {
   imageUrl?: string; // For image filter nodes that have an embedded image
   width?: number; // Image width
   height?: number; // Image height
+  settings?: Record<string, any>; // Filter settings for slider UI
   // Parameter connections
   paramConnections?: {
     [paramId: string]: {
@@ -89,6 +90,7 @@ export type FilterNodeData = {
   onUpdatePreview?: (nodeId: string, preview: string) => void;
   onRequestNodePreview?: (nodeId: string) => void;
   onTogglePreviewLock?: (nodeId: string, locked: boolean) => void;
+  onSettingsChange?: (nodeId: string, settings: Record<string, any>) => void; // For slider settings changes
 };
 
 export type ImageNodeData = {

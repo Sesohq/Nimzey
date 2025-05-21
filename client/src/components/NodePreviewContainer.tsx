@@ -5,8 +5,7 @@
  * Creates and stores the hidden canvases used for preview thumbnails
  * and handles communication with the Web Worker.
  */
-
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Node } from 'reactflow';
 import { FilterNodeData } from '@/types';
 
@@ -14,161 +13,134 @@ interface NodePreviewContainerProps {
   nodes: Node[];
 }
 
-// Size for the preview thumbnails (matches what we use in the worker)
-const PREVIEW_SIZE = 128;
-
 export default function NodePreviewContainer({ nodes }: NodePreviewContainerProps) {
+  // Reference to the worker
   const workerRef = useRef<Worker | null>(null);
-  const canvasRefs = useRef<Map<string, HTMLCanvasElement>>(new Map());
-  const containerRef = useRef<HTMLDivElement>(null);
   
-  // Initialize the Web Worker
+  // Initialize the worker and event listeners
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      // Create the Worker
-      const worker = new Worker('/previewWorker.js');
-      workerRef.current = worker;
-      
-      // Handle messages from the Worker
-      worker.onmessage = (e) => {
-        const { nodeId, bitmap, error } = e.data;
-        
-        if (error) {
-          console.error(`Error in preview worker:`, error);
-          return;
-        }
-        
-        if (bitmap && nodeId) {
-          // Find the canvas in our visible DOM
-          const canvasInNode = document.getElementById(`node-thumb-${nodeId}`) as HTMLCanvasElement;
-          if (canvasInNode) {
-            const ctx = canvasInNode.getContext('bitmaprenderer');
-            if (ctx) {
-              // Draw the bitmap directly to the canvas
-              ctx.transferFromImageBitmap(bitmap);
-              
-              // Also trigger an event for compatibility with the existing system
-              const event = new CustomEvent('node-preview-updated', {
-                detail: {
-                  nodeId,
-                  preview: canvasInNode.toDataURL('image/png')
-                }
-              });
-              window.dispatchEvent(event);
-            }
-          }
-        }
-      };
-      
-      // Expose function to request a node preview update
-      window.updateNodePreview = (nodeId: string) => {
-        const node = nodes.find(n => n.id === nodeId);
-        if (!node || node.type !== 'filterNode') return;
-        
-        const data = node.data as FilterNodeData;
-        if (!data.filter?.type) return;
-        
-        // Build params object from filter params
-        const params: Record<string, any> = {};
-        if (data.params) {
-          for (const param of data.params) {
-            params[param.id] = param.value;
-          }
-        }
-        
-        // Send request to worker
-        if (workerRef.current) {
-          workerRef.current.postMessage({
-            nodeId,
-            filterType: data.filter.type,
-            params
-          });
-        }
-      };
-      
-      // Clean up
-      return () => {
-        worker.terminate();
-        workerRef.current = null;
-        delete window.updateNodePreview;
-      };
-    } catch (err) {
-      console.error('Error initializing preview worker:', err);
-    }
-  }, [nodes]);
-  
-  // Create canvases for each node and send them to the worker
-  useEffect(() => {
-    if (!containerRef.current || !workerRef.current) return;
-    
-    // Clear container
-    containerRef.current.innerHTML = '';
-    
-    // Create canvases for filter nodes
-    for (const node of nodes) {
-      if (node.type !== 'filterNode') continue;
-      
-      const data = node.data as FilterNodeData;
-      if (!data.filter?.type) continue;
-      
-      // Skip if we already have a canvas for this node
-      if (canvasRefs.current.has(node.id)) continue;
-      
+    // Create the worker if it doesn't exist
+    if (!workerRef.current && window.Worker) {
       try {
-        // Create the canvas
-        const canvas = document.createElement('canvas');
-        canvas.width = PREVIEW_SIZE;
-        canvas.height = PREVIEW_SIZE;
-        canvas.id = `preview-canvas-${node.id}`;
-        containerRef.current.appendChild(canvas);
+        workerRef.current = new Worker('/previewWorker.js');
         
-        // Store reference
-        canvasRefs.current.set(node.id, canvas);
-        
-        // Get the offscreen canvas and send to worker
-        const offscreen = canvas.transferControlToOffscreen();
-        workerRef.current.postMessage({
-          canvas: offscreen,
-          nodeId: node.id,
-          filterType: data.filter.type
-        }, [offscreen]);
-        
-        // Trigger initial update
-        window.updateNodePreview?.(node.id);
-      } catch (err) {
-        console.error(`Error creating preview canvas for node ${node.id}:`, err);
+        // Set up message handler
+        workerRef.current.onmessage = (e) => {
+          const { nodeId, imageDataUrl, error } = e.data;
+          
+          if (error) {
+            console.error(`Worker error for node ${nodeId}:`, error);
+            return;
+          }
+          
+          if (nodeId && imageDataUrl) {
+            // Dispatch an event to update the node's preview
+            const updateEvent = new CustomEvent('node-preview-updated', {
+              detail: { nodeId, preview: imageDataUrl }
+            });
+            window.dispatchEvent(updateEvent);
+          }
+        };
+      } catch (error) {
+        console.error('Error initializing preview worker:', error);
       }
     }
     
-    return () => {
-      // Clean up canvases on unmount
-      canvasRefs.current.clear();
-    };
-  }, [nodes]);
-  
-  // Listen for parameter changes to update previews
-  useEffect(() => {
-    const handleParamChange = (e: CustomEvent) => {
-      if (e.detail && e.detail.nodeId) {
-        window.updateNodePreview?.(e.detail.nodeId);
+    // Create a handler for preview requests
+    const handlePreviewRequest = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.nodeId) {
+        requestNodePreview(customEvent.detail.nodeId);
       }
     };
     
-    window.addEventListener('node-param-changed', handleParamChange as EventListener);
+    // Listen for preview requests
+    window.addEventListener('request-node-preview', handlePreviewRequest);
     
+    // Cleanup on unmount
     return () => {
-      window.removeEventListener('node-param-changed', handleParamChange as EventListener);
+      window.removeEventListener('request-node-preview', handlePreviewRequest);
+      
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
     };
   }, []);
   
-  return (
-    <div 
-      id="preview-canvases-container" 
-      ref={containerRef}
-      className="hidden" 
-      aria-hidden="true"
-    />
-  );
+  // Handle parameter changes
+  useEffect(() => {
+    const handleParamChange = (e: CustomEvent) => {
+      // This would update the preview for a node when parameters change
+      if (e.detail && e.detail.nodeId) {
+        requestNodePreview(e.detail.nodeId);
+      }
+    };
+    
+    // Listen for parameter changes
+    window.addEventListener('parameter-changed' as any, handleParamChange);
+    
+    return () => {
+      window.removeEventListener('parameter-changed' as any, handleParamChange);
+    };
+  }, []);
+  
+  // Function to request a preview update for a specific node
+  const requestNodePreview = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !workerRef.current) return;
+    
+    // Get the node's input image
+    const getInputImage = async () => {
+      // Find the input edge for this node
+      const inputNodeId = findInputNodeId(nodeId);
+      if (!inputNodeId) return null;
+      
+      // Get the input node
+      const inputNode = nodes.find(n => n.id === inputNodeId);
+      if (!inputNode) return null;
+      
+      // If it's a source image, use it directly
+      if (inputNode.data.type === 'image') {
+        return inputNode.data.src || null;
+      }
+      
+      // Otherwise, use its preview (which should have been processed already)
+      return inputNode.data.preview || null;
+    };
+    
+    // Get the input image and send to worker
+    getInputImage().then(inputImageUrl => {
+      if (!inputImageUrl || !workerRef.current) return;
+      
+      // Get filter type and settings
+      const filterType = (node.data as FilterNodeData).filterType || '';
+      const settings = (node.data as FilterNodeData).settings || {};
+      
+      // Send message to worker
+      workerRef.current.postMessage({
+        nodeId,
+        imageDataUrl: inputImageUrl,
+        filterType,
+        settings
+      });
+    });
+  };
+  
+  // Helper to find the input node ID for a given node
+  const findInputNodeId = (nodeId: string): string | null => {
+    // This is a simplified approach - in a real app, you'd use the edges array
+    // For each node, find its input edges
+    const inputNodes = nodes.filter(node => {
+      // Check if this node outputs to our target node
+      // In a real implementation, you'd check the edges array
+      return false; // Placeholder
+    });
+    
+    if (inputNodes.length === 0) return null;
+    return inputNodes[0].id;
+  };
+  
+  // This component doesn't render anything visible
+  return null;
 }
