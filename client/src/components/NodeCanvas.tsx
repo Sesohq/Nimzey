@@ -1,32 +1,24 @@
-import { useCallback, useState, useMemo } from 'react';
-import ReactFlow, {
+import React, { useCallback, useRef } from 'react';
+import ReactFlow, { 
+  Node, 
+  Edge, 
+  NodeChange, 
+  EdgeChange, 
+  Connection, 
+  Background, 
   Controls,
-  Background,
-  BackgroundVariant,
-  MiniMap,
-  Node,
-  Edge,
-  NodeChange,
-  EdgeChange,
-  Connection,
-  useReactFlow,
-  NodeTypes
+  Panel,
+  NodeTypes,
+  useReactFlow
 } from 'reactflow';
+import 'reactflow/dist/style.css';
+import SimpleFilterNode from './SimpleFilterNode';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import FilterNode from './FilterNode';
-import EnhancedFilterNode from './EnhancedFilterNode';
-import ImageNode from './ImageNode';
-import OutputNode from './OutputNode';
-import ImageFilterNode from './ImageFilterNode';
-import { Badge } from '@/components/ui/badge';
+import { ZoomIn, ZoomOut, Upload } from 'lucide-react';
 
-// Using a fixed nodeTypes object to avoid ReactFlow warnings
+// Define the node types
 const nodeTypes: NodeTypes = {
-  filterNode: FilterNode, // Reverting to original FilterNode to fix controls
-  imageNode: ImageNode,
-  outputNode: OutputNode,
-  imageFilterNode: ImageFilterNode
+  filterNode: SimpleFilterNode,
 };
 
 interface NodeCanvasProps {
@@ -44,10 +36,10 @@ interface NodeCanvasProps {
 }
 
 export default function NodeCanvas({ 
-  nodes, 
-  edges, 
-  onNodesChange, 
-  onEdgesChange, 
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
   onConnect,
   onNodeClick,
   selectedNodeId,
@@ -56,68 +48,76 @@ export default function NodeCanvas({
   zoomLevel,
   onUploadImage
 }: NodeCanvasProps) {
-  const reactFlowInstance = useReactFlow();
-  const [isDragging, setIsDragging] = useState(false);
-  
-  // We're using the static nodeTypes object defined above
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handlePaneClick = () => {
-    // Deselect node when clicking on the pane
-    onNodeClick('');
-  };
-
+  // Handle node click
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
   };
-  
-  // Handle double-click on edges to delete them
-  const handleEdgeDoubleClick = (_: React.MouseEvent, edge: Edge) => {
-    // Create a remove change for this edge
-    const removeChange: EdgeChange = {
-      id: edge.id,
-      type: 'remove',
-    };
-    
-    // Apply the change
-    onEdgesChange([removeChange]);
+
+  // Handle file upload
+  const handleUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadImage) {
+      onUploadImage(file);
+    }
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden">
-      <div className="flex-1 h-full">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onPaneClick={handlePaneClick}
-          onNodeClick={handleNodeClick}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          nodeTypes={nodeTypes}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-          snapToGrid={true}
-          snapGrid={[15, 15]}
-          onDragOver={onDragOver}
-          deleteKeyCode="Delete"
-        >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-          <Controls showInteractive={false} />
-          
-          {/* Small hint for users about connections */}
-          <div className="absolute top-2 right-2 z-10 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm border border-gray-200">
-            <div className="mb-1">Drag between handles to connect • Double-click on connections to delete</div>
-            <div>Click the red disconnect button to remove parameter connections</div>
-          </div>
-        </ReactFlow>
-      </div>
+    <div className="w-full h-full relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={handleNodeClick}
+        nodeTypes={nodeTypes}
+        fitView
+        snapToGrid
+        snapGrid={[16, 16]}
+        deleteKeyCode="Delete"
+        multiSelectionKeyCode="Control"
+        selectionKeyCode="Shift"
+      >
+        {/* Background pattern */}
+        <Background color="#888" gap={16} size={1} />
+        
+        {/* Zoom controls */}
+        <Panel position="top-right" className="space-x-2">
+          <Button variant="outline" size="icon" onClick={zoomIn}>
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={zoomOut}>
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleUploadClick}>
+            <Upload className="h-4 w-4" />
+          </Button>
+        </Panel>
+        
+        {/* ReactFlow controls */}
+        <Controls />
+      </ReactFlow>
+      
+      {/* Hidden file input for image upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        onChange={handleFileChange}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { FilterNodeData, BlendMode, NodeColorTag } from '@/types';
-import { getFilterSettings } from '@/lib/filters';
+import { FilterNodeData } from '@/types';
+import { getFilterSettings } from '@/filters';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { 
@@ -11,43 +11,13 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Layers, ChevronDown, ChevronUp } from 'lucide-react';
 
-// Color tag backgrounds
-const colorTagBg: Record<NodeColorTag, string> = {
-  default: 'bg-gray-600',
-  red: 'bg-red-600',
-  orange: 'bg-orange-600',
-  yellow: 'bg-yellow-500',
-  green: 'bg-green-600',
-  blue: 'bg-blue-600',
-  purple: 'bg-purple-600',
-  pink: 'bg-pink-600'
-};
-
-// Blend mode labels
-const blendModeLabels: Record<BlendMode, string> = {
-  'normal': 'Normal',
-  'multiply': 'Multiply',
-  'screen': 'Screen',
-  'overlay': 'Overlay',
-  'darken': 'Darken',
-  'lighten': 'Lighten',
-  'color-dodge': 'Color Dodge',
-  'color-burn': 'Color Burn',
-  'hard-light': 'Hard Light',
-  'soft-light': 'Soft Light',
-  'difference': 'Difference',
-  'exclusion': 'Exclusion'
-};
-
-const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
+export default function SimpleFilterNode({ id, data }: NodeProps<FilterNodeData>) {
   const [settings, setSettings] = useState<Record<string, any>>(data.settings || {});
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   
   // Get filter settings based on the filter type
-  const filterSettings = getFilterSettings(data.filter?.type || data.filterType || '');
+  const filterSettings = getFilterSettings(data.filterType || '');
   
   // Update local settings when data.settings changes
   useEffect(() => {
@@ -65,69 +35,19 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
       data.onSettingsChange(id, newSettings);
     }
   };
-  
-  const handleToggleCollapse = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newCollapsedState = !collapsed;
-    setCollapsed(newCollapsedState);
-    if (data.onToggleCollapsed) {
-      data.onToggleCollapsed(id, newCollapsedState);
-    }
-  };
-  
-  const handleToggleEnabled = (checked: boolean) => {
-    if (data.onToggleEnabled) {
-      data.onToggleEnabled(id, checked);
-    }
-  };
-  
-  const handleChangeBlendMode = (blendMode: BlendMode) => {
-    if (data.onChangeBlendMode) {
-      data.onChangeBlendMode(id, blendMode);
-    }
-  };
-  
-  const handleChangeColorTag = (color: NodeColorTag) => {
-    if (data.onChangeColorTag) {
-      data.onChangeColorTag(id, color);
-    }
-  };
 
   return (
-    <div className="bg-node-bg rounded-md shadow-lg w-60">
+    <div className="bg-gray-800 rounded-md shadow-lg w-60">
       {/* Node header */}
-      <div 
-        className={`${colorTagBg[data.colorTag || 'default']} px-3 py-2 rounded-t-md text-white`}
-      >
+      <div className="bg-gray-700 px-3 py-2 rounded-t-md text-white">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id={`enable-${id}`}
-              checked={data.enabled}
-              onCheckedChange={handleToggleEnabled}
-              className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="font-medium text-sm">{data.label}</span>
-          </div>
-          <div className="flex space-x-1">
-            <button 
-              className="hover:bg-white/20 rounded p-1" 
-              onClick={(e) => {
-                e.stopPropagation();
-                // Toggle settings if we implement them
-              }}
-            >
-              <Layers className="h-3 w-3" />
-            </button>
-            
-            <button 
-              className="hover:bg-white/20 rounded p-1" 
-              onClick={handleToggleCollapse}
-            >
-              {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
-            </button>
-          </div>
+          <span className="font-medium text-sm">{data.label}</span>
+          <button 
+            className="hover:bg-gray-600 rounded p-1" 
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? '▼' : '▲'}
+          </button>
         </div>
       </div>
       
@@ -148,7 +68,7 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
           />
           
           {/* Preview image */}
-          <div className="mb-3 bg-gray-800 rounded-md overflow-hidden" style={{ height: '120px' }}>
+          <div className="mb-3 bg-gray-900 rounded-md overflow-hidden" style={{ height: '120px' }}>
             {data.preview ? (
               <img 
                 src={data.preview} 
@@ -156,7 +76,7 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
                 className="w-full h-full object-cover" 
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-700">
+              <div className="w-full h-full flex items-center justify-center">
                 <span className="text-gray-500">No preview</span>
               </div>
             )}
@@ -175,7 +95,7 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
                     min={setting.min}
                     max={setting.max}
                     step={setting.step}
-                    className="flex-1 accent-primary"
+                    className="flex-1"
                     onValueChange={(value) => handleSettingChange(setting.name, value[0])}
                   />
                   <Input
@@ -213,6 +133,4 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
       )}
     </div>
   );
-};
-
-export default memo(FilterNode);
+}
