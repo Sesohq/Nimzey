@@ -15,6 +15,7 @@ import ReactFlow, {
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import FilterNode from './FilterNode';
+import EnhancedFilterNode from './EnhancedFilterNode';
 import ImageNode from './ImageNode';
 import OutputNode from './OutputNode';
 import ImageFilterNode from './ImageFilterNode';
@@ -22,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 
 // Using a fixed nodeTypes object to avoid ReactFlow warnings
 const nodeTypes: NodeTypes = {
-  filterNode: FilterNode,
+  filterNode: EnhancedFilterNode, // Use our enhanced version
   imageNode: ImageNode,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
