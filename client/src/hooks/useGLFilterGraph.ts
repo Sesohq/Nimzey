@@ -637,9 +637,18 @@ export function useGLFilterGraph() {
       })
     );
     
+    // Clear cache for this node and all downstream nodes
+    clearDownstreamCache(nodeId);
+    
+    // Update the node thumbnail
+    const updatedNode = nodes.find(n => n.id === nodeId);
+    if (updatedNode) {
+      generateNodePreview(updatedNode);
+    }
+    
     // Process image
     requestProcessing();
-  }, []);
+  }, [nodes, clearDownstreamCache, generateNodePreview, requestProcessing]);
   
   // Handle changing node opacity
   const handleOpacityChange = useCallback((nodeId: string, opacity: number) => {
@@ -658,9 +667,12 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Debounced processing
+    // Clear cache for this node and all downstream nodes
+    clearDownstreamCache(nodeId);
+    
+    // Update node preview with debouncing to avoid too many updates
     debouncedRequestProcessing();
-  }, []);
+  }, [clearDownstreamCache, debouncedRequestProcessing]);
   
   // Handle changing node color tag
   const handleColorTagChange = useCallback((nodeId: string, colorTag: NodeColorTag) => {
@@ -678,6 +690,9 @@ export function useGLFilterGraph() {
         return node;
       })
     );
+    
+    // No need to clear cache or reprocess for a visual-only change
+    // Color tags don't affect the image processing output
   }, []);
   
   // Zoom controls
