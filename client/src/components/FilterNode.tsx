@@ -1,18 +1,19 @@
-import { useState, useEffect, memo } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
-import { FilterNodeData, BlendMode, NodeColorTag } from '@/types';
-import { getFilterSettings } from '@/lib/filters';
-import { Slider } from '@/components/ui/slider';
+import { memo, useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+import { Handle, Position, NodeProps } from 'reactflow';
+import { throttle } from 'lodash';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
+import { CustomSlider } from '@/components/ui/custom-slider';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { ChevronDown, ChevronUp, MinusIcon, TagIcon, Layers, Paintbrush } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Layers, ChevronDown, ChevronUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
+import NodeControls from './NodeControls';
+import CanvasPreview from './CanvasPreview';
 
 // Color tag backgrounds
 const colorTagBg: Record<NodeColorTag, string> = {
@@ -42,30 +43,119 @@ const blendModeLabels: Record<BlendMode, string> = {
   'exclusion': 'Exclusion'
 };
 
-const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
-  const [settings, setSettings] = useState<Record<string, any>>(data.settings || {});
-  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+// EditableValue component for consistent display and editing of parameter values
+const EditableValue = ({ 
+  value,
+  unit,
+  paramId,
+  isEditing,
+  editValue,
+  onStartEdit,
+  onChangeEdit,
+  onFinishEdit,
+  onCancelEdit,
+  disabled
+}: {
+  value: number | string,
+  unit?: string,
+  paramId: string,
+  isEditing: boolean,
+  editValue: string,
+  onStartEdit: (id: string, value: number | string | boolean) => void,
+  onChangeEdit: (value: string) => void,
+  onFinishEdit: () => void,
+  onCancelEdit: () => void,
+  disabled?: boolean
+}) => {
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        value={editValue}
+        onChange={(e) => onChangeEdit(e.target.value)}
+        onBlur={onFinishEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onFinishEdit();
+          } else if (e.key === 'Escape') {
+            onCancelEdit();
+          }
+        }}
+        className="text-xs w-14 h-6 px-1 py-0"
+        autoFocus
+      />
+    );
+  }
   
-  // Get filter settings based on the filter type
-  const filterSettings = getFilterSettings(data.filter?.type || data.filterType || '');
+  return (
+    <span 
+      className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'}`}
+      onClick={() => {
+        if (!disabled && typeof value !== 'boolean') {
+          onStartEdit(paramId, value);
+        }
+      }}
+      title={disabled ? "Parameter is disabled or connected" : "Click to edit value"}
+    >
+      {value}{unit || ''}
+    </span>
+  );
+};
+
+interface FilterNodeExtendedProps extends NodeProps<FilterNodeData> {
+  generateNodePreview?: (nodeId: string) => void;
+}
+
+const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExtendedProps) => {
+  // State for the fast preview system
+  const [showFastPreview, setShowFastPreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isSliderActive, setIsSliderActive] = useState(false);
   
-  // Update local settings when data.settings changes
+  // Reference to the source image for fast previews
+  const sourceImageRef = useRef<string | null>(null);
+  
+  // Effect to update source image when the preview changes
   useEffect(() => {
-    if (data.settings) {
-      setSettings(data.settings);
+    if (data.preview) {
+      sourceImageRef.current = data.preview;
     }
-  }, [data.settings]);
+  }, [data.preview]);
   
-  const handleSettingChange = (name: string, value: any) => {
-    const newSettings = { ...settings, [name]: value };
-    setSettings(newSettings);
-    
-    // This is important - it communicates the setting change to the parent
-    if (data.onSettingsChange) {
-      data.onSettingsChange(id, newSettings);
-    }
-  };
+  // Create throttled version of the preview generator
+  const throttledPreview = useMemo(() => {
+    return throttle(() => {
+      // Trigger the thumbnail generation
+      if (generateNodePreview) {
+        generateNodePreview(id);
+      }
+    }, 100, { leading: false, trailing: true });
+  }, [id, generateNodePreview]);
   
+  // Create throttled version of the parameter change handler for slider interactions
+  const throttledParamChange = useMemo(() => {
+    return throttle((paramId: string, value: number | string | boolean) => {
+      if (data.onParamChange) {
+        data.onParamChange(id, paramId, value);
+        // Also schedule a thumbnail update
+        throttledPreview();
+      }
+    }, 100, { leading: true, trailing: true });
+  }, [id, data.onParamChange, throttledPreview]);
+  
+  // Handler for when fast preview is generated
+  const handleFastPreviewGenerated = useCallback((dataUrl: string) => {
+    setPreviewImageUrl(dataUrl);
+  }, []);
+  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [editingParam, setEditingParam] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  
+  // Create handle references for connection lines to work properly
+  const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
     const newCollapsedState = !collapsed;
@@ -74,132 +164,382 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
       data.onToggleCollapsed(id, newCollapsedState);
     }
   };
-  
+
+  const handleParamChange = (paramId: string, value: number | string | boolean) => {
+    // Show fast preview while user is interacting with sliders
+    setShowFastPreview(true);
+    
+    if (data.onParamChange) {
+      data.onParamChange(id, paramId, value);
+      
+      // Hide fast preview and trigger normal preview after interaction stops
+      setTimeout(() => {
+        setShowFastPreview(false);
+        throttledPreview();
+      }, 500);
+    }
+  };
+
   const handleToggleEnabled = (checked: boolean) => {
     if (data.onToggleEnabled) {
       data.onToggleEnabled(id, checked);
     }
   };
-  
+
   const handleChangeBlendMode = (blendMode: BlendMode) => {
     if (data.onChangeBlendMode) {
       data.onChangeBlendMode(id, blendMode);
     }
   };
-  
+
+  const handleChangeOpacity = (value: number) => {
+    if (data.onChangeOpacity) {
+      data.onChangeOpacity(id, value);
+    }
+  };
+
   const handleChangeColorTag = (color: NodeColorTag) => {
     if (data.onChangeColorTag) {
       data.onChangeColorTag(id, color);
     }
   };
 
+  // For disconnecting parameter links
+  const handleDisconnectParam = (paramId: string) => {
+    if (data.onDisconnectParam) {
+      data.onDisconnectParam(id, paramId);
+    }
+  };
+  
+  // Handle starting to edit a parameter value
+  const handleStartEditing = (paramId: string, value: number | string | boolean) => {
+    if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    
+    // Only allow editing numeric or string values
+    if (typeof value === 'boolean') return;
+    
+    setEditingParam(paramId);
+    setEditingValue(String(value));
+  };
+  
+  // Handle finishing the edit and updating the value
+  const handleFinishEditing = () => {
+    if (editingParam && editingValue !== '') {
+      const param = data.params.find(p => p.id === editingParam);
+      if (param) {
+        // Convert value based on parameter type
+        let parsedValue: number | string | boolean;
+        
+        if (param.paramType === 'float') {
+          parsedValue = parseFloat(editingValue);
+        } else if (param.paramType === 'integer') {
+          parsedValue = parseInt(editingValue, 10);
+        } else {
+          parsedValue = editingValue;
+        }
+        
+        // Clamp the value if min/max are defined
+        if (typeof parsedValue === 'number' && !isNaN(parsedValue)) {
+          if (param.min !== undefined) parsedValue = Math.max(param.min, parsedValue);
+          if (param.max !== undefined) parsedValue = Math.min(param.max, parsedValue);
+        }
+        
+        handleParamChange(editingParam, parsedValue);
+      }
+    }
+    setEditingParam(null);
+  };
+
   return (
-    <div className="bg-node-bg rounded-md shadow-lg w-60">
-      {/* Node header */}
+    <Card 
+      className={`shadow-md w-[280px] bg-card ${selected ? 'ring-2 ring-primary' : ''} 
+        ${!data.enabled ? 'opacity-60' : ''}`}
+    >
       <div 
-        className={`${colorTagBg[data.colorTag || 'default']} px-3 py-2 rounded-t-md text-white`}
+        className={`${colorTagBg[data.colorTag || 'default']} text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move`}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id={`enable-${id}`}
-              checked={data.enabled}
-              onCheckedChange={handleToggleEnabled}
-              className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="font-medium text-sm">{data.label}</span>
-          </div>
-          <div className="flex space-x-1">
-            <button 
-              className="hover:bg-white/20 rounded p-1" 
-              onClick={(e) => {
-                e.stopPropagation();
-                // Toggle settings if we implement them
-              }}
-            >
-              <Layers className="h-3 w-3" />
-            </button>
-            
-            <button 
-              className="hover:bg-white/20 rounded p-1" 
-              onClick={handleToggleCollapse}
-            >
-              {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
-            </button>
-          </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id={`enable-${id}`}
+            checked={data.enabled}
+            onCheckedChange={handleToggleEnabled}
+            className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span>{data.label}</span>
+        </div>
+        <div className="flex space-x-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Layers className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Node Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={handleToggleCollapse}
+                >
+                  {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{collapsed ? 'Expand' : 'Collapse'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
-      
-      {!collapsed && (
-        <div className="p-3">
-          {/* Input handle */}
-          <Handle
-            type="target"
-            position={Position.Left}
-            style={{ background: '#555' }}
-          />
-          
-          {/* Output handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            style={{ background: '#555' }}
-          />
-          
-          {/* Preview image */}
-          <div className="mb-3 bg-gray-800 rounded-md overflow-hidden" style={{ height: '120px' }}>
-            {data.preview ? (
-              <img 
-                src={data.preview} 
-                alt={`${data.label} preview`}
-                className="w-full h-full object-cover" 
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-700">
-                <span className="text-gray-500">No preview</span>
-              </div>
-            )}
+
+      {/* Node settings panel */}
+      {showSettings && (
+        <div className="p-3 border-b border-gray-200">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Blend Mode</Label>
+              <Select 
+                value={data.blendMode || 'normal'} 
+                onValueChange={(value) => handleChangeBlendMode(value as BlendMode)}
+                disabled={!data.enabled}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(blendModeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
+              <Select 
+                value={data.colorTag || 'default'} 
+                onValueChange={(value) => handleChangeColorTag(value as NodeColorTag)}
+              >
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="red">Red</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="purple">Purple</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
-          {/* Filter settings controls */}
-          {filterSettings.map(setting => (
-            <div className="mb-3" key={setting.name}>
-              <label className="text-xs text-gray-400 mb-1 block">{setting.label}</label>
+          <div className="mt-2">
+            <Label className="block text-xs text-gray-500 mb-1">Opacity {data.opacity || 100}%</Label>
+            <Slider
+              value={[data.opacity || 100]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(values) => handleChangeOpacity(values[0])}
+              disabled={!data.enabled}
+            />
+          </div>
+        </div>
+      )}
+
+      {!collapsed && (
+        <div className="p-3">
+          {/* Source Image parameter */}
+          <div className="mb-4 relative">
+            <Handle
+              id="param-sourceImage"
+              type="target"
+              position={Position.Left}
+              style={{ 
+                left: -17, // 3px to the right
+                top: 10, // 2px down
+                width: 8, 
+                height: 8,
+                background: '#777777',
+                borderRadius: '50%',
+                border: '2px solid #333',
+                zIndex: 10
+              }}
+            />
+            
+            <div className="flex justify-between items-center">
+              <Label className="block text-xs text-gray-600 font-medium">Source Image</Label>
+              <Badge 
+                variant="outline" 
+                className="text-[9px] px-1 py-0 h-4"
+              >
+                image
+              </Badge>
+            </div>
+          </div>
+          
+          {/* Image Preview - with Fast Canvas Preview when sliders are active */}
+          {(showFastPreview && sourceImageRef.current && data.filter?.type) || data.preview ? (
+            <div className="mb-3">
+              <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
+                {showFastPreview && sourceImageRef.current && data.filter?.type ? (
+                  /* Show real-time canvas preview during slider interactions */
+                  <CanvasPreview
+                    imageUrl={sourceImageRef.current}
+                    filterType={data.filter.type}
+                    params={data.filter.params || []}
+                    width={280}
+                    height={100}
+                    onPreviewGenerated={handleFastPreviewGenerated}
+                  />
+                ) : (
+                  /* Show normal WebGL-rendered preview when not interacting */
+                  data.preview && (
+                    <img 
+                      src={data.preview} 
+                      alt={`${data.label} preview`}
+                      className="w-full h-full object-cover"
+                    />
+                  )
+                )}
+              </div>
+            </div>
+          ) : null}
+          
+          {/* Parameters with connection handles */}
+          {data.params.map((param) => (
+            <div key={param.id || param.name} className="mb-4 relative">
+              {/* Parameter connection handle */}
+              <Handle
+                id={`param-${param.id || param.name}`}
+                type="target"
+                position={Position.Left}
+                style={{ 
+                  left: -17, // 3px to the right
+                  top: 10, // 2px down
+                  width: 8, 
+                  height: 8, 
+                  background: param.isConnected ? '#ff5555' : '#777777',
+                  borderRadius: '50%',
+                  border: '2px solid #333',
+                  zIndex: 10
+                }}
+              />
               
-              {/* For sliders (range inputs) */}
-              {setting.type === 'range' && (
-                <div className="flex items-center space-x-2">
-                  <Slider
-                    value={[settings[setting.name] ?? setting.defaultValue]}
-                    min={setting.min}
-                    max={setting.max}
-                    step={setting.step}
-                    className="flex-1 accent-primary"
-                    onValueChange={(value) => handleSettingChange(setting.name, value[0])}
+              <div className="flex justify-between items-center">
+                <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
+                <div className="flex items-center">
+                  {param.isConnected && (
+                    <button 
+                      className="text-xs text-red-500 hover:text-red-700 mr-1 px-1 border border-red-500 rounded"
+                      onClick={() => handleDisconnectParam(param.id || param.name)}
+                      title="Disconnect parameter"
+                    >
+                      ×
+                    </button>
+                  )}
+                  <Badge 
+                    variant="outline" 
+                    className="text-[9px] px-1 py-0 h-4"
+                  >
+                    {param.paramType}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Parameter connection indicators removed */}
+              
+              {param.controlType === 'range' && (
+                <div className="flex items-center mt-1">
+                  <CustomSlider
+                    value={[param.value as number]}
+                    min={param.min}
+                    max={param.max}
+                    step={param.step}
+                    color="warning"
+                    size="md"
+                    className="flex-1 mr-2"
+                    onValueChange={(values) => {
+                      // Show fast preview while adjusting slider
+                      setShowFastPreview(true);
+                      
+                      // Update node data immediately so the thumb moves
+                      handleParamChange(param.id || param.name, values[0]);
+                    }}
+                    onValueCommit={(values) => {
+                      // When slider interaction ends, hide fast preview after a delay 
+                      // and generate the high-quality preview
+                      setTimeout(() => {
+                        setShowFastPreview(false);
+                        // Use throttled processing for WebGL rendering
+                        throttledParamChange(param.id || param.name, values[0]);
+                      }, 300);
+                    }}
+                    disabled={!data.enabled || param.isConnected}
                   />
-                  <Input
-                    type="number"
-                    min={setting.min}
-                    max={setting.max}
-                    value={settings[setting.name] ?? setting.defaultValue}
-                    onChange={(e) => handleSettingChange(setting.name, Number(e.target.value))}
-                    className="w-12 bg-gray-700 text-white text-xs p-1 rounded"
-                  />
+                  {editingParam === (param.id || param.name) ? (
+                    <Input
+                      type={param.paramType === 'float' || param.paramType === 'integer' ? 'number' : 'text'}
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={handleFinishEditing}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleFinishEditing();
+                        } else if (e.key === 'Escape') {
+                          setEditingParam(null);
+                        }
+                      }}
+                      min={param.min}
+                      max={param.max}
+                      step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
+                      className="text-xs w-16 h-6 px-1 py-0"
+                      autoFocus
+                    />
+                  ) : (
+                    <span 
+                      className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium cursor-pointer hover:bg-gray-200"
+                      onClick={() => {
+                        if (typeof param.value !== 'boolean') {
+                          handleStartEditing(param.id || param.name, param.value);
+                        }
+                      }}
+                      title="Click to edit value directly"
+                    >
+                      {param.value}{param.unit || ''}
+                    </span>
+                  )}
                 </div>
               )}
               
-              {/* For dropdown selects */}
-              {setting.type === 'select' && (
+              {param.controlType === 'select' && (
                 <Select 
-                  value={String(settings[setting.name] ?? setting.defaultValue)}
-                  onValueChange={(value) => handleSettingChange(setting.name, value)}
+                  value={param.value as string} 
+                  onValueChange={(value) => handleParamChange(param.id || param.name, value)}
+                  disabled={!data.enabled || param.isConnected}
                 >
-                  <SelectTrigger className="w-full bg-gray-700 text-white">
-                    <SelectValue />
+                  <SelectTrigger className="w-full text-sm mt-1">
+                    <SelectValue placeholder={param.options?.[0]} />
                   </SelectTrigger>
                   <SelectContent>
-                    {setting.options?.map(option => (
+                    {param.options?.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
                       </SelectItem>
@@ -207,11 +547,50 @@ const FilterNode = ({ id, data }: NodeProps<FilterNodeData>) => {
                   </SelectContent>
                 </Select>
               )}
+              
+              {param.controlType === 'checkbox' && (
+                <Checkbox 
+                  checked={param.value as boolean}
+                  onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
+                  disabled={!data.enabled || param.isConnected}
+                  className="mt-1"
+                />
+              )}
             </div>
           ))}
         </div>
       )}
-    </div>
+
+      {/* Main node connection handles */}
+      <div className="px-3 pb-2 flex justify-between relative h-8">
+        {/* Input handle (hidden, as we use the Source Image parameter input instead) */}
+        <Handle
+          id="node-input"
+          type="target"
+          position={Position.Left}
+          className="w-6 h-6 rounded-full -ml-3 bg-blue-600 opacity-0" /* Made invisible */
+          style={{ top: 16, transform: 'translateY(-50%)' }}
+        />
+        
+        {/* Single output handle - bottom right corner */}
+        <Handle
+          id="node-output"
+          type="source"
+          position={Position.Right}
+          style={{ 
+            right: -17,
+            bottom: 0,
+            top: 'auto',
+            width: 8, 
+            height: 8, 
+            background: '#777777',
+            borderRadius: '50%',
+            border: '2px solid #333',
+            zIndex: 10
+          }}
+        />
+      </div>
+    </Card>
   );
 };
 

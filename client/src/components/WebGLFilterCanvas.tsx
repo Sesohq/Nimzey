@@ -9,7 +9,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Node, Edge } from 'reactflow';
 import { GLRenderer } from '@/gl/core/GLRenderer';
 import { FilterNodeData, ImageNodeData } from '@/types';
-import { updateNodePreviewDirectly } from '@/utils/directUpdatePreview';
 
 interface WebGLFilterCanvasProps {
   nodes: Node[];
@@ -45,73 +44,6 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
     // Create renderer
     rendererRef.current = new GLRenderer(canvasRef.current);
     
-    // Add handler for preview requests with a short debounce to avoid excessive processing
-    let requestTimer: NodeJS.Timeout | null = null;
-    const pendingRequests = new Set<string>();
-    
-    const handlePreviewRequest = (e: any) => {
-      if (e.detail && e.detail.nodeId && rendererRef.current) {
-        const nodeId = e.detail.nodeId;
-        console.log('WebGLFilterCanvas received preview request for:', nodeId);
-        
-        // Add to pending requests
-        pendingRequests.add(nodeId);
-        
-        // Clear previous timer if exists
-        if (requestTimer) {
-          clearTimeout(requestTimer);
-        }
-        
-        // Set new timer to process all pending requests
-        requestTimer = setTimeout(async () => {
-          try {
-            // Only compile the graph once for all pending requests
-            rendererRef.current!.compileGraph(nodes, edges);
-            
-            // Preload necessary images once
-            await rendererRef.current!.preloadImages(nodes);
-            
-            // Process all pending requests
-            for (const id of pendingRequests) {
-              // Generate the node preview
-              const preview = await rendererRef.current!.getNodePreview(id, 300);
-              if (preview) {
-                // Try direct DOM update first - this bypasses React rendering completely
-                const didDirectUpdate = updateNodePreviewDirectly(id, preview);
-                console.log('Direct DOM update for preview request:', id, didDirectUpdate ? 'successful' : 'failed');
-                
-                // Also dispatch the DOM event for backward compatibility
-                const previewEvent = new CustomEvent('node-preview-updated', { 
-                  detail: { nodeId: id, preview }
-                });
-                window.dispatchEvent(previewEvent);
-                
-                // Also update the nodes state directly for consistency
-                setNodes(nodes => 
-                  nodes.map(node => 
-                    node.id === id 
-                      ? { ...node, data: { ...node.data, preview } }
-                      : node
-                  )
-                );
-              }
-            }
-            
-            // Clear pending requests
-            pendingRequests.clear();
-          } catch (err) {
-            console.error('Error generating requested previews:', err);
-            pendingRequests.clear();
-          } finally {
-            requestTimer = null;
-          }
-        }, 20); // Short delay to batch requests
-      }
-    };
-    
-    // Add event listener for our custom event
-    window.addEventListener('request-node-preview', handlePreviewRequest);
-    
     // Clean up on unmount
     return () => {
       // Cancel animation frame if active
@@ -120,16 +52,13 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         animationFrameRef.current = null;
       }
       
-      // Remove event listener
-      window.removeEventListener('request-node-preview', handlePreviewRequest);
-      
       // Dispose renderer
       if (rendererRef.current) {
         rendererRef.current.dispose();
         rendererRef.current = null;
       }
     };
-  }, [nodes, edges]);
+  }, []);
   
   // Update canvas size when dimensions change
   useEffect(() => {
@@ -183,23 +112,8 @@ const WebGLFilterCanvas: React.FC<WebGLFilterCanvasProps> = ({
         // If a selected node is provided, generate node preview
         if (selectedNodeId) {
           const nodePreview = await rendererRef.current!.getNodePreview(selectedNodeId, 300);
-          if (nodePreview) {
-            console.log('Generated preview for node:', selectedNodeId);
-            
-            // Try direct DOM update first - this bypasses React rendering completely
-            const didDirectUpdate = updateNodePreviewDirectly(selectedNodeId, nodePreview);
-            console.log('Direct DOM update for preview:', didDirectUpdate ? 'successful' : 'failed');
-            
-            // Still dispatch the DOM event for backward compatibility
-            const previewEvent = new CustomEvent('node-preview-updated', { 
-              detail: { nodeId: selectedNodeId, preview: nodePreview }
-            });
-            window.dispatchEvent(previewEvent);
-            
-            // Also call the callback if provided
-            if (onPreviewGenerated) {
-              onPreviewGenerated(nodePreview);
-            }
+          if (onPreviewGenerated && nodePreview) {
+            onPreviewGenerated(nodePreview);
           }
         } else if (onPreviewGenerated) {
           // Otherwise, use the full render
