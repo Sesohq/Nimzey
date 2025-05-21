@@ -496,17 +496,18 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
                     size="md"
                     className="flex-1 mr-2"
                      onValueChange={(values) => {
-                      // Batch the parameter change and preview request
                       const paramId = param.id || param.name;
-
-                      // Track if the slider is currently being dragged
                       isDraggingRef.current = true;
-                      handleParamChange(paramId, values[0]);
-
-                      // Use a more aggressive throttle for WebGL updates during sliding
-                      throttledParamChange(paramId, values[0], 'preview');
+                      
+                      // Only update the parameter value
+                      if (data.onParamChange) {
+                        data.onParamChange(id, paramId, values[0]);
+                      }
+                      
+                      // Throttle preview updates during sliding
+                      throttledParamChange(paramId, values[0]);
                     }}
-                    onValueChangeEnd={() => {
+                    onPointerUp={() => {
                       isDraggingRef.current = false;
                       requestPreviewUpdate();
                     }}
