@@ -383,19 +383,99 @@ export function useGLFilterGraph() {
     return nodeId;
   }, [nodes]);
   
-  // Generate node preview for the selected node
-  const generateNodePreview = useCallback(async (targetNode: Node) => {
-    if (!glRendererRef.current || !targetNode) return;
+  // Cache for processed images to improve performance
+  const processedImageCache = useRef<Map<string, string>>(new Map());
+  
+  // Clear cache for a node and all nodes that depend on it
+  const clearDownstreamCache = useCallback((nodeId: string) => {
+    const downstreamNodeIds = new Set<string>();
+    
+    // Find all nodes that get input (directly or indirectly) from this node
+    const findDownstreamNodes = (id: string) => {
+      edges.forEach(edge => {
+        if (edge.source === id) {
+          downstreamNodeIds.add(edge.target);
+          findDownstreamNodes(edge.target);
+        }
+      });
+    };
+    
+    findDownstreamNodes(nodeId);
+    
+    // Clear cache entries for affected nodes
+    processedImageCache.current.delete(nodeId);
+    downstreamNodeIds.forEach(id => {
+      processedImageCache.current.delete(id);
+    });
+  }, [edges]);
+
+  // Get processed image for a specific node with caching
+  const getProcessedImage = useCallback(async (nodeId: string): Promise<string | null> => {
+    // Check cache first for better performance
+    if (processedImageCache.current.has(nodeId)) {
+      console.log(`Using cached preview for node: ${nodeId}`);
+      return processedImageCache.current.get(nodeId) || null;
+    }
+    
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return null;
+    
+    // For image source nodes, just return the original image
+    if (node.type === 'imageNode') {
+      const imageUrl = node.data.imageUrl || node.data.src;
+      if (imageUrl) {
+        processedImageCache.current.set(nodeId, imageUrl);
+        return imageUrl;
+      }
+      return null;
+    }
+    
+    // For filter nodes, find the input and process it
+    const inputEdge = edges.find(edge => edge.target === nodeId);
+    if (!inputEdge) {
+      console.log(`No incoming edges to node ${nodeId}`);
+      return null;
+    }
+    
+    // Recursively get the source image (this handles chains of filters)
+    const inputImageUrl = await getProcessedImage(inputEdge.source);
+    if (!inputImageUrl) return null;
+    
+    // We need the GL renderer to apply filters
+    if (!glRendererRef.current) return null;
     
     try {
-      // Compile the graph up to this node
+      // First make sure the graph is compiled
       glRendererRef.current.compileGraph(nodes, edges);
       
-      // Preload necessary images
+      // Then preload necessary images
       await glRendererRef.current.preloadImages(nodes);
       
-      // Get preview at low resolution
-      const previewUrl = await glRendererRef.current.getNodePreview(targetNode.id, 300);
+      // Get preview at appropriate resolution
+      const resultImageUrl = await glRendererRef.current.getNodePreview(nodeId, 300);
+      
+      if (resultImageUrl) {
+        // Cache the result
+        processedImageCache.current.set(nodeId, resultImageUrl);
+        
+        // Return the processed image URL
+        return resultImageUrl;
+      }
+      
+      return null;
+    } catch (err) {
+      console.error(`Error processing node ${nodeId}:`, err);
+      return null;
+    }
+  }, [nodes, edges]);
+
+  // Generate node preview for the selected node
+  const generateNodePreview = useCallback(async (targetNode: Node) => {
+    if (!targetNode) return;
+    
+    try {
+      // Get the processed image using our caching system
+      const previewUrl = await getProcessedImage(targetNode.id);
       
       if (previewUrl) {
         // Set node preview in main preview panel
@@ -424,7 +504,7 @@ export function useGLFilterGraph() {
     } catch (err) {
       console.error('Error generating node preview:', err);
     }
-  }, [nodes, edges]);
+  }, [nodes, edges, getProcessedImage]);
   
 
 
@@ -462,6 +542,9 @@ export function useGLFilterGraph() {
       })
     );
     
+    // Clear cache for this node and all downstream nodes
+    clearDownstreamCache(nodeId);
+    
     // Schedule thumbnail and preview updates after the state is updated
     setTimeout(() => {
       // Update the node thumbnail
@@ -474,7 +557,7 @@ export function useGLFilterGraph() {
       setQualityLevel('preview');
     }, 10);
     
-  }, [nodes, generateNodePreview]);
+  }, [nodes, generateNodePreview, clearDownstreamCache]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
