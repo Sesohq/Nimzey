@@ -173,8 +173,10 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         // First, update the parameter value
         data.onParamChange(id, paramId, value);
         
-        // Request preview update using our direct DOM event system
-        requestPreviewUpdate();
+        // NEW: dispatch the specific event that NodePreviewContainer listens for
+        window.dispatchEvent(
+          new CustomEvent('node-param-changed', { detail: { nodeId: id } })
+        );
         
         // Also use the callback if available (for backward compatibility)
         if (data.onRequestNodePreview) {
@@ -182,7 +184,7 @@ const FilterNode = ({ data, selected, id }: NodeProps<FilterNodeData>) => {
         }
       }
     }, 30, { leading: true, trailing: true }); // Even faster throttle for better responsiveness
-  }, [id, data.onParamChange, data.onRequestNodePreview, requestPreviewUpdate]);
+  }, [id, data.onParamChange, data.onRequestNodePreview]);
   
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [showSettings, setShowSettings] = useState(false);
