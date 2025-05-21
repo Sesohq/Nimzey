@@ -1,0 +1,96 @@
+If you wanted to implement GPU acceleration with WebGL for the filter processing, you'd follow a similar pattern but with some key differences:
+
+WebGL Implementation Approach
+WebGL Setup:
+Instead of using the standard Canvas 2D context, you'd use WebGL:
+// Instead of:
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+// You'd use:
+const canvas = document.createElement('canvas');
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+Shader Programs:
+You'd write GLSL shader programs for each filter type:
+// For a blur filter, you might have:
+const vertexShaderSource = `
+  attribute vec2 a_position;
+  attribute vec2 a_texCoord;
+  varying vec2 v_texCoord;
+  void main() {
+    gl_Position = vec4(a_position, 0, 1);
+    v_texCoord = a_texCoord;
+  }
+`;
+const fragmentShaderSource = `
+  precision mediump float;
+  uniform sampler2D u_image;
+  uniform vec2 u_textureSize;
+  uniform float u_radius;
+  varying vec2 v_texCoord;
+  
+  void main() {
+    float radius = u_radius / 10.0;
+    vec4 color = vec4(0.0);
+    float total = 0.0;
+    
+    // Gaussian blur implementation
+    for (float x = -radius; x <= radius; x += 1.0) {
+      for (float y = -radius; y <= radius; y += 1.0) {
+        vec2 offset = vec2(x, y) / u_textureSize;
+        float weight = exp(-(x*x + y*y) / (2.0 * radius * radius));
+        color += texture2D(u_image, v_texCoord + offset) * weight;
+        total += weight;
+      }
+    }
+    
+    gl_FragColor = color / total;
+  }
+`;
+Processing Pipeline:
+You'd replace the Canvas-based filter functions with WebGL versions:
+// Instead of direct canvas manipulations:
+function applyBlurFilter(ctx, width, height, settings) {
+  const radius = settings.radius || 5;
+  ctx.filter = `blur(${radius}px)`;
+  // ...
+}
+// You'd use a WebGL pipeline:
+function applyBlurFilterWebGL(gl, inputTexture, width, height, settings) {
+  const radius = settings.radius || 5;
+  
+  // Use the shader program
+  gl.useProgram(blurProgram);
+  
+  // Set uniforms (shader variables)
+  gl.uniform1f(radiusLocation, radius);
+  gl.uniform2f(textureSizeLocation, width, height);
+  
+  // Bind the input texture
+  gl.bindTexture(gl.TEXTURE_2D, inputTexture);
+  
+  // Draw to framebuffer
+  gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
+  gl.drawArrays(gl.TRIANGLES, 0, 6); // Drawing a quad
+  
+  // Return the resulting texture
+  return outputTexture;
+}
+Caching and Updates:
+The caching mechanism would remain similar but with WebGL textures instead of images:
+// Cache WebGL textures instead of data URLs
+const processedTextureCache = useRef(new Map<string, WebGLTexture>());
+// Update cache clearing
+const clearDownstreamCache = useCallback((nodeId: string) => {
+  // Similar to before, but with texture cleanup
+  processedTextureCache.current.forEach((texture, id) => {
+    if (id === nodeId || downstreamNodeIds.has(id)) {
+      gl.deleteTexture(texture); // Proper WebGL resource cleanup
+      processedTextureCache.current.delete(id);
+    }
+  });
+}, [edges]);
+Performance Benefits:
+
+Parallel processing of pixels on the GPU
+No need to transfer pixel data between CPU and GPU repeatedly
+Complex filters like blur become much faster
