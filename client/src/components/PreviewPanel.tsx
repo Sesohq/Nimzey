@@ -317,6 +317,25 @@ export default function PreviewPanel({
               </svg>
             </div>
             <span className="text-lg">Preview</span>
+            
+            {/* Quality selector dropdown */}
+            {onQualityChange && (
+              <div className="ml-3">
+                <Select 
+                  value={qualityLevel} 
+                  onValueChange={(value: 'preview' | 'draft' | 'full') => onQualityChange(value)}
+                >
+                  <SelectTrigger className="h-7 w-28 text-xs bg-gray-800 border-gray-700">
+                    <SelectValue placeholder="Quality" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="preview">Fast</SelectItem>
+                    <SelectItem value="draft">Balanced</SelectItem>
+                    <SelectItem value="full">High Quality</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="flex space-x-2">
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="Fullscreen">
