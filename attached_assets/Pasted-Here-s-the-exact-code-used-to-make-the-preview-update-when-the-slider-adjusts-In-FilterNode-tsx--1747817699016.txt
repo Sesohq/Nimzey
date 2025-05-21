@@ -1,0 +1,108 @@
+Here's the exact code used to make the preview update when the slider adjusts:
+
+In FilterNode.tsx
+// This function is called when a slider value changes
+const handleSettingChange = (name: string, value: any) => {
+  // Create new settings object with the updated value
+  const newSettings = { ...settings, [name]: value };
+  
+  // Update local state
+  setSettings(newSettings);
+  
+  // This triggers the update to the parent component
+  if (data.onSettingsChange) {
+    data.onSettingsChange(id, newSettings);
+  }
+};
+In useFilterGraph.ts
+This is where the real preview update magic happens:
+
+// When creating a filter node, this function is attached to it
+// and gets called whenever slider values change
+const onSettingsChange = (nodeId: string, settings: Record<string, any>) => {
+  // Update the node data with new settings
+  updateNodeData(nodeId, { settings });
+  
+  // Clear cached results for this node and any downstream nodes
+  clearDownstreamCache(nodeId);
+}
+// This function updates a node's data
+const updateNodeData = useCallback((nodeId: string, newData: Partial<NodeData>) => {
+  setNodes((nds) => 
+    nds.map((node) => 
+      node.id === nodeId 
+        ? { ...node, data: { ...node.data, ...newData } } 
+        : node
+    )
+  );
+  
+  // Clear downstream cache to force reprocessing
+  clearDownstreamCache(nodeId);
+}, []);
+// This function clears the cache for affected nodes
+const clearDownstreamCache = useCallback((nodeId: string) => {
+  const downstreamNodeIds = new Set<string>();
+  
+  // Find all nodes that depend on this one
+  const findDownstreamNodes = (id: string) => {
+    edges.forEach(edge => {
+      if (edge.source === id) {
+        downstreamNodeIds.add(edge.target);
+        findDownstreamNodes(edge.target);
+      }
+    });
+  };
+  
+  findDownstreamNodes(nodeId);
+  
+  // Clear the cache for the current node and all downstream nodes
+  processedImageCache.current.delete(nodeId);
+  downstreamNodeIds.forEach(id => {
+    processedImageCache.current.delete(id);
+  });
+}, [edges]);
+When the preview is needed (for rendering):
+
+// This function gets called when the preview needs to be rendered
+const getProcessedImage = useCallback(async (nodeId: string): Promise<string | null> => {
+  // Check cache first for performance
+  if (processedImageCache.current.has(nodeId)) {
+    return processedImageCache.current.get(nodeId) || null;
+  }
+  
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return null;
+  
+  // If it's an image node, return the image directly
+  if (node.data.type === 'image') {
+    return node.data.imageDataUrl || null;
+  }
+  
+  // For filter nodes, find the input and process it
+  const inputEdge = edges.find(edge => edge.target === nodeId);
+  if (!inputEdge) return null;
+  
+  // Get the source image
+  const inputImageUrl = await getProcessedImage(inputEdge.source);
+  if (!inputImageUrl) return null;
+  
+  // Apply the filter with current settings
+  const filterType = node.data.type as FilterType;
+  const settings = node.data.settings || {};
+  
+  try {
+    // This applies the actual filter with current settings
+    const resultImageUrl = await applyFilter(inputImageUrl, filterType, settings);
+    
+    // Store in cache
+    processedImageCache.current.set(nodeId, resultImageUrl);
+    
+    // Update the node's preview 
+    updateNodeData(nodeId, { preview: resultImageUrl });
+    
+    return resultImageUrl;
+  } catch (error) {
+    console.error(`Error applying ${filterType} filter:`, error);
+    return null;
+  }
+}, [nodes, edges, updateNodeData]);
