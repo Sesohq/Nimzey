@@ -17,7 +17,8 @@ export type FilterType =
   | 'image'
   | 'perlinNoise'
   | 'checkerboard'
-  | 'mask';
+  | 'mask'
+  | 'gradientOverlay';
 
 export type NodeType = 'filterNode' | 'imageNode' | 'outputNode' | 'generatorNode';
 
