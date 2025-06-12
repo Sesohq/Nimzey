@@ -704,6 +704,17 @@ function applyMaskFilterCanvas(
 ): void {
   console.log("Applying mask filter - useLuma:", useLuma);
   
+  // Debug: Sample a few mask values to see what we're working with
+  const debugMaskSample = [];
+  for (let i = 0; i < Math.min(20, maskData.length); i += 4) {
+    const r = maskData[i];
+    const g = maskData[i + 1];
+    const b = maskData[i + 2];
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    debugMaskSample.push({ r, g, b, lum: Math.round(luminance * 255) });
+  }
+  console.log("Mask data sample for processing:", debugMaskSample.slice(0, 5));
+  
   // Apply mask to each pixel
   for (let i = 0; i < data.length; i += 4) {
     const sourceR = data[i];
@@ -734,6 +745,8 @@ function applyMaskFilterCanvas(
     data[i + 2] = sourceB; // Keep original Blue
     data[i + 3] = Math.round(sourceA * maskValue); // Apply mask to alpha for transparency
   }
+  
+  console.log("Mask filter application completed");
 }
 
 // Helper to get parameter value with fallback
