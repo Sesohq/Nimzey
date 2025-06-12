@@ -202,11 +202,10 @@ const ImageFilterNode = memo(({ data, id, selected = false }: ImageFilterNodePro
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-40 bg-gray-200 rounded-md border border-dashed border-gray-400">
-              <div className="flex items-center mb-1">
+              <div className="flex items-center">
                 <Plus size={16} className="text-gray-500 mr-1" />
                 <span className="text-gray-600 text-sm">Click to upload</span>
               </div>
-              <span className="text-gray-600 text-xs mt-1">JPG, PNG, GIF, etc.</span>
             </div>
           )}
           
