@@ -213,7 +213,7 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
   
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
-    if (!data.enabled || data.params.find(p => p.id === paramId)?.isConnected) return;
+    if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
     
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
@@ -225,7 +225,7 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
   // Handle finishing the edit and updating the value
   const handleFinishEditing = () => {
     if (editingParam && editingValue !== '') {
-      const param = data.params.find(p => p.id === editingParam);
+      const param = data.params?.find(p => p.id === editingParam);
       if (param) {
         // Convert value based on parameter type
         let parsedValue: number | string | boolean;
@@ -311,13 +311,16 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
               <Label className="block text-xs text-gray-500 mb-1">Blend Mode</Label>
               <Select 
                 value={data.blendMode || 'normal'} 
-                onValueChange={(value) => handleChangeBlendMode(value as BlendMode)}
+                onValueChange={(value) => {
+                  console.log('Blend mode changed:', value);
+                  handleChangeBlendMode(value as BlendMode);
+                }}
                 disabled={!data.enabled}
               >
-                <SelectTrigger className="w-full text-xs h-8">
+                <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   {Object.entries(blendModeLabels).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
@@ -331,12 +334,15 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
               <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
               <Select 
                 value={data.colorTag || 'default'} 
-                onValueChange={(value) => handleChangeColorTag(value as NodeColorTag)}
+                onValueChange={(value) => {
+                  console.log('Color tag changed:', value);
+                  handleChangeColorTag(value as NodeColorTag);
+                }}
               >
-                <SelectTrigger className="w-full text-xs h-8">
+                <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   <SelectItem value="default">Default</SelectItem>
                   <SelectItem value="red">Red</SelectItem>
                   <SelectItem value="orange">Orange</SelectItem>
@@ -531,14 +537,17 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
               
               {param.controlType === 'select' && (
                 <Select 
-                  value={param.value as string} 
-                  onValueChange={(value) => handleParamChange(param.id || param.name, value)}
+                  value={String(param.value || param.options?.[0] || '')} 
+                  onValueChange={(value) => {
+                    console.log('Select value changed:', value, 'for param:', param.id || param.name);
+                    handleParamChange(param.id || param.name, value);
+                  }}
                   disabled={!data.enabled || param.isConnected}
                 >
-                  <SelectTrigger className="w-full text-sm mt-1">
+                  <SelectTrigger className="w-full text-sm mt-1" onClick={(e) => e.stopPropagation()}>
                     <SelectValue placeholder={param.options?.[0]} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50">
                     {param.options?.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
