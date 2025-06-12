@@ -100,8 +100,6 @@ export type ImageNodeData = {
   enabled?: boolean; // Whether the node is enabled
   onUploadImage?: (file: File) => void;
   texturePixels?: ImageData; // Field for storing preloaded image data
-  colorTag?: NodeColorTag; // Color tag for organization
-  collapsed?: boolean; // Whether the node is collapsed
 };
 
 export type OutputNodeData = {
