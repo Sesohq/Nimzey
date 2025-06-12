@@ -410,9 +410,12 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       style={{ backgroundColor: param.value as string }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log('Color thumbnail clicked:', param.id || param.name);
+                        console.log('=== COLOR THUMBNAIL CLICKED ===');
+                        console.log('Param ID:', param.id || param.name);
+                        console.log('Current activeColorPicker:', activeColorPicker);
+                        console.log('Setting activeColorPicker to:', param.id || param.name);
                         setActiveColorPicker(param.id || param.name);
-                        console.log('Active color picker set to:', param.id || param.name);
+                        console.log('=== END CLICK EVENT ===');
                       }}
                       title="Click to open color picker"
                     >
@@ -425,10 +428,17 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                     </div>
                   </div>
                   
+                  {/* Debug: Show active color picker state */}
+                  {activeColorPicker && (
+                    <div className="mt-2 p-2 bg-yellow-200 text-xs">
+                      Active: {activeColorPicker} | Current: {param.id || param.name}
+                    </div>
+                  )}
+                  
                   {/* Color Picker Popup */}
                   {activeColorPicker === (param.id || param.name) && (
                     <>
-                      {console.log('Rendering ColorPicker for:', param.id || param.name, 'with color:', param.value)}
+                      {console.log('=== RENDERING ColorPicker ===', param.id || param.name)}
                       <ColorPicker
                         color={param.value as string}
                         onChange={(color) => {

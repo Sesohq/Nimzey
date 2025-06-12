@@ -13,6 +13,11 @@ interface ColorPickerProps {
 }
 
 export function ColorPicker({ color, onChange, onClose, isOpen, triggerRef }: ColorPickerProps) {
+  console.log('=== ColorPicker Component ===');
+  console.log('isOpen:', isOpen);
+  console.log('color:', color);
+  console.log('triggerRef:', triggerRef);
+  
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(100);
   const [lightness, setLightness] = useState(50);
