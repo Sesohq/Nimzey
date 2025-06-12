@@ -13,8 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import CanvasPreview from './CanvasPreview';
-import { ColorPicker } from './ColorPicker';
-import { IsolatedHexInput } from './IsolatedHexInput';
 
 // Color tag backgrounds
 const colorTagBg: Record<NodeColorTag, string> = {
@@ -33,15 +31,45 @@ const EditableValue = ({
   value,
   unit,
   paramId,
-  disabled,
-  onStartEdit
+  isEditing,
+  editValue,
+  onStartEdit,
+  onChangeEdit,
+  onFinishEdit,
+  onCancelEdit,
+  disabled
 }: {
-  value: number | string | boolean;
-  unit?: string;
-  paramId: string;
-  disabled: boolean;
-  onStartEdit: (paramId: string, value: number | string | boolean) => void;
+  value: number | string,
+  unit?: string,
+  paramId: string,
+  isEditing: boolean,
+  editValue: string,
+  onStartEdit: (id: string, value: number | string | boolean) => void,
+  onChangeEdit: (value: string) => void,
+  onFinishEdit: () => void,
+  onCancelEdit: () => void,
+  disabled?: boolean
 }) => {
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        value={editValue}
+        onChange={(e) => onChangeEdit(e.target.value)}
+        onBlur={onFinishEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onFinishEdit();
+          } else if (e.key === 'Escape') {
+            onCancelEdit();
+          }
+        }}
+        className="text-xs w-14 h-6 px-1 py-0"
+        autoFocus
+      />
+    );
+  }
+  
   return (
     <span 
       className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
@@ -83,30 +111,32 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
       if (data.onParamChange) {
         data.onParamChange(id, paramId, value);
         // Also schedule a thumbnail update
-        setTimeout(() => {
-          if (generateNodePreview) {
-            generateNodePreview(id);
-          }
-        }, 200);
+        throttledPreview();
       }
-    }, 200, { leading: false, trailing: true });
-  }, [id, data.onParamChange, generateNodePreview]);
-
-  // State for editing parameter values
+    }, 100, { leading: true, trailing: true });
+  }, [id, data.onParamChange, throttledPreview]);
+  
+  // Handler for when fast preview is generated
+  const handleFastPreviewGenerated = useCallback((dataUrl: string) => {
+    setPreviewImageUrl(dataUrl);
+  }, []);
+  
+  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+  const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
-  
-  // State for the settings panel
-  const [showSettings, setShowSettings] = useState(false);
-  const [collapsed, setCollapsed] = useState(data.collapsed || false);
-  
-  // State for color picker
-  const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
-  const colorPickerRefs = useRef<{ [key: string]: HTMLElement | null }>({});
 
-  // Handle parameter changes
+  const handleToggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    if (data.onToggleCollapsed) {
+      data.onToggleCollapsed(id, newCollapsedState);
+    }
+  };
+
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
-    // Show fast preview immediately for better user experience
+    // Show fast preview while user is interacting with sliders
     setShowFastPreview(true);
     
     if (data.onParamChange) {
@@ -132,24 +162,21 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
     }
   };
 
+  const handleChangeOpacity = (value: number) => {
+    if (data.onChangeOpacity) {
+      data.onChangeOpacity(id, value);
+    }
+  };
+
   const handleChangeColorTag = (color: NodeColorTag) => {
     if (data.onChangeColorTag) {
       data.onChangeColorTag(id, color);
     }
   };
-
-  const handleToggleCollapse = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newCollapsedState = !collapsed;
-    setCollapsed(newCollapsedState);
-    if (data.onToggleCollapsed) {
-      data.onToggleCollapsed(id, newCollapsedState);
-    }
-  };
-
+  
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
-    if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
+    if (!data.enabled) return;
     
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
@@ -184,7 +211,6 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
       }
     }
     setEditingParam(null);
-    setEditingValue('');
   };
 
   return (
@@ -200,7 +226,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             id={`enable-${id}`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
-            className="nodrag bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
+            className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
             onClick={(e) => e.stopPropagation()}
           />
           <Zap className="h-3 w-3" />
@@ -211,11 +237,8 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  className="nodrag hover:bg-white/20 rounded p-1" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowSettings(!showSettings);
-                  }}
+                  className="hover:bg-white/20 rounded p-1" 
+                  onClick={() => setShowSettings(!showSettings)}
                 >
                   <Layers className="h-3 w-3" />
                 </button>
@@ -230,7 +253,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  className="nodrag hover:bg-white/20 rounded p-1" 
+                  className="hover:bg-white/20 rounded p-1" 
                   onClick={handleToggleCollapse}
                 >
                   {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
@@ -250,18 +273,17 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
-              <div className="nodrag">
-                <Select 
-                  value={data.colorTag || 'default'} 
-                  onValueChange={(value) => {
-                    console.log('Color tag changed:', value);
-                    handleChangeColorTag(value as NodeColorTag);
-                  }}
-                >
-                  <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
+              <Select 
+                value={data.colorTag || 'default'} 
+                onValueChange={(value) => {
+                  console.log('Color tag changed:', value);
+                  handleChangeColorTag(value as NodeColorTag);
+                }}
+              >
+                <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-50">
                   <SelectItem value="default">Default</SelectItem>
                   <SelectItem value="red">Red</SelectItem>
                   <SelectItem value="orange">Orange</SelectItem>
@@ -271,8 +293,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   <SelectItem value="purple">Purple</SelectItem>
                   <SelectItem value="pink">Pink</SelectItem>
                 </SelectContent>
-                </Select>
-              </div>
+              </Select>
             </div>
           </div>
         </div>
@@ -286,7 +307,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
                 <img 
                   src={data.preview} 
-                  alt="Generated pattern" 
+                  alt={`${data.label} generated texture`}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -295,14 +316,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
           
           {/* Parameters */}
           {(data.params || []).map((param) => (
-            <div 
-              key={param.id || param.name} 
-              className="mb-4 relative nodrag" 
-              onMouseDown={(e) => e.stopPropagation()}
-              onMouseUp={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-            >
+            <div key={param.id || param.name} className="mb-4 relative">
               
               <div className="flex justify-between items-center">
                 <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
@@ -320,61 +334,49 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                 <div className="mt-1">
                   <div className="flex items-center justify-between mb-1">
                     <EditableValue
-                      value={param.value as number}
+                      value={typeof param.value === 'number' || typeof param.value === 'string' ? param.value : (param.value ? 1 : 0)}
                       unit={param.unit}
                       paramId={param.id || param.name}
-                      disabled={!data.enabled}
+                      isEditing={editingParam === (param.id || param.name)}
+                      editValue={editingValue}
                       onStartEdit={handleStartEditing}
+                      onChangeEdit={setEditingValue}
+                      onFinishEdit={handleFinishEditing}
+                      onCancelEdit={() => setEditingParam(null)}
+                      disabled={!data.enabled}
                     />
-                    <span className="text-xs text-gray-400">
-                      {param.min} - {param.max}
-                    </span>
                   </div>
                   <CustomSlider
-                    value={[param.value as number]}
-                    min={param.min}
-                    max={param.max}
-                    step={param.step}
-                    color="warning"
-                    size="md"
-                    className="nodrag"
-                    onValueChange={(values) => {
-                      setShowFastPreview(true);
-                      handleParamChange(param.id || param.name, values[0]);
-                    }}
-                    onValueCommit={(values) => {
-                      setTimeout(() => {
-                        setShowFastPreview(false);
-                        throttledParamChange(param.id || param.name, values[0]);
-                      }, 300);
-                    }}
+                    value={[Number(param.value)]}
+                    min={param.min || 0}
+                    max={param.max || 100}
+                    step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
+                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled}
                   />
                 </div>
               )}
               
               {param.controlType === 'select' && (
-                <div className="nodrag">
-                  <Select 
-                    value={String(param.value || param.options?.[0] || '')} 
-                    onValueChange={(value) => {
-                      console.log('Select value changed:', value, 'for param:', param.id || param.name);
-                      handleParamChange(param.id || param.name, value);
-                    }}
-                    disabled={!data.enabled}
-                  >
-                    <SelectTrigger className="w-full text-sm mt-1" onClick={(e) => e.stopPropagation()}>
-                      <SelectValue placeholder={param.options?.[0]} />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      {param.options?.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select 
+                  value={String(param.value || param.options?.[0] || '')} 
+                  onValueChange={(value) => {
+                    console.log('Select value changed:', value, 'for param:', param.id || param.name);
+                    handleParamChange(param.id || param.name, value);
+                  }}
+                  disabled={!data.enabled}
+                >
+                  <SelectTrigger className="w-full text-sm mt-1" onClick={(e) => e.stopPropagation()}>
+                    <SelectValue placeholder={param.options?.[0]} />
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
+                    {param.options?.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
               
               {param.controlType === 'checkbox' && (
@@ -382,67 +384,18 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   checked={param.value as boolean}
                   onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
                   disabled={!data.enabled}
-                  className="nodrag mt-1"
+                  className="mt-1"
                 />
               )}
               
               {param.controlType === 'color' && (
-                <div className="mt-1">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      ref={(el) => colorPickerRefs.current[param.id || param.name] = el}
-                      className="nodrag w-16 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors shadow-sm hover:shadow-md flex items-center justify-center relative"
-                      style={{ backgroundColor: param.value as string }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log('=== COLOR THUMBNAIL CLICKED ===');
-                        console.log('Param ID:', param.id || param.name);
-                        console.log('Current activeColorPicker:', activeColorPicker);
-                        console.log('Setting activeColorPicker to:', param.id || param.name);
-                        setActiveColorPicker(param.id || param.name);
-                        console.log('=== END CLICK EVENT ===');
-                      }}
-                      title="Click to open color picker"
-                    >
-                      <span className="text-xs font-mono text-white drop-shadow-sm mix-blend-difference">
-                        {(param.value as string).substring(1).toUpperCase()}
-                      </span>
-                    </div>
-                    
-                    <IsolatedHexInput
-                      value={param.value as string}
-                      onChange={(color) => handleParamChange(param.id || param.name, color)}
-                      disabled={!data.enabled}
-                    />
-                  </div>
-                  
-                  {/* Debug: Show active color picker state */}
-                  {activeColorPicker && (
-                    <div className="mt-2 p-2 bg-yellow-200 text-xs">
-                      Active: {activeColorPicker} | Current: {param.id || param.name}
-                    </div>
-                  )}
-                  
-                  {/* Color Picker Popup */}
-                  {activeColorPicker === (param.id || param.name) && (
-                    <>
-                      {console.log('=== RENDERING ColorPicker ===', param.id || param.name)}
-                      <ColorPicker
-                        color={param.value as string}
-                        onChange={(color) => {
-                          console.log('Color picker changed:', param.id || param.name, 'to', color);
-                          handleParamChange(param.id || param.name, color);
-                        }}
-                        onClose={() => {
-                          console.log('Color picker closed for:', param.id || param.name);
-                          setActiveColorPicker(null);
-                        }}
-                        isOpen={true}
-                        triggerRef={{ current: colorPickerRefs.current[param.id || param.name] }}
-                      />
-                    </>
-                  )}
-                </div>
+                <Input
+                  type="color"
+                  value={param.value as string}
+                  onChange={(e) => handleParamChange(param.id || param.name, e.target.value)}
+                  disabled={!data.enabled}
+                  className="w-full h-10 mt-1 cursor-pointer"
+                />
               )}
             </div>
           ))}
