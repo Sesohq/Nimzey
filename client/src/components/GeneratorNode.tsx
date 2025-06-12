@@ -293,7 +293,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                     handleChangeColorTag(value as NodeColorTag);
                   }}
                 >
-                  <SelectTrigger className="w-full text-xs h-8">
+                  <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-50">
@@ -383,7 +383,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                     }}
                     disabled={!data.enabled}
                   >
-                    <SelectTrigger className="w-full text-sm mt-1">
+                    <SelectTrigger className="w-full text-sm mt-1" onClick={(e) => e.stopPropagation()}>
                       <SelectValue placeholder={param.options?.[0]} />
                     </SelectTrigger>
                     <SelectContent className="z-50">
