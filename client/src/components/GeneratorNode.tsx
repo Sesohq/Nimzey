@@ -389,16 +389,38 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               )}
               
               {param.controlType === 'color' && (
-                <Input
-                  type="color"
-                  value={param.value as string}
-                  onChange={(e) => {
-                    console.log('Color changed:', param.id || param.name, 'to', e.target.value);
-                    handleParamChange(param.id || param.name, e.target.value);
-                  }}
-                  disabled={!data.enabled}
-                  className="w-full h-10 mt-1 cursor-pointer"
-                />
+                <div className="mt-1">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={param.value as string}
+                      onChange={(e) => {
+                        console.log('Color changed:', param.id || param.name, 'to', e.target.value);
+                        handleParamChange(param.id || param.name, e.target.value);
+                      }}
+                      disabled={!data.enabled}
+                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                      style={{ 
+                        padding: '0', 
+                        border: 'none',
+                        outline: 'none'
+                      }}
+                    />
+                    <Input
+                      type="text"
+                      value={param.value as string}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
+                          handleParamChange(param.id || param.name, value);
+                        }
+                      }}
+                      disabled={!data.enabled}
+                      className="flex-1 text-xs"
+                      placeholder="#ffffff"
+                    />
+                  </div>
+                </div>
               )}
             </div>
           ))}
