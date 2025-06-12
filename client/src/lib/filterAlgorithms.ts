@@ -700,6 +700,12 @@ function applyMaskFilterCanvas(
   }
 }
 
+// Helper to get parameter value with fallback
+const getParamValue = (params: { name: string; value: number | string }[], name: string, defaultValue: number): number => {
+  const param = params.find(p => p.name === name);
+  return param ? Number(param.value) : defaultValue;
+};
+
 // Apply a specific filter based on type
 const applyFilter = (
   filterType: FilterType,
@@ -725,21 +731,6 @@ const applyFilter = (
         applyMaskFilterCanvas(data, canvas.width, canvas.height, nodeData.maskImageData, useLuma);
       } else {
         console.warn("No mask data available for mask filter");
-      }
-      // This is a special case where we need two image inputs
-      if (nodeData && nodeData.maskImageData) {
-        console.log("Applying mask filter with luma mode:", useLuma);
-        
-        // Get the mask image data
-        const maskData = nodeData.maskImageData;
-        
-        // Apply the mask using the CPU implementation
-        applyMaskFilterCanvas(data, canvas.width, canvas.height, maskData, useLuma);
-        
-        // Put the processed data back to canvas
-        ctx.putImageData(imageData, 0, 0);
-      } else {
-        console.warn("Mask filter missing mask input data");
       }
       break;
       
@@ -858,12 +849,6 @@ const applyFilter = (
   }
   
   ctx.putImageData(imageData, 0, 0);
-};
-
-// Helper to get parameter value with fallback
-const getParamValue = (params: { name: string; value: number | string }[], name: string, defaultValue: number): number => {
-  const param = params.find(p => p.name === name);
-  return param ? Number(param.value) : defaultValue;
 };
 
 // Filter implementations
