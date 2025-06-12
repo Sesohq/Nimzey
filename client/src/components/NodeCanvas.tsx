@@ -22,7 +22,7 @@ import GeneratorNode from './GeneratorNode';
 import { Badge } from '@/components/ui/badge';
 
 // Create node types factory to inject additional props
-const createNodeTypes = (generateNodePreview?: (nodeId: string) => void) => ({
+const createNodeTypes = (generateNodePreview?: (nodeId: string) => void): NodeTypes => ({
   filterNode: (props: any) => (
     <FilterNode {...props} generateNodePreview={generateNodePreview} />
   ),
@@ -91,15 +91,18 @@ export default function NodeCanvas({
     onEdgesChange([removeChange]);
   };
 
-  // Create node types dynamically to pass required props
-  const nodeTypes = useMemo(() => createNodeTypes((nodeId) => {
+  // Create generateNodePreview callback for node components
+  const generateNodePreview = useCallback((nodeId: string) => {
     // When a node parameter changes, find the node and trigger a preview
     const targetNode = nodes.find((n) => n.id === nodeId);
     if (targetNode && onNodeClick && nodeId) {
       // First select the node (required for some preview systems)
       onNodeClick(nodeId);
     }
-  }), [nodes, onNodeClick]);
+  }, [nodes, onNodeClick]);
+
+  // Memoize nodeTypes with stable dependencies to prevent React Flow warnings
+  const nodeTypes = useMemo(() => createNodeTypes(generateNodePreview), [generateNodePreview]);
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
