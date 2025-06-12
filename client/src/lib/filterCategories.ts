@@ -20,6 +20,41 @@ export const filterCategories: Record<string, FilterCategory> = {
       }
     ]
   },
+  blenders: {
+    name: 'Blenders',
+    filters: [
+      {
+        name: 'Mask',
+        type: 'mask',
+        params: [
+          {
+            id: 'mask-source',
+            name: 'source',
+            label: 'Source',
+            controlType: 'select',
+            paramType: 'image',
+            value: ''
+          },
+          {
+            id: 'mask-mask',
+            name: 'mask',
+            label: 'Mask',
+            controlType: 'select',
+            paramType: 'image',
+            value: ''
+          },
+          {
+            id: 'mask-lumaMode',
+            name: 'lumaMode',
+            label: 'Luma Mode',
+            controlType: 'checkbox',
+            paramType: 'boolean',
+            value: false
+          }
+        ]
+      }
+    ]
+  },
   generators: {
     name: 'Generators',
     filters: [
@@ -580,41 +615,6 @@ export const filterCategories: Record<string, FilterCategory> = {
             step: 1,
             value: 8,
             unit: 'px'
-          }
-        ]
-      }
-    ]
-  },
-  blenders: {
-    name: 'Blenders',
-    filters: [
-      {
-        name: 'Mask',
-        type: 'mask',
-        params: [
-          {
-            id: 'mask-source',
-            name: 'source',
-            label: 'Source',
-            controlType: 'select',
-            paramType: 'image',
-            value: ''
-          },
-          {
-            id: 'mask-mask',
-            name: 'mask',
-            label: 'Mask',
-            controlType: 'select',
-            paramType: 'image',
-            value: ''
-          },
-          {
-            id: 'mask-lumaMode',
-            name: 'lumaMode',
-            label: 'Luma Mode',
-            controlType: 'checkbox',
-            paramType: 'boolean',
-            value: false
           }
         ]
       }
