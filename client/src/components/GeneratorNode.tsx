@@ -330,7 +330,12 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
           
           {/* Parameters */}
           {(data.params || []).map((param) => (
-            <div key={param.id || param.name} className="mb-4 relative">
+            <div key={param.id || param.name} className="mb-4 relative nodrag" 
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
               
               <div className="flex justify-between items-center">
                 <Label className="block text-xs text-gray-600 font-medium">{param.label}</Label>
