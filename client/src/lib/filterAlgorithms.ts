@@ -204,13 +204,10 @@ export const applyFilters = (
         // Find edges connecting to this mask node
         const maskEdges = edges.filter(edge => edge.target === node.id);
         
-        // Look for ANY node connected as mask - but exclude the main source image connection
-        const sourceImageNode = nodes.find(n => n.type === 'imageNode');
-        const maskSourceEdge = maskEdges.find(edge => {
-          const sourceNode = nodes.find(n => n.id === edge.source);
-          // Only accept nodes that are NOT the main source image
-          return sourceNode && sourceNode.id !== sourceImageNode?.id;
-        });
+        // Look for node connected specifically to the mask handle
+        const maskSourceEdge = edges.find(
+          e => e.target === node.id && e.targetHandle === 'mask'
+        );
         
         if (maskSourceEdge) {
           const maskSourceNode = nodes.find(n => n.id === maskSourceEdge.source);
@@ -364,6 +361,9 @@ export const applyFilters = (
               resizedMaskCanvas.width = canvas.width;
               resizedMaskCanvas.height = canvas.height;
               const resizedMaskCtx = resizedMaskCanvas.getContext('2d')!;
+              
+              // Disable smoothing for crisp mask rendering
+              resizedMaskCtx.imageSmoothingEnabled = false;
               
               // Draw mask to match source dimensions exactly
               resizedMaskCtx.drawImage(maskCanvas, 0, 0, canvas.width, canvas.height);

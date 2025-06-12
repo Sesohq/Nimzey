@@ -1,0 +1,91 @@
+1 Your mask node is still wiring the wrong texture
+When you look for the mask input you take “the first edge that isn’t the
+blue Source-Image node” – but you never check which handle that edge
+lands on.
+If Source → Mask happens to be listed in the edges array before Perlin → Mask,
+you end up masking the photo with a greyscale copy of itself, not with the Perlin texture, which explains the huge dark blobs that match the actor’s face instead of
+the diagonal noise stripes.
+
+ts
+Copy
+Edit
+// current
+const maskEdges = edges.filter(e => e.target === node.id);
+const maskSourceEdge = maskEdges.find(e => nodes.find(n => n.id === e.source)
+                                   !== sourceImageNode);          // ⚠️  order-dependent
+filterAlgorithms (3)
+
+Fix
+
+ts
+Copy
+Edit
+const maskSourceEdge = edges.find(
+  e => e.target === node.id && e.targetHandle === 'mask'           // ← look at handle!
+);
+That guarantees you always pick whatever is plugged into the mask port,
+no matter how many other images are also connected.
+
+2 The mask’s pixels never reach the next node
+In the mask branch you mutate imageData, but you don’t put it back onto the
+canvas until the very end of the pipeline; any node that runs after Mask
+(and all previews you take meanwhile) still see the pre-mask pixels.
+
+ts
+Copy
+Edit
+if (nodeData?.maskImageData) {
+  applyMaskFilterCanvas(data, …);
+  // <nothing is drawn – everything downstream sees the old frame>
+}
+filterAlgorithms (4)
+
+Fix
+
+ts
+Copy
+Edit
+applyMaskFilterCanvas(data, canvas.width, canvas.height,
+                      nodeData.maskImageData, useLuma);
+ctx.putImageData(imageData, 0, 0);   // commit immediately
+filterAlgorithms (4)
+
+3 A typo silently drops the mask bytes
+You try to merge the freshly built maskImageData into the node’s data with
+
+ts
+Copy
+Edit
+nodeDataWithMask = {
+  .node.data,                       // ← stray dot kills the spread
+  maskImageData: maskImageData.data
+};
+filterAlgorithms (4)
+
+That line is parsed as “just take the thing after the comma”, so the mask
+never becomes part of nodeData.
+Change it to the normal spread operator:
+
+ts
+Copy
+Edit
+nodeDataWithMask = {
+  ...node.data,
+  maskImageData: maskImageData.data
+};
+Optional polish (but not the cause of the bug)
+If you’d like white = visible / black = transparent (the way Filter Forge’s
+“Luma” box works) split the two concepts:
+
+ts
+Copy
+Edit
+// inside applyMaskFilterCanvas
+const luma = useLuma
+   ? 0.3*r + 0.59*g + 0.11*b
+   : maskData[i + 3];          // pure alpha channel
+
+const finalAlpha = invert ? 255 - luma : luma;
+data[i + 3] = data[i + 3] * finalAlpha / 255;
+Add ctx.imageSmoothingEnabled = false on the temporary resize canvas to
+avoid soft “blobs” when you scale a 512-pixel noise map up to 1536 px.
