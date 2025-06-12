@@ -26,11 +26,16 @@ const NodeCanvasContext = createContext<{
   generateNodePreview?: (nodeId: string) => void;
 }>({});
 
+// Create wrapper component for ImageNode that receives onUploadImage
+const ImageNodeWrapper = (props: any) => {
+  return <ImageNode {...props} onUploadImage={props.data.onUploadImage} />;
+};
+
 // Create stable node types outside component to prevent recreation
 const nodeTypes: NodeTypes = {
   filterNode: FilterNode,
   generatorNode: GeneratorNode,
-  imageNode: ImageNode,
+  imageNode: ImageNodeWrapper,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
 };
