@@ -574,6 +574,95 @@ export function useFilterGraph() {
     }));
     
   }, [setNodes, setProcessedImages, hexToRgb]);
+
+  // Generate gradient overlay preview following Filter Forge's approach
+  const generateGradientOverlayPreview = useCallback((node: any) => {
+    const canvas = document.createElement('canvas');
+    const params = node.data.params;
+    
+    // Get parameters from the node
+    const width = params.find((p: any) => p.name === 'width')?.value || 512;
+    const height = params.find((p: any) => p.name === 'height')?.value || 512;
+    const color1Hex = params.find((p: any) => p.name === 'color1')?.value || '#ff0000';
+    const color2Hex = params.find((p: any) => p.name === 'color2')?.value || '#0000ff';
+    const angle = params.find((p: any) => p.name === 'angle')?.value || 0;
+    const type = params.find((p: any) => p.name === 'type')?.value || 'Linear';
+    
+    // Convert hex colors to RGB
+    const color1 = hexToRgb(color1Hex);
+    const color2 = hexToRgb(color2Hex);
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
+    
+    // Convert angle from degrees to radians
+    const angleRad = (angle * Math.PI) / 180;
+    
+    // Generate gradient following Filter Forge's GLSL logic
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Convert to normalized coordinates [-1, 1]
+        const uv = [(x / width) * 2 - 1, (y / height) * 2 - 1];
+        let t = 0;
+        
+        if (type === 'Linear') {
+          // Linear gradient along direction
+          const dir = [Math.cos(angleRad), Math.sin(angleRad)];
+          t = (uv[0] * dir[0] + uv[1] * dir[1]) * 0.5 + 0.5;
+        } else if (type === 'Radial') {
+          // Radial gradient from center
+          t = Math.sqrt(uv[0] * uv[0] + uv[1] * uv[1]);
+        } else if (type === 'Angular') {
+          // Angular gradient around center
+          t = Math.atan2(uv[1], uv[0]) / Math.PI * 0.5 + 0.5;
+        }
+        
+        // Clamp t to [0, 1]
+        t = Math.max(0, Math.min(1, t));
+        
+        // Interpolate between colors
+        const r = color1[0] * (1 - t) + color2[0] * t;
+        const g = color1[1] * (1 - t) + color2[1] * t;
+        const b = color1[2] * (1 - t) + color2[2] * t;
+        
+        const index = (y * width + x) * 4;
+        data[index] = Math.floor(r * 255);     // Red
+        data[index + 1] = Math.floor(g * 255); // Green
+        data[index + 2] = Math.floor(b * 255); // Blue
+        data[index + 3] = 255;                 // Alpha
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    const dataUrl = canvas.toDataURL();
+    
+    // Update the node with the generated preview
+    setNodes(nds => nds.map(n => {
+      if (n.id === node.id) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            preview: dataUrl
+          }
+        };
+      }
+      return n;
+    }));
+    
+    // Store the generated image for this node
+    setProcessedImages(prev => ({
+      ...prev,
+      [node.id]: dataUrl
+    }));
+    
+  }, [setNodes, setProcessedImages, hexToRgb]);
   
   // Process the image through the filter chain
   const processImage = useCallback(async () => {
