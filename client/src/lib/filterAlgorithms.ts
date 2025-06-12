@@ -262,70 +262,84 @@ export const applyFilters = (
                 // Handle uploaded image nodes as mask input
                 console.log("Using uploaded image as mask");
                 
-                // Get the image data from the node
+                // Get the image data from the node - check multiple possible data locations
                 const imageNodeData = maskSourceNode.data as any;
+                console.log("Debug: Image node data structure:", Object.keys(imageNodeData || {}));
+                console.log("Debug: Full imageNodeData:", imageNodeData);
+                let imageSource = null;
+                
+                // Check for different ways image data might be stored
                 if (imageNodeData.imageUrl) {
-                  console.log("Loading mask image from URL");
+                  imageSource = imageNodeData.imageUrl;
+                  console.log("Found imageUrl:", imageSource);
+                } else if (imageNodeData.src) {
+                  imageSource = imageNodeData.src;
+                  console.log("Found src:", imageSource);
+                } else if (imageNodeData.params) {
+                  console.log("Checking params:", imageNodeData.params);
+                  // Check for image data in params (for ImageFilterNode)
+                  const imageParam = imageNodeData.params.find((p: any) => p.name === 'image-data' || p.id === 'image-data');
+                  if (imageParam && imageParam.value) {
+                    imageSource = imageParam.value;
+                    console.log("Found image in params:", imageSource.substring(0, 50) + "...");
+                  }
+                } else {
+                  console.log("No params found in imageNodeData");
+                }
+                
+                if (imageSource) {
+                  console.log("Found image source for mask:", imageSource.substring(0, 50) + "...");
                   
-                  // Create and load image synchronously if possible
-                  const maskImage = new Image();
-                  maskImage.crossOrigin = 'anonymous';
-                  
-                  // Set up the image loading
-                  const loadPromise = new Promise<void>((resolve) => {
-                    maskImage.onload = () => {
-                      try {
-                        // Draw the image to the mask canvas
-                        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-                        maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
-                        
-                        // Get the image data and convert to grayscale mask
-                        const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-                        convertToGrayscaleMask(imageData.data);
-                        maskCtx.putImageData(imageData, 0, 0);
-                        
-                        console.log("Mask image processed successfully");
-                      } catch (error) {
-                        console.error("Error processing mask image:", error);
-                        // Create white fallback
-                        maskCtx.fillStyle = 'white';
-                        maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-                      }
-                      resolve();
-                    };
-                    
-                    maskImage.onerror = () => {
-                      console.error("Failed to load mask image");
-                      // Create white fallback
-                      maskCtx.fillStyle = 'white';
-                      maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-                      resolve();
-                    };
-                  });
-                  
-                  // Start loading the image
-                  maskImage.src = imageNodeData.imageUrl;
-                  
-                  // For immediate processing, try to use any existing loaded version
-                  const existingImgs: HTMLImageElement[] = [];
+                  // Look for existing loaded images in the DOM
+                  let foundImage: HTMLImageElement | null = null;
                   document.querySelectorAll('img').forEach(img => {
-                    if (img.src === imageNodeData.imageUrl && img.complete && img.naturalWidth > 0) {
-                      existingImgs.push(img);
+                    if (img.src === imageSource && img.complete && img.naturalWidth > 0) {
+                      foundImage = img;
                     }
                   });
                   
-                  if (existingImgs.length > 0) {
+                  if (foundImage) {
                     console.log("Using already loaded image for mask");
-                    const img = existingImgs[0];
                     maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-                    maskCtx.drawImage(img, 0, 0, maskCanvas.width, maskCanvas.height);
+                    maskCtx.drawImage(foundImage, 0, 0, maskCanvas.width, maskCanvas.height);
                     
                     const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
                     convertToGrayscaleMask(imageData.data);
                     maskCtx.putImageData(imageData, 0, 0);
+                  } else {
+                    // Try to load the image
+                    const maskImage = new Image();
+                    maskImage.crossOrigin = 'anonymous';
+                    maskImage.onload = () => {
+                      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                      maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
+                      
+                      const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                      convertToGrayscaleMask(imageData.data);
+                      maskCtx.putImageData(imageData, 0, 0);
+                      console.log("Loaded and processed mask image");
+                    };
+                    maskImage.onerror = () => {
+                      console.warn("Failed to load mask image, using white fallback");
+                      maskCtx.fillStyle = 'white';
+                      maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                    };
+                    maskImage.src = imageSource;
+                    
+                    // Provide immediate fallback
+                    console.log("Creating temporary pattern while image loads");
+                    const imgData = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+                    const data = imgData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                      data[i] = 128;     // Gray fallback
+                      data[i + 1] = 128;
+                      data[i + 2] = 128;
+                      data[i + 3] = 255;
+                    }
+                    maskCtx.putImageData(imgData, 0, 0);
                   }
                 } else {
-                  console.warn("Image node missing imageUrl");
+                  console.warn("Image node missing imageUrl/src/image-data");
                   maskCtx.fillStyle = 'white';
                   maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
                 }
