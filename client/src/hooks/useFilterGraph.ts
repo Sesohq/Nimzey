@@ -486,6 +486,95 @@ export function useFilterGraph() {
     
   }, [setNodes, setProcessedImages]);
   
+  // Utility function to convert hex color to RGB values
+  const hexToRgb = useCallback((hex: string): [number, number, number] => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+      parseInt(result[1], 16) / 255,
+      parseInt(result[2], 16) / 255,
+      parseInt(result[3], 16) / 255
+    ] : [1, 1, 1];
+  }, []);
+  
+  // Generate Checkerboard preview for generator nodes
+  const generateCheckerboardPreview = useCallback((node: any) => {
+    const canvas = document.createElement('canvas');
+    const params = node.data.params;
+    
+    // Get parameters from the node
+    const width = params.find((p: any) => p.name === 'width')?.value || 512;
+    const height = params.find((p: any) => p.name === 'height')?.value || 512;
+    const repeatH = params.find((p: any) => p.name === 'repeatH')?.value || 8;
+    const repeatV = params.find((p: any) => p.name === 'repeatV')?.value || 8;
+    const color1Hex = params.find((p: any) => p.name === 'color1')?.value || '#ffffff';
+    const color2Hex = params.find((p: any) => p.name === 'color2')?.value || '#000000';
+    
+    // Convert hex colors to RGB
+    const color1 = hexToRgb(color1Hex);
+    const color2 = hexToRgb(color2Hex);
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
+    
+    // Generate checkerboard pattern following Filter Forge logic
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Compute normalized UV [0,1]
+        const uv = [x / width, y / height];
+        
+        // Scale by repeats to create grid
+        const gridX = uv[0] * repeatH;
+        const gridY = uv[1] * repeatV;
+        
+        // Determine square indices by flooring
+        const ix = Math.floor(gridX);
+        const iy = Math.floor(gridY);
+        
+        // Create alternating pattern using modulo
+        const mask = (ix + iy) % 2;
+        
+        // Select color based on mask
+        const selectedColor = mask === 0 ? color1 : color2;
+        
+        const index = (y * width + x) * 4;
+        data[index] = Math.floor(selectedColor[0] * 255);     // Red
+        data[index + 1] = Math.floor(selectedColor[1] * 255); // Green
+        data[index + 2] = Math.floor(selectedColor[2] * 255); // Blue
+        data[index + 3] = 255;                                // Alpha
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    const dataUrl = canvas.toDataURL();
+    
+    // Update the node with the generated preview
+    setNodes(nds => nds.map(n => {
+      if (n.id === node.id) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            preview: dataUrl
+          }
+        };
+      }
+      return n;
+    }));
+    
+    // Store the generated image for this node
+    setProcessedImages(prev => ({
+      ...prev,
+      [node.id]: dataUrl
+    }));
+    
+  }, [setNodes, setProcessedImages, hexToRgb]);
+  
   // Process the image through the filter chain
   const processImage = useCallback(async () => {
     if (!sourceImageRef.current || !sourceImage) return;
@@ -671,8 +760,12 @@ export function useFilterGraph() {
           };
 
           // For generator nodes, regenerate the preview immediately
-          if (node.type === 'generatorNode' && nodeData.filterType === 'perlinNoise') {
-            setTimeout(() => generatePerlinNoisePreview(updatedNode), 10);
+          if (node.type === 'generatorNode') {
+            if (nodeData.filterType === 'perlinNoise') {
+              setTimeout(() => generatePerlinNoisePreview(updatedNode), 10);
+            } else if (nodeData.filterType === 'checkerboard') {
+              setTimeout(() => generateCheckerboardPreview(updatedNode), 10);
+            }
           }
 
           return updatedNode;
@@ -683,7 +776,7 @@ export function useFilterGraph() {
 
     // Re-process the image when params change
     processImage();
-  }, [processImage, generatePerlinNoisePreview]);
+  }, [processImage, generatePerlinNoisePreview, generateCheckerboardPreview]);
   
   // Handle enabling/disabling a filter node
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
@@ -1199,7 +1292,11 @@ export function useFilterGraph() {
       setSelectedNodeId(newNodeId);
       
       // Generate initial preview for generator node
-      setTimeout(() => generatePerlinNoisePreview(newNode), 10);
+      if (filterType === 'perlinNoise') {
+        setTimeout(() => generatePerlinNoisePreview(newNode), 10);
+      } else if (filterType === 'checkerboard') {
+        setTimeout(() => generateCheckerboardPreview(newNode), 10);
+      }
       return;
     }
     

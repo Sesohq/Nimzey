@@ -387,6 +387,16 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   className="mt-1"
                 />
               )}
+              
+              {param.controlType === 'color' && (
+                <Input
+                  type="color"
+                  value={param.value as string}
+                  onChange={(e) => handleParamChange(param.id || param.name, e.target.value)}
+                  disabled={!data.enabled}
+                  className="w-full h-10 mt-1 cursor-pointer"
+                />
+              )}
             </div>
           ))}
         </div>
