@@ -401,10 +401,11 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       onClick={() => setActiveColorPicker(param.id || param.name)}
                       disabled={!data.enabled}
                     />
-                    <Input
+                    <input
                       type="text"
                       value={param.value as string}
                       onChange={(e) => {
+                        e.stopPropagation();
                         const value = e.target.value;
                         handleParamChange(param.id || param.name, value);
                       }}
@@ -426,8 +427,11 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                           }
                         }
                       }}
+                      onFocus={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
                       disabled={!data.enabled}
-                      className="flex-1 text-xs font-mono"
+                      className="flex-1 text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="#ffffff"
                     />
                   </div>
