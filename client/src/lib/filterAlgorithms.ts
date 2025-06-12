@@ -204,10 +204,12 @@ export const applyFilters = (
         // Find edges connecting to this mask node
         const maskEdges = edges.filter(edge => edge.target === node.id);
         
-        // Look for ANY node connected as mask
+        // Look for ANY node connected as mask - but exclude the main source image connection
+        const sourceImageNode = nodes.find(n => n.type === 'imageNode');
         const maskSourceEdge = maskEdges.find(edge => {
           const sourceNode = nodes.find(n => n.id === edge.source);
-          return sourceNode; // Accept any source node
+          // Only accept nodes that are NOT the main source image
+          return sourceNode && sourceNode.id !== sourceImageNode?.id;
         });
         
         if (maskSourceEdge) {
@@ -354,6 +356,10 @@ export const applyFilters = (
               };
             }
           }
+        } else {
+          // No mask input connected - skip mask processing entirely
+          console.log("No mask input connected, skipping mask filter");
+          continue; // Skip this filter node entirely if no mask is connected
         }
       }
       
