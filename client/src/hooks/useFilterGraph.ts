@@ -509,6 +509,10 @@ export function useFilterGraph() {
     const color1Hex = params.find((p: any) => p.name === 'color1')?.value || '#ffffff';
     const color2Hex = params.find((p: any) => p.name === 'color2')?.value || '#000000';
     
+    console.log('Generating checkerboard with params:', { 
+      width, height, repeatH, repeatV, color1Hex, color2Hex 
+    });
+    
     // Convert hex colors to RGB
     const color1 = hexToRgb(color1Hex);
     const color2 = hexToRgb(color2Hex);
@@ -745,10 +749,14 @@ export function useFilterGraph() {
 
   // Handle node parameter changes
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
+    console.log('handleParamChange called:', { nodeId, paramId, value });
+    
     setNodes(nds => 
       nds.map(node => {
         if (node.id === nodeId && (node.type === 'filterNode' || node.type === 'generatorNode')) {
           const nodeData = node.data as FilterNodeData;
+          console.log('Updating node params for:', nodeId, 'param:', paramId, 'new value:', value);
+          
           const updatedNode = {
             ...node,
             data: {

@@ -392,7 +392,10 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                 <Input
                   type="color"
                   value={param.value as string}
-                  onChange={(e) => handleParamChange(param.id || param.name, e.target.value)}
+                  onChange={(e) => {
+                    console.log('Color changed:', param.id || param.name, 'to', e.target.value);
+                    handleParamChange(param.id || param.name, e.target.value);
+                  }}
                   disabled={!data.enabled}
                   className="w-full h-10 mt-1 cursor-pointer"
                 />
