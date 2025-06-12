@@ -28,6 +28,14 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'mask',
         params: [
           {
+            id: 'mask-mask',
+            name: 'mask',
+            label: 'Mask',
+            controlType: 'select',
+            paramType: 'image',
+            value: ''
+          },
+          {
             id: 'mask-lumaMode',
             name: 'lumaMode',
             label: 'Luma Mode',
