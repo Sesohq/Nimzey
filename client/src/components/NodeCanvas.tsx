@@ -91,15 +91,13 @@ export default function NodeCanvas({
     onEdgesChange([removeChange]);
   };
 
-  // Create generateNodePreview callback for node components
+  // Create stable generateNodePreview callback
   const generateNodePreview = useCallback((nodeId: string) => {
-    // When a node parameter changes, find the node and trigger a preview
-    const targetNode = nodes.find((n) => n.id === nodeId);
-    if (targetNode && onNodeClick && nodeId) {
-      // First select the node (required for some preview systems)
+    // Simply call onNodeClick with the nodeId for preview generation
+    if (onNodeClick && nodeId) {
       onNodeClick(nodeId);
     }
-  }, [nodes, onNodeClick]);
+  }, [onNodeClick]);
 
   // Memoize nodeTypes with stable dependencies to prevent React Flow warnings
   const nodeTypes = useMemo(() => createNodeTypes(generateNodePreview), [generateNodePreview]);

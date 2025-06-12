@@ -157,6 +157,7 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
   const handleRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
+    console.log('Toggle collapse clicked:', collapsed, '->', !collapsed);
     e.stopPropagation();
     const newCollapsedState = !collapsed;
     setCollapsed(newCollapsedState);
@@ -274,7 +275,11 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
               <TooltipTrigger asChild>
                 <button 
                   className="hover:bg-white/20 rounded p-1" 
-                  onClick={() => setShowSettings(!showSettings)}
+                  onClick={(e) => {
+                    console.log('Settings button clicked:', showSettings, '->', !showSettings);
+                    e.stopPropagation();
+                    setShowSettings(!showSettings);
+                  }}
                 >
                   <Layers className="h-3 w-3" />
                 </button>
