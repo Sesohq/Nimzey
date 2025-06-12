@@ -765,6 +765,8 @@ export function useFilterGraph() {
               setTimeout(() => generatePerlinNoisePreview(updatedNode), 10);
             } else if (nodeData.filterType === 'checkerboard') {
               setTimeout(() => generateCheckerboardPreview(updatedNode), 10);
+            } else if (nodeData.filterType === 'gradientOverlay') {
+              setTimeout(() => generateGradientOverlayPreview(updatedNode), 10);
             }
           }
 
@@ -1250,8 +1252,8 @@ export function useFilterGraph() {
       return;
     }
     
-    // For Generator nodes (like Perlin Noise and Checkerboard), create generator nodes
-    if (filterType === 'perlinNoise' || filterType === 'checkerboard') {
+    // For Generator nodes (like Perlin Noise, Checkerboard, and Gradient Overlay), create generator nodes
+    if (filterType === 'perlinNoise' || filterType === 'checkerboard' || filterType === 'gradientOverlay') {
       const newNode = {
         id: newNodeId,
         type: 'generatorNode',
@@ -1296,6 +1298,8 @@ export function useFilterGraph() {
         setTimeout(() => generatePerlinNoisePreview(newNode), 10);
       } else if (filterType === 'checkerboard') {
         setTimeout(() => generateCheckerboardPreview(newNode), 10);
+      } else if (filterType === 'gradientOverlay') {
+        setTimeout(() => generateGradientOverlayPreview(newNode), 10);
       }
       return;
     }

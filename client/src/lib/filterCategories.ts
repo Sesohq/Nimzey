@@ -197,6 +197,82 @@ export const filterCategories: Record<string, FilterCategory> = {
             value: '#000000'
           }
         ]
+      },
+      {
+        name: 'Gradient Overlay',
+        type: 'gradientOverlay',
+        params: [
+          {
+            id: 'gradient-width',
+            name: 'width',
+            label: 'Width',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'gradient-height',
+            name: 'height',
+            label: 'Height',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'gradient-color1',
+            name: 'color1',
+            label: 'Color 1',
+            controlType: 'color',
+            paramType: 'color',
+            value: '#ff0000'
+          },
+          {
+            id: 'gradient-color2',
+            name: 'color2',
+            label: 'Color 2',
+            controlType: 'color',
+            paramType: 'color',
+            value: '#0000ff'
+          },
+          {
+            id: 'gradient-angle',
+            name: 'angle',
+            label: 'Angle',
+            controlType: 'range',
+            paramType: 'float',
+            min: 0,
+            max: 360,
+            step: 1,
+            value: 0,
+            unit: '°'
+          },
+          {
+            id: 'gradient-type',
+            name: 'type',
+            label: 'Type',
+            controlType: 'select',
+            paramType: 'option',
+            options: ['Linear', 'Radial', 'Angular'],
+            value: 'Linear'
+          },
+          {
+            id: 'gradient-blendMode',
+            name: 'blendMode',
+            label: 'Blend Mode',
+            controlType: 'select',
+            paramType: 'option',
+            options: ['Normal', 'Overlay', 'Multiply'],
+            value: 'Overlay'
+          }
+        ]
       }
     ]
   },
