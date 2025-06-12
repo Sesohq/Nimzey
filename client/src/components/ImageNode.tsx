@@ -28,9 +28,9 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
   };
 
   return (
-    <Card className={`shadow-md w-[180px] bg-white ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className="bg-blue-500 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
-        <span>Source Image</span>
+    <div className={`bg-gray-800 border border-gray-700 rounded-lg shadow-lg w-[200px] ${selected ? 'ring-2 ring-blue-500' : ''}`}>
+      <div className="bg-gray-700 text-white px-3 py-2 rounded-t-lg text-sm font-medium flex items-center justify-between cursor-move">
+        <span>Image</span>
       </div>
       
       <div className="p-3">
@@ -52,11 +52,12 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
           </div>
         ) : (
           <div 
-            className="w-full h-[100px] bg-gray-100 rounded mb-2 flex flex-col items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors"
+            className="w-full h-[100px] bg-gray-600 rounded mb-2 flex flex-col items-center justify-center text-gray-300 text-xs cursor-pointer hover:bg-gray-500 transition-colors"
             onClick={handleClick}
           >
             <Plus className="h-6 w-6 mb-1" />
             <span>Click to upload image</span>
+            <span className="text-xs text-gray-400 mt-1">JPG, PNG, GIF, etc.</span>
           </div>
         )}
         
@@ -74,11 +75,11 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
         <Handle
           type="source"
           position={Position.Right}
-          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          className="w-3 h-3 rounded-full -mr-1.5 bg-blue-500 border-2 border-gray-800"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
       </div>
-    </Card>
+    </div>
   );
 };
 
