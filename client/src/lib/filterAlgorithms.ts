@@ -220,8 +220,15 @@ export const applyFilters = (
             const maskCtx = maskCanvas.getContext('2d');
             
             if (maskCtx && maskSourceNode.data) {
-              // Generate checkerboard pattern
-              generateCheckerboardPattern(maskCtx, maskCanvas, maskSourceNode.data as FilterNodeData);
+              const maskNodeData = maskSourceNode.data as FilterNodeData;
+              
+              // Generate pattern based on the generator type
+              if (maskNodeData.filterType === 'checkerboard') {
+                generateCheckerboardPattern(maskCtx, maskCanvas, maskNodeData);
+              } else if (maskNodeData.filterType === 'perlinNoise') {
+                generatePerlinNoisePattern(maskCtx, maskCanvas, maskNodeData);
+              }
+              
               const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
               
               // Add mask data to node data
@@ -484,6 +491,44 @@ function generateCheckerboardPattern(
       );
     }
   }
+}
+
+// Generate Perlin noise pattern for mask
+function generatePerlinNoisePattern(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  nodeData: FilterNodeData
+): void {
+  const params = nodeData.params || [];
+  
+  // Extract parameters
+  const scale = Number(params.find(p => p.name === 'scale')?.value || 4.0);
+  const seed = Number(params.find(p => p.name === 'seed')?.value || 0);
+  
+  // Create ImageData for the noise
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  // Simple Perlin-like noise implementation
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const nx = (x / canvas.width) * scale;
+      const ny = (y / canvas.height) * scale;
+      
+      // Simple noise function (not true Perlin but good enough for masking)
+      const noise = Math.sin(nx * 6.28 + seed) * Math.sin(ny * 6.28 + seed) * 0.5 + 0.5;
+      const value = Math.floor(noise * 255);
+      
+      const index = (y * canvas.width + x) * 4;
+      data[index] = value;     // Red
+      data[index + 1] = value; // Green
+      data[index + 2] = value; // Blue
+      data[index + 3] = 255;   // Alpha
+    }
+  }
+  
+  // Put the noise data on the canvas
+  ctx.putImageData(imageData, 0, 0);
 }
 
 // Canvas-based mask filter implementation
