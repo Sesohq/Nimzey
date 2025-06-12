@@ -53,21 +53,26 @@ const EditableValue = ({
 }) => {
   if (isEditing) {
     return (
-      <Input
-        type="text"
-        value={editValue}
-        onChange={(e) => onChangeEdit(e.target.value)}
-        onBlur={onFinishEdit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            onFinishEdit();
-          } else if (e.key === 'Escape') {
-            onCancelEdit();
-          }
-        }}
-        className="text-xs w-14 h-6 px-1 py-0"
-        autoFocus
-      />
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Input
+          type="text"
+          value={editValue}
+          onChange={(e) => onChangeEdit(e.target.value)}
+          onBlur={onFinishEdit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onFinishEdit();
+            } else if (e.key === 'Escape') {
+              onCancelEdit();
+            }
+          }}
+          className="text-xs w-14 h-6 px-1 py-0"
+          autoFocus
+        />
+      </div>
     );
   }
   
@@ -349,14 +354,19 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       disabled={!data.enabled}
                     />
                   </div>
-                  <CustomSlider
-                    value={[Number(param.value)]}
-                    min={param.min || 0}
-                    max={param.max || 100}
-                    step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
-                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
-                    disabled={!data.enabled}
-                  />
+                  <div 
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <CustomSlider
+                      value={[Number(param.value)]}
+                      min={param.min || 0}
+                      max={param.max || 100}
+                      step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
+                      onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
+                      disabled={!data.enabled}
+                    />
+                  </div>
                 </div>
               )}
               
@@ -401,39 +411,44 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       onClick={() => setActiveColorPicker(param.id || param.name)}
                       disabled={!data.enabled}
                     />
-                    <input
-                      type="text"
-                      value={param.value as string}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        const value = e.target.value;
-                        handleParamChange(param.id || param.name, value);
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value;
-                        // Validate and format the hex color on blur
-                        if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
-                          // Valid hex color
-                          if (value.length === 4) {
-                            // Convert 3-digit hex to 6-digit
-                            const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
-                            handleParamChange(param.id || param.name, fullHex);
-                          }
-                        } else if (!value.startsWith('#')) {
-                          // Add # if missing
-                          const withHash = '#' + value;
-                          if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
-                            handleParamChange(param.id || param.name, withHash);
-                          }
-                        }
-                      }}
-                      onFocus={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
+                    <div 
+                      className="flex-1"
                       onMouseDown={(e) => e.stopPropagation()}
-                      disabled={!data.enabled}
-                      className="flex-1 text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="#ffffff"
-                    />
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="text"
+                        value={param.value as string}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          const value = e.target.value;
+                          handleParamChange(param.id || param.name, value);
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          // Validate and format the hex color on blur
+                          if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
+                            // Valid hex color
+                            if (value.length === 4) {
+                              // Convert 3-digit hex to 6-digit
+                              const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+                              handleParamChange(param.id || param.name, fullHex);
+                            }
+                          } else if (!value.startsWith('#')) {
+                            // Add # if missing
+                            const withHash = '#' + value;
+                            if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
+                              handleParamChange(param.id || param.name, withHash);
+                            }
+                          }
+                        }}
+                        onFocus={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        disabled={!data.enabled}
+                        className="w-full text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="#ffffff"
+                      />
+                    </div>
                   </div>
                   
                   {/* Color Picker Popup */}
