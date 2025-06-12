@@ -204,10 +204,10 @@ export const applyFilters = (
         // Find edges connecting to this mask node
         const maskEdges = edges.filter(edge => edge.target === node.id);
         
-        // Look for ANY node connected as mask (not just generators)
+        // Look for ANY node connected as mask
         const maskSourceEdge = maskEdges.find(edge => {
           const sourceNode = nodes.find(n => n.id === edge.source);
-          return sourceNode && sourceNode.type !== 'imageNode'; // Accept any non-image source
+          return sourceNode; // Accept any source node
         });
         
         if (maskSourceEdge) {
@@ -257,6 +257,77 @@ export const applyFilters = (
                   const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
                   convertToGrayscaleMask(imageData.data);
                   maskCtx.putImageData(imageData, 0, 0);
+                }
+              } else if (maskSourceNode.type === 'imageFilterNode' || maskSourceNode.type === 'imageNode') {
+                // Handle uploaded image nodes as mask input
+                console.log("Using uploaded image as mask");
+                
+                // Get the image data from the node
+                const imageNodeData = maskSourceNode.data as any;
+                if (imageNodeData.imageUrl) {
+                  console.log("Loading mask image from URL");
+                  
+                  // Create and load image synchronously if possible
+                  const maskImage = new Image();
+                  maskImage.crossOrigin = 'anonymous';
+                  
+                  // Set up the image loading
+                  const loadPromise = new Promise<void>((resolve) => {
+                    maskImage.onload = () => {
+                      try {
+                        // Draw the image to the mask canvas
+                        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                        maskCtx.drawImage(maskImage, 0, 0, maskCanvas.width, maskCanvas.height);
+                        
+                        // Get the image data and convert to grayscale mask
+                        const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                        convertToGrayscaleMask(imageData.data);
+                        maskCtx.putImageData(imageData, 0, 0);
+                        
+                        console.log("Mask image processed successfully");
+                      } catch (error) {
+                        console.error("Error processing mask image:", error);
+                        // Create white fallback
+                        maskCtx.fillStyle = 'white';
+                        maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                      }
+                      resolve();
+                    };
+                    
+                    maskImage.onerror = () => {
+                      console.error("Failed to load mask image");
+                      // Create white fallback
+                      maskCtx.fillStyle = 'white';
+                      maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                      resolve();
+                    };
+                  });
+                  
+                  // Start loading the image
+                  maskImage.src = imageNodeData.imageUrl;
+                  
+                  // For immediate processing, try to use any existing loaded version
+                  const existingImgs: HTMLImageElement[] = [];
+                  document.querySelectorAll('img').forEach(img => {
+                    if (img.src === imageNodeData.imageUrl && img.complete && img.naturalWidth > 0) {
+                      existingImgs.push(img);
+                    }
+                  });
+                  
+                  if (existingImgs.length > 0) {
+                    console.log("Using already loaded image for mask");
+                    const img = existingImgs[0];
+                    maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                    maskCtx.drawImage(img, 0, 0, maskCanvas.width, maskCanvas.height);
+                    
+                    const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                    convertToGrayscaleMask(imageData.data);
+                    maskCtx.putImageData(imageData, 0, 0);
+                  }
+                } else {
+                  console.warn("Image node missing imageUrl");
+                  maskCtx.fillStyle = 'white';
+                  maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
                 }
               }
               
@@ -646,7 +717,15 @@ const applyFilter = (
       const lumaParam = params.find(p => p.name === 'lumaMode')?.value;
       const useLuma = lumaParam === true || lumaParam === 1 || lumaParam === 'true';
       
-      // For mask filter, we need to find the connected mask input
+      console.log("Applying mask filter with luma mode:", useLuma);
+      
+      // Check if we have mask data from the preprocessing step
+      if (nodeData?.maskImageData) {
+        console.log("Using preprocessed mask data");
+        applyMaskFilterCanvas(data, canvas.width, canvas.height, nodeData.maskImageData, useLuma);
+      } else {
+        console.warn("No mask data available for mask filter");
+      }
       // This is a special case where we need two image inputs
       if (nodeData && nodeData.maskImageData) {
         console.log("Applying mask filter with luma mode:", useLuma);
