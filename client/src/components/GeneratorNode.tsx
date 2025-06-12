@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FilterNodeData, BlendMode, NodeColorTag, FilterParam } from '@/types';
 import CanvasPreview from './CanvasPreview';
+import { ColorPicker } from './ColorPicker';
 
 // Color tag backgrounds
 const colorTagBg: Record<NodeColorTag, string> = {
@@ -125,6 +126,8 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
   const [showSettings, setShowSettings] = useState(false);
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
+  const colorPickerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -391,35 +394,57 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               {param.controlType === 'color' && (
                 <div className="mt-1">
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="color"
-                      value={param.value as string}
-                      onChange={(e) => {
-                        console.log('Color changed:', param.id || param.name, 'to', e.target.value);
-                        handleParamChange(param.id || param.name, e.target.value);
-                      }}
+                    <button
+                      ref={(el) => colorPickerRefs.current[param.id || param.name] = el}
+                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors"
+                      style={{ backgroundColor: param.value as string }}
+                      onClick={() => setActiveColorPicker(param.id || param.name)}
                       disabled={!data.enabled}
-                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
-                      style={{ 
-                        padding: '0', 
-                        border: 'none',
-                        outline: 'none'
-                      }}
                     />
                     <Input
                       type="text"
                       value={param.value as string}
                       onChange={(e) => {
                         const value = e.target.value;
+                        handleParamChange(param.id || param.name, value);
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value;
+                        // Validate and format the hex color on blur
                         if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
-                          handleParamChange(param.id || param.name, value);
+                          // Valid hex color
+                          if (value.length === 4) {
+                            // Convert 3-digit hex to 6-digit
+                            const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+                            handleParamChange(param.id || param.name, fullHex);
+                          }
+                        } else if (!value.startsWith('#')) {
+                          // Add # if missing
+                          const withHash = '#' + value;
+                          if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
+                            handleParamChange(param.id || param.name, withHash);
+                          }
                         }
                       }}
                       disabled={!data.enabled}
-                      className="flex-1 text-xs"
+                      className="flex-1 text-xs font-mono"
                       placeholder="#ffffff"
                     />
                   </div>
+                  
+                  {/* Color Picker Popup */}
+                  {activeColorPicker === (param.id || param.name) && (
+                    <ColorPicker
+                      color={param.value as string}
+                      onChange={(color) => {
+                        console.log('Color picker changed:', param.id || param.name, 'to', color);
+                        handleParamChange(param.id || param.name, color);
+                      }}
+                      onClose={() => setActiveColorPicker(null)}
+                      isOpen={true}
+                      triggerRef={{ current: colorPickerRefs.current[param.id || param.name] }}
+                    />
+                  )}
                 </div>
               )}
             </div>
