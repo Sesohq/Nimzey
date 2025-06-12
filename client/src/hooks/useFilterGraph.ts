@@ -1157,8 +1157,8 @@ export function useFilterGraph() {
       return;
     }
     
-    // For Generator nodes (like Perlin Noise), create generator nodes
-    if (filterType === 'perlinNoise') {
+    // For Generator nodes (like Perlin Noise and Checkerboard), create generator nodes
+    if (filterType === 'perlinNoise' || filterType === 'checkerboard') {
       const newNode = {
         id: newNodeId,
         type: 'generatorNode',

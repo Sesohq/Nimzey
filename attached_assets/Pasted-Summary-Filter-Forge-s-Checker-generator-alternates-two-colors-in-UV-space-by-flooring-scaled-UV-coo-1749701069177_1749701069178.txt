@@ -1,0 +1,121 @@
+Summary
+Filter Forge’s Checker generator alternates two colors in UV space by flooring scaled UV coordinates and taking their sum mod 2, exactly like classic shaders do. We’ll: (1) define the node in your graph model, (2) write a GLSL shader matching Filter Forge’s behavior, (3) hook it into your React Flow palette, and (4) wire it through your WebGL runner just as you did for Perlin Noise.
+
+1. Filter Forge Checker Architecture
+Filter Forge’s Checker component is a built-in Map node that outputs a perfectly tileable checkerboard given horizontal and vertical repeat counts 
+filterforge.com
+. Internally, it computes:
+
+glsl
+Copy
+Edit
+vec2 grid = uv * vec2(repeatH, repeatV);
+float i = floor(grid.x);
+float j = floor(grid.y);
+float mask = mod(i + j, 2.0);
+If mask is 0, it outputs Color 1; if 1, Color 2 
+filterforge.com
+. This logic creates alternating squares across the image.
+
+2. GLSL Shader for Checkerboard
+Create shaders/checker.glsl.js with this fragment shader—matching Filter Forge’s logic exactly:
+
+js
+Copy
+Edit
+// shaders/checker.glsl.js
+export const checkerShaderSource = `#version 300 es
+precision highp float;
+out vec4 fragColor;
+
+uniform vec2 u_resolution;       // pixel size, if needed
+uniform vec2 u_repeat;           // { repeatH, repeatV }
+uniform vec4 u_color1;           // RGBA for square type 0
+uniform vec4 u_color2;           // RGBA for square type 1
+
+void main() {
+  // Compute normalized UV [0,1]
+  vec2 uv = gl_FragCoord.xy / u_resolution;
+  // Scale by repeats
+  vec2 grid = uv * u_repeat;
+  // Determine square indices
+  float ix = floor(grid.x);
+  float iy = floor(grid.y);
+  // Alternate pattern
+  float mask = mod(ix + iy, 2.0);
+  // Mix colors exactly like Filter Forge
+  fragColor = mix(u_color1, u_color2, mask);
+}
+`;
+floor(grid) breaks UV into discrete squares; mod(...,2.0) alternates per square 
+stackoverflow.com
+.
+
+mix(color1, color2, mask) picks color1 when mask==0, color2 when mask==1 
+docs.unity3d.com
+.
+
+3. Registering the Node in Filter Kit
+In your filterGraph.ts, add:
+
+ts
+Copy
+Edit
+PerlinNoise: { /* existing */ },
+Checkerboard: {
+  label: "Checkerboard Generator",
+  inputs: {
+    width:    { type: "number", default: 256 },
+    height:   { type: "number", default: 256 },
+    repeatH:  { type: "number", default: 8 },
+    repeatV:  { type: "number", default: 8 },
+    color1:   { type: "color",  default: [1,1,1,1] },
+    color2:   { type: "color",  default: [0,0,0,1] },
+  },
+  outputs: { out: "image" },
+  process: async ({ width, height, repeatH, repeatV, color1, color2 }, gl) => {
+    return gl.runGeneratorShader(
+      checkerShaderSource,
+      { width, height, u_resolution: [width, height],
+        u_repeat: [repeatH, repeatV],
+        u_color1: color1,
+        u_color2: color2 }
+    );
+  },
+},
+This mirrors how Filter Forge exposes Repeat H, Repeat V, Color 1, and Color 2 
+filterforge.com
+.
+
+4. Integrating into React Flow
+In your palette component (NodePalette.tsx), the new node will automatically appear (since we map over nodeTypes). Ensure your drop handler initializes data with the defaults you specified 
+filterforge.com
+.
+
+5. WebGL Runner Support
+Your existing WebGLContext.runGeneratorShader—which you used for Perlin Noise—works out of the box. It will:
+
+Allocate an FBO of size width×height.
+
+Compile and cache checkerShaderSource.
+
+Bind uniforms u_resolution, u_repeat, u_color1, u_color2.
+
+Draw a fullscreen quad.
+
+Return the generated WebGLTexture.
+
+This matches Filter Forge’s C++ pipeline for Map components like Checker 
+filterforge.com
+.
+
+6. Testing and Edge Cases
+Edge alignment: Verify that at UV boundaries (e.g. exactly 1.0 or integer multiples), the pattern tiles seamlessly—Filter Forge avoids half-pixel offsets 
+docs.unity3d.com
+.
+
+Color blending: Since Filter Forge’s Checker doesn’t antialias by default, our mix will produce hard edges—correct behavior.
+
+Resolution independence: The pattern scales with repeats, not pixel size—testing at various resolutions should yield identical square counts 
+scratchapixel.com
+.

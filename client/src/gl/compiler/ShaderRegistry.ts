@@ -9,6 +9,7 @@
 import { FilterType } from '@/types';
 import { GLShader, GLShaderFactory, ShaderParameter } from '../core/GLShader';
 import { createPerlinNoiseShader } from '../shaders/perlinNoiseShader';
+import { createCheckerboardShader } from '../shaders/checkerboardShader';
 
 export class ShaderRegistry {
   private shaders: Map<string, GLShader> = new Map();
@@ -85,6 +86,9 @@ export class ShaderRegistry {
     
     // Register the Perlin noise generator
     this.registerShader('perlinNoise', createPerlinNoiseShader());
+    
+    // Register the Checkerboard generator
+    this.registerShader('checkerboard', createCheckerboardShader());
     
     // In the real implementation, we would populate these with our actual shader implementations
     // e.g. this.registerShader('blur', blurShader());

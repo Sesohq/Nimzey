@@ -15,7 +15,8 @@ export type FilterType =
   | 'glow'
   | 'halftone'
   | 'image'
-  | 'perlinNoise';
+  | 'perlinNoise'
+  | 'checkerboard';
 
 export type NodeType = 'filterNode' | 'imageNode' | 'outputNode' | 'generatorNode';
 

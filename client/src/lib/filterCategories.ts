@@ -100,6 +100,76 @@ export const filterCategories: Record<string, FilterCategory> = {
             unit: ''
           }
         ]
+      },
+      {
+        name: 'Checkerboard',
+        type: 'checkerboard',
+        params: [
+          {
+            id: 'checker-width',
+            name: 'width',
+            label: 'Width',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'checker-height',
+            name: 'height',
+            label: 'Height',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'checker-repeatH',
+            name: 'repeatH',
+            label: 'Repeat H',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 1,
+            max: 32,
+            step: 1,
+            value: 8,
+            unit: ''
+          },
+          {
+            id: 'checker-repeatV',
+            name: 'repeatV',
+            label: 'Repeat V',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 1,
+            max: 32,
+            step: 1,
+            value: 8,
+            unit: ''
+          },
+          {
+            id: 'checker-color1',
+            name: 'color1',
+            label: 'Color 1',
+            controlType: 'color',
+            paramType: 'color',
+            value: '#ffffff'
+          },
+          {
+            id: 'checker-color2',
+            name: 'color2',
+            label: 'Color 2',
+            controlType: 'color',
+            paramType: 'color',
+            value: '#000000'
+          }
+        ]
       }
     ]
   },
