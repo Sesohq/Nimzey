@@ -359,7 +359,17 @@ export const applyFilters = (
                 }
               }
               
-              const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+              // Ensure mask is exactly the same size as source canvas (critical for alignment)
+              const resizedMaskCanvas = document.createElement('canvas');
+              resizedMaskCanvas.width = canvas.width;
+              resizedMaskCanvas.height = canvas.height;
+              const resizedMaskCtx = resizedMaskCanvas.getContext('2d')!;
+              
+              // Draw mask to match source dimensions exactly
+              resizedMaskCtx.drawImage(maskCanvas, 0, 0, canvas.width, canvas.height);
+              
+              const maskImageData = resizedMaskCtx.getImageData(0, 0, canvas.width, canvas.height);
+              console.log("Canvas dimensions - Source:", canvas.width + "x" + canvas.height, "Mask:", maskImageData.width + "x" + maskImageData.height);
               
               // Add mask data to node data
               nodeDataWithMask = {
@@ -727,15 +737,16 @@ function applyMaskFilterCanvas(
     const maskB = maskData[i + 2];
     const maskA = maskData[i + 3];
     
-    // Calculate mask value based on mode
-    let maskValue: number;
-    const luminance = (0.2126 * maskR + 0.7152 * maskG + 0.0722 * maskB) / 255;
+    // Calculate luminance using Filter Forge's exact formula
+    const luminance = (0.3 * maskR + 0.59 * maskG + 0.11 * maskB) / 255;
     
+    // Apply mask logic: luminance directly controls alpha
+    let maskValue: number;
     if (useLuma) {
       // Luma mode: WHITE pixels are masked out (become transparent)
       maskValue = 1.0 - luminance; // Invert: white=0 (transparent), black=1 (visible)
     } else {
-      // Non-luma mode: BLACK pixels are masked out (become transparent)
+      // Non-luma mode: BLACK pixels are masked out (become transparent)  
       maskValue = luminance; // Direct: black=0 (transparent), white=1 (visible)
     }
     

@@ -1,0 +1,89 @@
+1. Node definition (inputs & outputs)
+js
+Copy
+Edit
+// somewhere in your node registry:
+addNodeType({
+  name: "Mask",
+  inputs: {
+    source: { type: "image", label: "Source Image" },
+    mask:   { type: "image", label: "Mask (grayscale)" },
+    invert: { type: "boolean", label: "Invert Luma", default: false },
+  },
+  outputs: {
+    image: { type: "image" },
+  },
+  worker: maskWorker
+});
+2. The worker function
+js
+Copy
+Edit
+async function maskWorker({ inputs }) {
+  const srcCanvas  = await inputs.source[0];  // OffscreenCanvas or HTMLCanvasElement
+  const maskCanvas = await inputs.mask[0];
+  const invert     = inputs.invert?.[0] ?? false;
+
+  const w = srcCanvas.width;
+  const h = srcCanvas.height;
+  // ensure mask is same size:
+  const tmpMask = new OffscreenCanvas(w, h);
+  tmpMask.getContext("2d").drawImage(maskCanvas, 0, 0, w, h);
+
+  // get pixel data
+  const srcCtx  = srcCanvas.getContext("2d");
+  const maskCtx = tmpMask.getContext("2d");
+  const srcData  = srcCtx .getImageData(0, 0, w, h);
+  const maskData = maskCtx.getImageData(0, 0, w, h);
+
+  // prepare the output
+  const outCanvas = new OffscreenCanvas(w, h);
+  const outCtx    = outCanvas.getContext("2d");
+  const outImage  = outCtx.createImageData(w, h);
+  const s  = srcData.data, m = maskData.data, o = outImage.data;
+
+  for (let i = 0; i < s.length; i += 4) {
+    // compute luma of mask pixel
+    const luma = (0.3*m[i] + 0.59*m[i+1] + 0.11*m[i+2]) / 255;
+    const alpha = invert ? 1 - luma : luma;
+
+    // copy RGB
+    o[i]   = s[i];
+    o[i+1] = s[i+1];
+    o[i+2] = s[i+2];
+    // apply mask to source alpha
+    o[i+3] = s[i+3] * alpha;
+  }
+
+  outCtx.putImageData(outImage, 0, 0);
+  return outCanvas;
+}
+3. How it works
+Resize the mask to your source’s dimensions.
+
+Read every pixel from source and mask canvases.
+
+Compute luma from mask RGB (0=black → transparent, 1=white → opaque).
+
+Optionally invert (white→transparent) if your “Luma Mode” checkbox is on.
+
+Multiply the source‐pixel’s alpha by that luma value.
+
+Render the resulting RGBA into a new canvas and return it.
+
+Because Perlin Noise emits a full grayscale image, wherever it’s dark your source will be transparent, and wherever it’s bright your source will show through.
+
+4. Variations & optimizations
+GPU (WebGL): In your fragment shader you’d do something like:
+
+glsl
+Copy
+Edit
+vec4 src  = texture2D(u_source, uv);
+vec4 mask = texture2D(u_mask,   uv);
+float luma = dot(mask.rgb, vec3(0.3,0.59,0.11));
+float a = u_invert ? 1.0 - luma : luma;
+gl_FragColor = vec4(src.rgb, src.a * a);
+Canvas compositing: You can also leverage globalCompositeOperation = 'destination-in' and draw the mask as an alpha‐only layer, but the pixel‐loop approach gives you direct control over invert & luma.
+
+Drop this into your FilterKit’s node‐registration and worker pipeline, and your Perlin Noise → Mask chain will suddenly behave just like Photoshop’s mask or Filter Forge’s—cutting out (or revealing) your source exactly where your noise map dictates.
