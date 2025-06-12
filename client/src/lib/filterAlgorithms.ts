@@ -684,6 +684,8 @@ function applyMaskFilterCanvas(
   maskData: Uint8ClampedArray,
   useLuma: boolean = false
 ): void {
+  console.log("Applying mask filter - useLuma:", useLuma);
+  
   // Apply mask to each pixel
   for (let i = 0; i < data.length; i += 4) {
     const sourceR = data[i];
@@ -698,19 +700,21 @@ function applyMaskFilterCanvas(
     
     // Calculate mask value based on mode
     let maskValue: number;
+    const luminance = (0.2126 * maskR + 0.7152 * maskG + 0.0722 * maskB) / 255;
+    
     if (useLuma) {
-      // Luma mode: use Rec.709 luminance
-      maskValue = (0.2126 * maskR + 0.7152 * maskG + 0.0722 * maskB) / 255;
+      // Luma mode: WHITE pixels are masked out (become transparent)
+      maskValue = 1.0 - luminance; // Invert: white=0 (transparent), black=1 (visible)
     } else {
-      // Alpha mode: use alpha channel
-      maskValue = maskA / 255;
+      // Non-luma mode: BLACK pixels are masked out (become transparent)
+      maskValue = luminance; // Direct: black=0 (transparent), white=1 (visible)
     }
     
-    // Apply mask to source
-    data[i] = sourceR * maskValue;     // Red
-    data[i + 1] = sourceG * maskValue; // Green
-    data[i + 2] = sourceB * maskValue; // Blue
-    data[i + 3] = sourceA * maskValue; // Alpha
+    // Apply mask as transparency - keep RGB colors, modify alpha
+    data[i] = sourceR;     // Keep original Red
+    data[i + 1] = sourceG; // Keep original Green
+    data[i + 2] = sourceB; // Keep original Blue
+    data[i + 3] = Math.round(sourceA * maskValue); // Apply mask to alpha for transparency
   }
 }
 
