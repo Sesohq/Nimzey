@@ -133,7 +133,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
-  const colorPickerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const colorPickerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -404,24 +404,22 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               {param.controlType === 'color' && (
                 <div className="mt-1">
                   <div className="flex items-center space-x-2">
-                    <button
+                    <div
                       ref={(el) => colorPickerRefs.current[param.id || param.name] = el}
                       className="w-16 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors shadow-sm hover:shadow-md flex items-center justify-center relative"
                       style={{ backgroundColor: param.value as string }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        e.preventDefault();
                         console.log('Color thumbnail clicked:', param.id || param.name);
                         setActiveColorPicker(param.id || param.name);
                         console.log('Active color picker set to:', param.id || param.name);
                       }}
-                      disabled={!data.enabled}
                       title="Click to open color picker"
                     >
                       <span className="text-xs font-mono text-white drop-shadow-sm mix-blend-difference">
                         {(param.value as string).substring(1).toUpperCase()}
                       </span>
-                    </button>
+                    </div>
                     <div className="flex-1 text-xs text-gray-600">
                       {param.label}
                     </div>
