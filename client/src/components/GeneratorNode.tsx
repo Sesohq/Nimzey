@@ -247,7 +247,10 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               <TooltipTrigger asChild>
                 <button 
                   className="nodrag hover:bg-white/20 rounded p-1" 
-                  onClick={() => setShowSettings(!showSettings)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSettings(!showSettings);
+                  }}
                 >
                   <Layers className="h-3 w-3" />
                 </button>
