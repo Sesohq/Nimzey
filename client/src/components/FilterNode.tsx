@@ -430,7 +430,7 @@ const FilterNode = ({ data, selected, id, generateNodePreview }: FilterNodeExten
           ) : null}
           
           {/* Parameters with connection handles */}
-          {data.params.map((param) => (
+          {(data.params || []).map((param) => (
             <div key={param.id || param.name} className="mb-4 relative">
               {/* Parameter connection handle */}
               <Handle
