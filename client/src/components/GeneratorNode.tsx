@@ -410,7 +410,10 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       style={{ backgroundColor: param.value as string }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
+                        console.log('Color thumbnail clicked:', param.id || param.name);
                         setActiveColorPicker(param.id || param.name);
+                        console.log('Active color picker set to:', param.id || param.name);
                       }}
                       disabled={!data.enabled}
                       title="Click to open color picker"
@@ -426,16 +429,22 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   
                   {/* Color Picker Popup */}
                   {activeColorPicker === (param.id || param.name) && (
-                    <ColorPicker
-                      color={param.value as string}
-                      onChange={(color) => {
-                        console.log('Color picker changed:', param.id || param.name, 'to', color);
-                        handleParamChange(param.id || param.name, color);
-                      }}
-                      onClose={() => setActiveColorPicker(null)}
-                      isOpen={true}
-                      triggerRef={{ current: colorPickerRefs.current[param.id || param.name] }}
-                    />
+                    <>
+                      {console.log('Rendering ColorPicker for:', param.id || param.name, 'with color:', param.value)}
+                      <ColorPicker
+                        color={param.value as string}
+                        onChange={(color) => {
+                          console.log('Color picker changed:', param.id || param.name, 'to', color);
+                          handleParamChange(param.id || param.name, color);
+                        }}
+                        onClose={() => {
+                          console.log('Closing color picker for:', param.id || param.name);
+                          setActiveColorPicker(null);
+                        }}
+                        isOpen={true}
+                        triggerRef={{ current: colorPickerRefs.current[param.id || param.name] }}
+                      />
+                    </>
                   )}
                 </div>
               )}

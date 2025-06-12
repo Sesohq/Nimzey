@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -224,10 +225,10 @@ export function ColorPicker({ color, onChange, onClose, isOpen, triggerRef }: Co
   
   const position = getPickerPosition();
   
-  return (
+  const colorPickerContent = (
     <div
       ref={pickerRef}
-      className="fixed z-50 shadow-lg"
+      className="fixed z-[9999] shadow-lg"
       style={{
         top: position.top,
         left: position.left
@@ -326,4 +327,7 @@ export function ColorPicker({ color, onChange, onClose, isOpen, triggerRef }: Co
       </Card>
     </div>
   );
+
+  // Use portal to render outside the ReactFlow node
+  return createPortal(colorPickerContent, document.body);
 }
