@@ -187,10 +187,10 @@ export const applyFilters = (
       if (!filterData.enabled) continue;
       
       // Convert FilterParam array to the expected format (only using name and value)
-      const convertedParams = filterData.params.map(param => ({
+      const convertedParams = filterData.params?.map(param => ({
         name: param.name,
         value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
-      }));
+      })) || [];
       
       // Add blend mode and opacity parameters for image nodes
       if (node.type === 'imageFilterNode') {
@@ -198,7 +198,45 @@ export const applyFilters = (
         convertedParams.push({ name: 'opacity', value: filterData.opacity });
       }
       
-      applyFilter(filterData.filterType, ctx, canvas, convertedParams, node.data);
+      // Special handling for mask filter - need to find the mask input
+      let nodeDataWithMask = node.data;
+      if (filterData.filterType === 'mask') {
+        // Find edges connecting to this mask node
+        const maskEdges = edges.filter(edge => edge.target === node.id);
+        
+        // Look for a checkerboard or other generator connected as mask
+        const maskSourceEdge = maskEdges.find(edge => {
+          const sourceNode = nodes.find(n => n.id === edge.source);
+          return sourceNode?.type === 'generatorNode';
+        });
+        
+        if (maskSourceEdge) {
+          const maskSourceNode = nodes.find(n => n.id === maskSourceEdge.source);
+          if (maskSourceNode?.type === 'generatorNode') {
+            // Generate the mask pattern
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            
+            if (maskCtx && maskSourceNode.data) {
+              // Generate checkerboard pattern
+              generateCheckerboardPattern(maskCtx, maskCanvas, maskSourceNode.data as FilterNodeData);
+              const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+              
+              // Add mask data to node data
+              nodeDataWithMask = {
+                ...node.data,
+                maskImageData: maskImageData.data
+              };
+            }
+          }
+        }
+      }
+      
+      if (filterData.filterType) {
+        applyFilter(filterData.filterType, ctx, canvas, convertedParams, nodeDataWithMask);
+      }
     }
   }
   
@@ -415,6 +453,77 @@ function applyGlowFilter(
   }
 }
 
+// Generate checkerboard pattern for mask
+function generateCheckerboardPattern(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  nodeData: FilterNodeData
+): void {
+  const params = nodeData.params || [];
+  
+  // Extract parameters
+  const repeatH = Number(params.find(p => p.name === 'repeatH')?.value || 8);
+  const repeatV = Number(params.find(p => p.name === 'repeatV')?.value || 8);
+  const color1 = String(params.find(p => p.name === 'color1')?.value || '#ffffff');
+  const color2 = String(params.find(p => p.name === 'color2')?.value || '#000000');
+  
+  const cellWidth = canvas.width / repeatH;
+  const cellHeight = canvas.height / repeatV;
+  
+  // Draw checkerboard pattern
+  for (let row = 0; row < repeatV; row++) {
+    for (let col = 0; col < repeatH; col++) {
+      const isEven = (row + col) % 2 === 0;
+      ctx.fillStyle = isEven ? color1 : color2;
+      
+      ctx.fillRect(
+        col * cellWidth,
+        row * cellHeight,
+        cellWidth,
+        cellHeight
+      );
+    }
+  }
+}
+
+// Canvas-based mask filter implementation
+function applyMaskFilterCanvas(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  maskData: Uint8ClampedArray,
+  useLuma: boolean = false
+): void {
+  // Apply mask to each pixel
+  for (let i = 0; i < data.length; i += 4) {
+    const sourceR = data[i];
+    const sourceG = data[i + 1];
+    const sourceB = data[i + 2];
+    const sourceA = data[i + 3];
+    
+    const maskR = maskData[i];
+    const maskG = maskData[i + 1];
+    const maskB = maskData[i + 2];
+    const maskA = maskData[i + 3];
+    
+    // Calculate mask value based on mode
+    let maskValue: number;
+    if (useLuma) {
+      // Luma mode: use Rec.709 luminance
+      maskValue = (0.2126 * maskR + 0.7152 * maskG + 0.0722 * maskB) / 255;
+    } else {
+      // Alpha mode: use alpha channel
+      maskValue = maskA / 255;
+    }
+    
+    // Apply mask to source
+    data[i] = sourceR * maskValue;     // Red
+    data[i + 1] = sourceG * maskValue; // Green
+    data[i + 2] = sourceB * maskValue; // Blue
+    data[i + 3] = sourceA * maskValue; // Alpha
+  }
+}
+
 // Apply a specific filter based on type
 const applyFilter = (
   filterType: FilterType,
@@ -427,6 +536,29 @@ const applyFilter = (
   let data = imageData.data;
   
   switch (filterType) {
+    case 'mask':
+      // Handle mask filter - requires both source and mask inputs
+      const lumaParam = params.find(p => p.name === 'lumaMode')?.value;
+      const useLuma = Boolean(lumaParam);
+      
+      // For mask filter, we need to find the connected mask input
+      // This is a special case where we need two image inputs
+      if (nodeData && nodeData.maskImageData) {
+        console.log("Applying mask filter with luma mode:", useLuma);
+        
+        // Get the mask image data
+        const maskData = nodeData.maskImageData;
+        
+        // Apply the mask using the CPU implementation
+        applyMaskFilterCanvas(data, canvas.width, canvas.height, maskData, useLuma);
+        
+        // Put the processed data back to canvas
+        ctx.putImageData(imageData, 0, 0);
+      } else {
+        console.warn("Mask filter missing mask input data");
+      }
+      break;
+      
     case 'image':
       // Handle image node - overlay a texture image on top of the filter chain
       const blendMode = params.find(p => p.name === 'blendMode')?.value as string || 'normal';
