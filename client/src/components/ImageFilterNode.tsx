@@ -4,6 +4,7 @@ import { ImageIcon, XIcon, Layers } from 'lucide-react';
 import { FilterNodeData, BlendMode } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { 
   Select,
   SelectContent,
@@ -17,7 +18,7 @@ interface ImageFilterNodeProps extends NodeProps<FilterNodeData> {
   id: string;
 }
 
-const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
+const ImageFilterNode = memo(({ data, id, selected = false }: ImageFilterNodeProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local state for immediate preview feedback
@@ -27,13 +28,15 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
   useEffect(() => {
     if (data.preview) {
       setImagePreview(data.preview);
-    } else {
+    } else if (data.params) {
       const imageParam = data.params.find(p => p.id === 'image-data');
       if (imageParam && typeof imageParam.value === 'string' && imageParam.value !== '') {
         setImagePreview(imageParam.value);
       } else {
         setImagePreview(null);
       }
+    } else {
+      setImagePreview(null);
     }
   }, [data.preview, data.params]);
   
@@ -116,101 +119,104 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-md p-2 w-64 shadow-md">
-      {/* Node header */}
-      <div className="flex justify-between items-center mb-2 text-gray-200">
+    <Card className={`shadow-md w-64 bg-card ${selected ? 'ring-2 ring-primary' : ''}`}>
+      {/* Header bar matching other nodes */}
+      <div className="bg-gray-600 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
         <div className="flex items-center">
-          <ImageIcon size={16} className="mr-2 text-purple-500" />
+          <ImageIcon size={16} className="mr-2" />
           <span>{data.label}</span>
         </div>
         {imagePreview && (
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 rounded-full hover:bg-red-900/30"
+            className="h-6 w-6 rounded-full hover:bg-white/20"
             onClick={handleClearImage}
             title="Clear image"
           >
-            <XIcon size={14} className="text-gray-400 hover:text-red-400" />
+            <XIcon size={14} className="text-white hover:text-red-300" />
           </Button>
         )}
       </div>
       
-      {/* Blend mode selector */}
-      <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
-        <Layers size={14} className="text-gray-500" />
-        <span>Blend:</span>
-        <Select
-          defaultValue={data.blendMode}
-          onValueChange={handleBlendModeChange}
+      {/* Main content area */}
+      <div className="p-3">
+        {/* Blend mode selector */}
+        <div className="flex items-center gap-2 mb-2 text-xs text-gray-600">
+          <Layers size={14} className="text-gray-500" />
+          <span>Blend:</span>
+          <Select
+            defaultValue={data.blendMode}
+            onValueChange={handleBlendModeChange}
+          >
+            <SelectTrigger className="h-7 w-28 text-xs">
+              <SelectValue placeholder="Blend Mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="multiply">Multiply</SelectItem>
+              <SelectItem value="screen">Screen</SelectItem>
+              <SelectItem value="overlay">Overlay</SelectItem>
+              <SelectItem value="darken">Darken</SelectItem>
+              <SelectItem value="lighten">Lighten</SelectItem>
+              <SelectItem value="color-dodge">Color Dodge</SelectItem>
+              <SelectItem value="color-burn">Color Burn</SelectItem>
+              <SelectItem value="hard-light">Hard Light</SelectItem>
+              <SelectItem value="soft-light">Soft Light</SelectItem>
+              <SelectItem value="difference">Difference</SelectItem>
+              <SelectItem value="exclusion">Exclusion</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {/* Opacity slider */}
+        <div className="flex items-center gap-2 mb-3 text-xs text-gray-600">
+          <span>Opacity:</span>
+          <div className="flex-1">
+            <Slider
+              defaultValue={[data.opacity]}
+              max={100}
+              step={1}
+              className="h-2"
+              onValueChange={handleOpacityChange}
+            />
+          </div>
+          <span className="w-8 text-right">{data.opacity}%</span>
+        </div>
+        
+        {/* Clickable image area */}
+        <div 
+          className="cursor-pointer relative rounded-md overflow-hidden"
+          onClick={handleClick}
         >
-          <SelectTrigger className="h-7 w-28 text-xs bg-gray-800 border-gray-700">
-            <SelectValue placeholder="Blend Mode" />
-          </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700 text-gray-200">
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="multiply">Multiply</SelectItem>
-            <SelectItem value="screen">Screen</SelectItem>
-            <SelectItem value="overlay">Overlay</SelectItem>
-            <SelectItem value="darken">Darken</SelectItem>
-            <SelectItem value="lighten">Lighten</SelectItem>
-            <SelectItem value="color-dodge">Color Dodge</SelectItem>
-            <SelectItem value="color-burn">Color Burn</SelectItem>
-            <SelectItem value="hard-light">Hard Light</SelectItem>
-            <SelectItem value="soft-light">Soft Light</SelectItem>
-            <SelectItem value="difference">Difference</SelectItem>
-            <SelectItem value="exclusion">Exclusion</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      {/* Opacity slider */}
-      <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
-        <span>Opacity:</span>
-        <div className="flex-1">
-          <Slider
-            defaultValue={[data.opacity]}
-            max={100}
-            step={1}
-            className="h-2"
-            onValueChange={handleOpacityChange}
+          {imagePreview ? (
+            <div className="rounded-md overflow-hidden bg-gray-50 border border-gray-200">
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                className="w-full h-32 object-contain"
+              />
+              <div className="text-center py-1 text-xs text-gray-500 bg-gray-50/80">
+                Click to change image
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-40 bg-gray-50 rounded-md border border-dashed border-gray-300">
+              <ImageIcon size={32} className="text-gray-400 mb-2" />
+              <span className="text-gray-500 text-sm">Click to upload image</span>
+              <span className="text-gray-500 text-xs mt-1">JPG, PNG, GIF, etc.</span>
+            </div>
+          )}
+          
+          {/* Hidden file input */}
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
           />
         </div>
-        <span className="w-8 text-right">{data.opacity}%</span>
-      </div>
-      
-      {/* Clickable image area */}
-      <div 
-        className="cursor-pointer relative rounded-md overflow-hidden"
-        onClick={handleClick}
-      >
-        {imagePreview ? (
-          <div className="rounded-md overflow-hidden bg-gray-800">
-            <img 
-              src={imagePreview} 
-              alt="Preview" 
-              className="w-full h-32 object-contain"
-            />
-            <div className="text-center py-1 text-xs text-gray-400 bg-gray-800/80">
-              Click to change image
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-40 bg-gray-800 rounded-md border border-dashed border-gray-600">
-            <ImageIcon size={32} className="text-gray-600 mb-2" />
-            <span className="text-gray-500 text-sm">Click to upload image</span>
-            <span className="text-gray-500 text-xs mt-1">JPG, PNG, GIF, etc.</span>
-          </div>
-        )}
-        
-        {/* Hidden file input */}
-        <input
-          type="file"
-          accept="image/*"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-        />
       </div>
       
       {/* Input connection point */}
@@ -218,15 +224,7 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
         type="target"
         position={Position.Left}
         id="node-input"
-        style={{ 
-          left: -8,
-          width: 8, 
-          height: 8, 
-          background: '#777777',
-          borderRadius: '50%',
-          border: '2px solid #333',
-          zIndex: 10
-        }}
+        className="w-3 h-3 rounded-full -ml-1.5 bg-gray-400 border-2 border-gray-200"
       />
       
       {/* Output connection point */}
@@ -234,17 +232,9 @@ const ImageFilterNode = memo(({ data, id }: ImageFilterNodeProps) => {
         type="source"
         position={Position.Right}
         id="node-output"
-        style={{ 
-          right: -8,
-          width: 8, 
-          height: 8, 
-          background: '#A855F7', // Purple to match the icon
-          borderRadius: '50%',
-          border: '2px solid #333',
-          zIndex: 10
-        }}
+        className="w-3 h-3 rounded-full -mr-1.5 bg-purple-500 border-2 border-gray-200"
       />
-    </div>
+    </Card>
   );
 });
 
