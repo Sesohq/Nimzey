@@ -209,6 +209,10 @@ export const applyFilters = (
           e => e.target === node.id && e.targetHandle === 'mask'
         );
         
+        // Debug: Log all edges to this node to see what's available
+        console.log("Debug - All edges to mask node:", edges.filter(e => e.target === node.id));
+        console.log("Debug - Looking for targetHandle === 'mask'");
+        
         if (maskSourceEdge) {
           const maskSourceNode = nodes.find(n => n.id === maskSourceEdge.source);
           if (maskSourceNode) {
