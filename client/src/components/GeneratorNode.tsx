@@ -408,7 +408,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   <div className="flex items-center space-x-2">
                     <div
                       ref={(el) => colorPickerRefs.current[param.id || param.name] = el}
-                      className="w-16 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors shadow-sm hover:shadow-md flex items-center justify-center relative"
+                      className="nodrag w-16 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors shadow-sm hover:shadow-md flex items-center justify-center relative"
                       style={{ backgroundColor: param.value as string }}
                       onClick={(e) => {
                         e.stopPropagation();
