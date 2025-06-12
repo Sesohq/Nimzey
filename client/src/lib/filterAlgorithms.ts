@@ -223,10 +223,15 @@ export const applyFilters = (
               const maskNodeData = maskSourceNode.data as FilterNodeData;
               
               // Generate pattern based on the generator type
+              console.log("Mask source node type:", maskNodeData.filterType);
               if (maskNodeData.filterType === 'checkerboard') {
+                console.log("Generating checkerboard mask pattern");
                 generateCheckerboardPattern(maskCtx, maskCanvas, maskNodeData);
               } else if (maskNodeData.filterType === 'perlinNoise') {
+                console.log("Generating Perlin noise mask pattern");
                 generatePerlinNoisePattern(maskCtx, maskCanvas, maskNodeData);
+              } else {
+                console.warn("Unknown mask generator type:", maskNodeData.filterType);
               }
               
               const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
@@ -501,23 +506,33 @@ function generatePerlinNoisePattern(
 ): void {
   const params = nodeData.params || [];
   
-  // Extract parameters
+  // Extract parameters with proper defaults
+  const width = Number(params.find(p => p.name === 'width')?.value || canvas.width);
+  const height = Number(params.find(p => p.name === 'height')?.value || canvas.height);
   const scale = Number(params.find(p => p.name === 'scale')?.value || 4.0);
   const seed = Number(params.find(p => p.name === 'seed')?.value || 0);
+  
+  console.log("Generating Perlin noise with params:", { width, height, scale, seed });
   
   // Create ImageData for the noise
   const imageData = ctx.createImageData(canvas.width, canvas.height);
   const data = imageData.data;
   
-  // Simple Perlin-like noise implementation
+  // Improved Perlin-like noise implementation to match the diagonal pattern
+  const seedOffset = seed * 12.345;
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
-      const nx = (x / canvas.width) * scale;
-      const ny = (y / canvas.height) * scale;
+      const nx = (x / canvas.width) * scale + seedOffset;
+      const ny = (y / canvas.height) * scale + seedOffset;
       
-      // Simple noise function (not true Perlin but good enough for masking)
-      const noise = Math.sin(nx * 6.28 + seed) * Math.sin(ny * 6.28 + seed) * 0.5 + 0.5;
-      const value = Math.floor(noise * 255);
+      // Create diagonal hatch pattern similar to what's shown in the Perlin noise preview
+      const noise1 = Math.sin(nx * 3.14159 + ny * 3.14159) * 0.5 + 0.5;
+      const noise2 = Math.sin(nx * 6.28318 - ny * 2.0) * 0.3;
+      const noise3 = Math.sin(nx * 1.5 + ny * 1.5) * 0.2;
+      
+      const combinedNoise = (noise1 + noise2 + noise3) / 1.5;
+      const clampedNoise = Math.max(0, Math.min(1, combinedNoise));
+      const value = Math.floor(clampedNoise * 255);
       
       const index = (y * canvas.width + x) * 4;
       data[index] = value;     // Red
@@ -529,6 +544,7 @@ function generatePerlinNoisePattern(
   
   // Put the noise data on the canvas
   ctx.putImageData(imageData, 0, 0);
+  console.log("Perlin noise pattern generated successfully");
 }
 
 // Canvas-based mask filter implementation
