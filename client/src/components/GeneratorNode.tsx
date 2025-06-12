@@ -334,7 +334,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                 <div className="mt-1">
                   <div className="flex items-center justify-between mb-1">
                     <EditableValue
-                      value={param.value}
+                      value={typeof param.value === 'number' || typeof param.value === 'string' ? param.value : (param.value ? 1 : 0)}
                       unit={param.unit}
                       paramId={param.id || param.name}
                       isEditing={editingParam === (param.id || param.name)}
@@ -347,11 +347,11 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                     />
                   </div>
                   <CustomSlider
-                    value={Number(param.value)}
+                    value={[Number(param.value)]}
                     min={param.min || 0}
                     max={param.max || 100}
                     step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
-                    onChange={(value) => handleParamChange(param.id || param.name, value)}
+                    onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
                     disabled={!data.enabled}
                   />
                 </div>

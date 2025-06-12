@@ -17,7 +17,7 @@ export type FilterType =
   | 'image'
   | 'perlinNoise';
 
-export type NodeType = 'filterNode' | 'imageNode' | 'outputNode';
+export type NodeType = 'filterNode' | 'imageNode' | 'outputNode' | 'generatorNode';
 
 export type ParamType = 'float' | 'integer' | 'color' | 'image' | 'mask' | 'texture' | 'boolean' | 'vector2' | 'option';
 

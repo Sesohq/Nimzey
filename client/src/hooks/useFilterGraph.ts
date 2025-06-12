@@ -405,6 +405,87 @@ export function useFilterGraph() {
     return nodes.find(node => node.id === id);
   }, [nodes]);
   
+  // Generate Perlin noise preview for generator nodes
+  const generatePerlinNoisePreview = useCallback((node: any) => {
+    const canvas = document.createElement('canvas');
+    const params = node.data.params;
+    
+    // Get parameters from the node
+    const width = params.find((p: any) => p.name === 'width')?.value || 512;
+    const height = params.find((p: any) => p.name === 'height')?.value || 512;
+    const scale = params.find((p: any) => p.name === 'scale')?.value || 4.0;
+    const seed = params.find((p: any) => p.name === 'seed')?.value || 1.0;
+    const octaves = params.find((p: any) => p.name === 'octaves')?.value || 4;
+    const persistence = params.find((p: any) => p.name === 'persistence')?.value || 0.5;
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
+    
+    // Simple Perlin noise implementation for preview
+    const noise = (x: number, y: number) => {
+      const scaledX = x * scale / width + seed;
+      const scaledY = y * scale / height + seed;
+      
+      let value = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      let maxValue = 0;
+      
+      for (let i = 0; i < octaves; i++) {
+        value += Math.sin(scaledX * frequency) * Math.cos(scaledY * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+      }
+      
+      return value / maxValue;
+    };
+    
+    // Generate noise texture
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const noiseValue = noise(x, y);
+        const normalizedValue = Math.floor((noiseValue * 0.5 + 0.5) * 255);
+        
+        const index = (y * width + x) * 4;
+        data[index] = normalizedValue;     // Red
+        data[index + 1] = normalizedValue; // Green
+        data[index + 2] = normalizedValue; // Blue
+        data[index + 3] = 255;             // Alpha
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    const dataUrl = canvas.toDataURL();
+    
+    // Update the node with the generated preview
+    setNodes(nds => nds.map(n => {
+      if (n.id === node.id) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            preview: dataUrl
+          }
+        };
+      }
+      return n;
+    }));
+    
+    // Store the generated image for this node
+    setProcessedImages(prev => ({
+      ...prev,
+      [node.id]: dataUrl
+    }));
+    
+  }, [setNodes, setProcessedImages]);
+  
   // Process the image through the filter chain
   const processImage = useCallback(async () => {
     if (!sourceImageRef.current || !sourceImage) return;
@@ -1066,6 +1147,52 @@ export function useFilterGraph() {
       
       // Add the new node
       setNodes(nds => [...nds, newNode]);
+      return;
+    }
+    
+    // For Generator nodes (like Perlin Noise), create generator nodes
+    if (filterType === 'perlinNoise') {
+      const newNode = {
+        id: newNodeId,
+        type: 'generatorNode',
+        position: { 
+          x: Math.random() * 300 + 250, 
+          y: Math.random() * 200 + 100
+        },
+        data: {
+          label: `${filterDef.name}`,
+          filterType,
+          params: filterDef.params.map(param => ({
+            ...param, 
+            id: param.id || `${param.name}-${uuidv4().substring(0, 8)}`,
+            controlType: param.controlType || 'range',
+            paramType: param.paramType || 'float'
+          })),
+          preview: null,
+          enabled: true,
+          colorTag: 'green',
+          blendMode: 'normal',
+          opacity: 100,
+          collapsed: false,
+          onParamChange: handleParamChange,
+          onToggleEnabled: handleToggleEnabled,
+          onChangeBlendMode: handleBlendModeChange,
+          onChangeOpacity: handleOpacityChange,
+          onChangeColorTag: handleColorTagChange,
+          onToggleCollapsed: handleToggleCollapsed,
+          onConnectParam: handleConnectParam,
+          onDisconnectParam: handleDisconnectParam
+        },
+      };
+      
+      // Add the new node
+      setNodes(nds => [...nds, newNode]);
+      
+      // Select the new node
+      setSelectedNodeId(newNodeId);
+      
+      // Generate initial preview for generator node
+      setTimeout(() => generatePerlinNoisePreview(newNode), 10);
       return;
     }
     

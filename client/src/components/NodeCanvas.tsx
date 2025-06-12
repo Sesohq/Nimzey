@@ -18,12 +18,16 @@ import FilterNode from './FilterNode';
 import ImageNode from './ImageNode';
 import OutputNode from './OutputNode';
 import ImageFilterNode from './ImageFilterNode';
+import GeneratorNode from './GeneratorNode';
 import { Badge } from '@/components/ui/badge';
 
 // Create node types factory to inject additional props
 const createNodeTypes = (generateNodePreview?: (nodeId: string) => void) => ({
   filterNode: (props: any) => (
     <FilterNode {...props} generateNodePreview={generateNodePreview} />
+  ),
+  generatorNode: (props: any) => (
+    <GeneratorNode {...props} generateNodePreview={generateNodePreview} />
   ),
   imageNode: ImageNode,
   outputNode: OutputNode,
