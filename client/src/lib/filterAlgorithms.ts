@@ -388,10 +388,14 @@ export const applyFilters = (
       if (filterData.filterType) {
         applyFilter(filterData.filterType, ctx, canvas, convertedParams, nodeDataWithMask);
         
-        // If this is a mask filter that created transparency, add checkerboard background
+        // Debug mask filter results
         if (filterData.filterType === 'mask' && nodeDataWithMask?.maskImageData) {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          addCheckerboardBackground(ctx, canvas, imageData);
+          const debugImageData = ctx.getImageData(0, 0, Math.min(20, canvas.width), 1);
+          const alphaValues = [];
+          for (let i = 3; i < Math.min(20, debugImageData.data.length); i += 4) {
+            alphaValues.push(debugImageData.data[i]);
+          }
+          console.log("Post-mask alpha values (first 5 pixels):", alphaValues.slice(0, 5));
         }
       }
     }
