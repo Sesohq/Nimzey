@@ -27,7 +27,7 @@ export type FilterParam = {
   id: string;
   name: string;
   label: string;
-  controlType: 'range' | 'select' | 'color' | 'checkbox' | 'hidden';
+  controlType: 'range' | 'select' | 'color' | 'checkbox';
   paramType: ParamType;
   min?: number;
   max?: number;
