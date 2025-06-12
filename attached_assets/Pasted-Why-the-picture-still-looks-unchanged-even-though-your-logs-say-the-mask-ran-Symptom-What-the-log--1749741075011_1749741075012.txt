@@ -1,0 +1,93 @@
+Why the picture still looks “unchanged” even though your logs say the mask ran
+Symptom	What the log shows	Root cause
+Mask node executes (console prints, alpha changes from 255 → 160 → 95 etc.)	✅ applyMaskFilterCanvas() really is touching the alpha bytes	But the new ImageData is never rendered back into the canvas that the next node (and the Preview panel) uses
+Toggling Luma Mode looks identical in the UI	✅ useLuma flips between false and true	You invert the values, but the UI still paints the old pre-mask pixels
+
+1 - Patch: write the mutated pixels back before the pipeline advances
+Add one line inside your switch for the mask case:
+
+ts
+Copy
+Edit
+case 'mask': {
+  /* …existing code… */
+  if (nodeData?.maskImageData) {
+    applyMaskFilterCanvas(data, canvas.width, canvas.height,
+                          nodeData.maskImageData, useLuma);
++   ctx.putImageData(imageData, 0, 0);   // <--- render NOW
+  }
+  break;
+}
+Why?
+ctx.putImageData() at the bottom of applyFilter() only runs after the
+switch. Any node type that performs its own draw operations (image,
+text, blend layers, etc.) overwrites the buffer again, so the Mask’s alpha
+never makes it up the chain. Committing the pixels immediately fixes that.
+
+2 - Make “Luma Mode” do what Filter Forge does
+Right now you treat “Luma Mode” as invert:
+
+ts
+Copy
+Edit
+const alpha = useLuma ? 1 - luma : luma;
+Filter Forge’s logic is the opposite:
+
+Option	Meaning (Filter Forge)
+Luma off	Use the mask’s A-channel (white = opaque, black = transparent)
+Luma on	Use RGB luminance
+
+Two-flag approach:
+
+ts
+Copy
+Edit
+const useLuma   = !!params.find(p => p.name === 'lumaMode')?.value;
+const invert    = !!params.find(p => p.name === 'invert')?.value; // add UI toggle
+
+const a = invert ? 1 - luma : luma;      // only inversion, not “luma”
+…and in the pixel loop:
+
+ts
+Copy
+Edit
+const luma = useLuma
+  ? (0.3*mR + 0.59*mG + 0.11*mB) / 255
+  : mA / 255;
+3 - Preview: show transparency so the user actually sees the mask
+Right now you draw your output on a solid black canvas, so 30 %-opaque pixels
+look almost identical to 100 %-opaque. Add a checkerboard first:
+
+ts
+Copy
+Edit
+function drawChecker(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const size = 10;
+  for (let y = 0; y < h; y += size) {
+    for (let x = 0; x < w; x += size) {
+      ctx.fillStyle = ((x / size + y / size) & 1) ? '#bbb' : '#666';
+      ctx.fillRect(x, y, size, size);
+    }
+  }
+}
+In the Preview component:
+
+ts
+Copy
+Edit
+drawChecker(previewCtx, w, h);
+previewCtx.drawImage(outputCanvas, 0, 0);
+Now transparent parts show the checkerboard and it becomes obvious the mask is
+working.
+
+4 - Quick sanity checklist
+Wire Perlin Noise → mask handle on Mask node
+
+Apply the immediate ctx.putImageData fix above
+
+Toggle Luma / Invert and watch the checkerboard appear / disappear
+
+Confirm alpha extremes in the console (should now hit 0 and 255)
+
+Do these four steps and your Mask node will behave exactly like Filter Forge’s
+“Mask” component (and Photoshop’s layer mask).

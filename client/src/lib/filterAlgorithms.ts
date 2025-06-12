@@ -806,6 +806,8 @@ const applyFilter = (
       if (nodeData?.maskImageData) {
         console.log("Using preprocessed mask data");
         applyMaskFilterCanvas(data, canvas.width, canvas.height, nodeData.maskImageData, useLuma);
+        ctx.putImageData(imageData, 0, 0); // Write the masked data back to canvas immediately
+        console.log("Mask filter: Updated canvas with masked image data");
       } else {
         console.warn("No mask data available for mask filter");
       }
