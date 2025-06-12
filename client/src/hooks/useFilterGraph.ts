@@ -658,17 +658,24 @@ export function useFilterGraph() {
   const handleParamChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean) => {
     setNodes(nds => 
       nds.map(node => {
-        if (node.id === nodeId && node.type === 'filterNode') {
+        if (node.id === nodeId && (node.type === 'filterNode' || node.type === 'generatorNode')) {
           const nodeData = node.data as FilterNodeData;
-          return {
+          const updatedNode = {
             ...node,
             data: {
               ...nodeData,
-              params: nodeData.params.map(param => 
+              params: nodeData.params?.map(param => 
                 (param.id || param.name) === paramId ? { ...param, value } : param
-              )
+              ) || []
             }
           };
+
+          // For generator nodes, regenerate the preview immediately
+          if (node.type === 'generatorNode' && nodeData.filterType === 'perlinNoise') {
+            setTimeout(() => generatePerlinNoisePreview(updatedNode), 10);
+          }
+
+          return updatedNode;
         }
         return node;
       })
@@ -676,7 +683,7 @@ export function useFilterGraph() {
 
     // Re-process the image when params change
     processImage();
-  }, [processImage]);
+  }, [processImage, generatePerlinNoisePreview]);
   
   // Handle enabling/disabling a filter node
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
