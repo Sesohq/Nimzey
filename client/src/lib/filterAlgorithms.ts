@@ -387,6 +387,12 @@ export const applyFilters = (
       
       if (filterData.filterType) {
         applyFilter(filterData.filterType, ctx, canvas, convertedParams, nodeDataWithMask);
+        
+        // If this is a mask filter that created transparency, add checkerboard background
+        if (filterData.filterType === 'mask' && nodeDataWithMask?.maskImageData) {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          addCheckerboardBackground(ctx, canvas, imageData);
+        }
       }
     }
   }
@@ -704,7 +710,34 @@ function convertToGrayscaleMask(data: Uint8ClampedArray): void {
   }
 }
 
-// Canvas-based mask filter implementation
+// Add checkerboard background behind transparent areas to visualize masking
+function addCheckerboardBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, imageData: ImageData): void {
+  // Create a temporary canvas for the checkerboard
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = canvas.width;
+  bgCanvas.height = canvas.height;
+  const bgCtx = bgCanvas.getContext('2d')!;
+  
+  // Draw checkerboard pattern
+  const squareSize = 20;
+  const lightGray = '#E0E0E0';
+  const darkGray = '#C0C0C0';
+  
+  for (let y = 0; y < canvas.height; y += squareSize) {
+    for (let x = 0; x < canvas.width; x += squareSize) {
+      const isEven = Math.floor(x / squareSize) % 2 === Math.floor(y / squareSize) % 2;
+      bgCtx.fillStyle = isEven ? lightGray : darkGray;
+      bgCtx.fillRect(x, y, squareSize, squareSize);
+    }
+  }
+  
+  // Composite the masked image over the checkerboard
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bgCanvas, 0, 0);
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// Canvas-based mask filter implementation following Filter Forge approach
 function applyMaskFilterCanvas(
   data: Uint8ClampedArray,
   width: number,
@@ -720,41 +753,21 @@ function applyMaskFilterCanvas(
     const r = maskData[i];
     const g = maskData[i + 1];
     const b = maskData[i + 2];
-    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const luminance = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
     debugMaskSample.push({ r, g, b, lum: Math.round(luminance * 255) });
   }
   console.log("Mask data sample for processing:", debugMaskSample.slice(0, 5));
   
-  // Apply mask to each pixel
+  // Apply mask to each pixel - Filter Forge style
   for (let i = 0; i < data.length; i += 4) {
-    const sourceR = data[i];
-    const sourceG = data[i + 1];
-    const sourceB = data[i + 2];
-    const sourceA = data[i + 3];
+    // Calculate luminance from mask pixel using Filter Forge formula
+    const luma = (0.3 * maskData[i] + 0.59 * maskData[i + 1] + 0.11 * maskData[i + 2]) / 255;
     
-    const maskR = maskData[i];
-    const maskG = maskData[i + 1];
-    const maskB = maskData[i + 2];
-    const maskA = maskData[i + 3];
+    // Apply invert mode if enabled
+    const alpha = useLuma ? 1 - luma : luma;
     
-    // Calculate luminance using Filter Forge's exact formula
-    const luminance = (0.3 * maskR + 0.59 * maskG + 0.11 * maskB) / 255;
-    
-    // Apply mask logic: luminance directly controls alpha
-    let maskValue: number;
-    if (useLuma) {
-      // Luma mode: WHITE pixels are masked out (become transparent)
-      maskValue = 1.0 - luminance; // Invert: white=0 (transparent), black=1 (visible)
-    } else {
-      // Non-luma mode: BLACK pixels are masked out (become transparent)  
-      maskValue = luminance; // Direct: black=0 (transparent), white=1 (visible)
-    }
-    
-    // Apply mask as transparency - keep RGB colors, modify alpha
-    data[i] = sourceR;     // Keep original Red
-    data[i + 1] = sourceG; // Keep original Green
-    data[i + 2] = sourceB; // Keep original Blue
-    data[i + 3] = Math.round(sourceA * maskValue); // Apply mask to alpha for transparency
+    // Apply mask to source alpha (multiply existing alpha by mask alpha)
+    data[i + 3] = Math.round(data[i + 3] * alpha);
   }
   
   console.log("Mask filter application completed");
