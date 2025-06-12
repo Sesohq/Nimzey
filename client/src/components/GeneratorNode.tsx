@@ -410,35 +410,41 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       onClick={() => setActiveColorPicker(param.id || param.name)}
                       disabled={!data.enabled}
                     />
-                    <input
-                      type="text"
-                      value={param.value as string}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        handleParamChange(param.id || param.name, value);
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value;
-                        // Validate and format the hex color on blur
-                        if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
-                          // Valid hex color
-                          if (value.length === 4) {
-                            // Convert 3-digit hex to 6-digit
-                            const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
-                            handleParamChange(param.id || param.name, fullHex);
+                    <div className="nodrag flex-1">
+                      <input
+                        type="text"
+                        value={param.value as string}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          handleParamChange(param.id || param.name, value);
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          // Validate and format the hex color on blur
+                          if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
+                            // Valid hex color
+                            if (value.length === 4) {
+                              // Convert 3-digit hex to 6-digit
+                              const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+                              handleParamChange(param.id || param.name, fullHex);
+                            }
+                          } else if (!value.startsWith('#')) {
+                            // Add # if missing
+                            const withHash = '#' + value;
+                            if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
+                              handleParamChange(param.id || param.name, withHash);
+                            }
                           }
-                        } else if (!value.startsWith('#')) {
-                          // Add # if missing
-                          const withHash = '#' + value;
-                          if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
-                            handleParamChange(param.id || param.name, withHash);
-                          }
-                        }
-                      }}
-                      disabled={!data.enabled}
-                      className="nodrag flex-1 text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="#ffffff"
-                    />
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        disabled={!data.enabled}
+                        draggable={false}
+                        className="nodrag w-full text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="#ffffff"
+                      />
+                    </div>
                   </div>
                   
                   {/* Color Picker Popup */}
