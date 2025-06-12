@@ -406,17 +406,22 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   <div className="flex items-center space-x-2">
                     <button
                       ref={(el) => colorPickerRefs.current[param.id || param.name] = el}
-                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors"
+                      className="w-16 h-8 border border-gray-300 rounded cursor-pointer hover:border-gray-400 transition-colors shadow-sm hover:shadow-md flex items-center justify-center relative"
                       style={{ backgroundColor: param.value as string }}
-                      onClick={() => setActiveColorPicker(param.id || param.name)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveColorPicker(param.id || param.name);
+                      }}
                       disabled={!data.enabled}
-                    />
-                    <IsolatedHexInput
-                      value={param.value as string}
-                      onChange={(value) => handleParamChange(param.id || param.name, value)}
-                      disabled={!data.enabled}
-                      placeholder="#ffffff"
-                    />
+                      title="Click to open color picker"
+                    >
+                      <span className="text-xs font-mono text-white drop-shadow-sm mix-blend-difference">
+                        {(param.value as string).substring(1).toUpperCase()}
+                      </span>
+                    </button>
+                    <div className="flex-1 text-xs text-gray-600">
+                      {param.label}
+                    </div>
                   </div>
                   
                   {/* Color Picker Popup */}
