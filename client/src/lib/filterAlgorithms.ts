@@ -204,16 +204,16 @@ export const applyFilters = (
         // Find edges connecting to this mask node
         const maskEdges = edges.filter(edge => edge.target === node.id);
         
-        // Look for a checkerboard or other generator connected as mask
+        // Look for ANY node connected as mask (not just generators)
         const maskSourceEdge = maskEdges.find(edge => {
           const sourceNode = nodes.find(n => n.id === edge.source);
-          return sourceNode?.type === 'generatorNode';
+          return sourceNode && sourceNode.type !== 'imageNode'; // Accept any non-image source
         });
         
         if (maskSourceEdge) {
           const maskSourceNode = nodes.find(n => n.id === maskSourceEdge.source);
-          if (maskSourceNode?.type === 'generatorNode') {
-            // Generate the mask pattern
+          if (maskSourceNode) {
+            // Generate the mask pattern based on node type
             const maskCanvas = document.createElement('canvas');
             maskCanvas.width = canvas.width;
             maskCanvas.height = canvas.height;
@@ -222,16 +222,42 @@ export const applyFilters = (
             if (maskCtx && maskSourceNode.data) {
               const maskNodeData = maskSourceNode.data as FilterNodeData;
               
-              // Generate pattern based on the generator type
-              console.log("Mask source node type:", maskNodeData.filterType);
-              if (maskNodeData.filterType === 'checkerboard') {
-                console.log("Generating checkerboard mask pattern");
-                generateCheckerboardPattern(maskCtx, maskCanvas, maskNodeData);
-              } else if (maskNodeData.filterType === 'perlinNoise') {
-                console.log("Generating Perlin noise mask pattern");
-                generatePerlinNoisePattern(maskCtx, maskCanvas, maskNodeData);
-              } else {
-                console.warn("Unknown mask generator type:", maskNodeData.filterType);
+              console.log("Mask source node type:", maskNodeData.filterType, "Node type:", maskSourceNode.type);
+              
+              if (maskSourceNode.type === 'generatorNode') {
+                // Handle generator nodes (checkerboard, perlinNoise, etc.)
+                if (maskNodeData.filterType === 'checkerboard') {
+                  console.log("Generating checkerboard mask pattern");
+                  generateCheckerboardPattern(maskCtx, maskCanvas, maskNodeData);
+                } else if (maskNodeData.filterType === 'perlinNoise') {
+                  console.log("Generating Perlin noise mask pattern");
+                  generatePerlinNoisePattern(maskCtx, maskCanvas, maskNodeData);
+                } else {
+                  console.warn("Unknown mask generator type:", maskNodeData.filterType);
+                }
+              } else if (maskSourceNode.type === 'filterNode') {
+                // Handle filter nodes - apply their filter to create a mask
+                console.log("Creating mask from filter node");
+                
+                // Create a base white canvas for the filter to work on
+                maskCtx.fillStyle = 'white';
+                maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                
+                // Apply the filter to create the mask pattern
+                if (maskNodeData.filterType && maskNodeData.params) {
+                  const maskParams = maskNodeData.params.map(param => ({
+                    name: param.name,
+                    value: typeof param.value === 'boolean' ? (param.value ? 1 : 0) : param.value
+                  }));
+                  
+                  // Apply the filter to the white canvas to create the mask
+                  applyFilter(maskNodeData.filterType, maskCtx, maskCanvas, maskParams, maskNodeData);
+                  
+                  // Convert the result to grayscale for masking
+                  const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                  convertToGrayscaleMask(imageData.data);
+                  maskCtx.putImageData(imageData, 0, 0);
+                }
               }
               
               const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
@@ -545,6 +571,24 @@ function generatePerlinNoisePattern(
   // Put the noise data on the canvas
   ctx.putImageData(imageData, 0, 0);
   console.log("Perlin noise pattern generated successfully");
+}
+
+// Convert image data to grayscale mask values
+function convertToGrayscaleMask(data: Uint8ClampedArray): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Calculate luminance using Rec.709 formula
+    const luminance = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    
+    // Set RGB to luminance value (creates grayscale)
+    data[i] = luminance;     // Red
+    data[i + 1] = luminance; // Green
+    data[i + 2] = luminance; // Blue
+    // Keep original alpha
+  }
 }
 
 // Canvas-based mask filter implementation
