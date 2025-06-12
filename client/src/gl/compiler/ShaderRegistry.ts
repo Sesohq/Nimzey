@@ -8,6 +8,7 @@
 
 import { FilterType } from '@/types';
 import { GLShader, GLShaderFactory, ShaderParameter } from '../core/GLShader';
+import { createPerlinNoiseShader } from '../shaders/perlinNoiseShader';
 
 export class ShaderRegistry {
   private shaders: Map<string, GLShader> = new Map();
@@ -81,6 +82,9 @@ export class ShaderRegistry {
     this.registerShader('wave', dummyShader('wave'));
     this.registerShader('dither', dummyShader('dither'));
     this.registerShader('texture', dummyShader('texture'));
+    
+    // Register the Perlin noise generator
+    this.registerShader('perlinNoise', createPerlinNoiseShader());
     
     // In the real implementation, we would populate these with our actual shader implementations
     // e.g. this.registerShader('blur', blurShader());

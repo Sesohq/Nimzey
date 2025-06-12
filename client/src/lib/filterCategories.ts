@@ -20,6 +20,89 @@ export const filterCategories: Record<string, FilterCategory> = {
       }
     ]
   },
+  generators: {
+    name: 'Generators',
+    filters: [
+      {
+        name: 'Perlin Noise',
+        type: 'perlinNoise',
+        params: [
+          {
+            id: 'perlin-width',
+            name: 'width',
+            label: 'Width',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'perlin-height',
+            name: 'height',
+            label: 'Height',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 64,
+            max: 2048,
+            step: 64,
+            value: 512,
+            unit: 'px'
+          },
+          {
+            id: 'perlin-scale',
+            name: 'scale',
+            label: 'Scale',
+            controlType: 'range',
+            paramType: 'float',
+            min: 0.1,
+            max: 20.0,
+            step: 0.1,
+            value: 4.0,
+            unit: ''
+          },
+          {
+            id: 'perlin-seed',
+            name: 'seed',
+            label: 'Seed',
+            controlType: 'range',
+            paramType: 'float',
+            min: 0.0,
+            max: 100.0,
+            step: 0.1,
+            value: 1.0,
+            unit: ''
+          },
+          {
+            id: 'perlin-octaves',
+            name: 'octaves',
+            label: 'Octaves',
+            controlType: 'range',
+            paramType: 'integer',
+            min: 1,
+            max: 8,
+            step: 1,
+            value: 4,
+            unit: ''
+          },
+          {
+            id: 'perlin-persistence',
+            name: 'persistence',
+            label: 'Persistence',
+            controlType: 'range',
+            paramType: 'float',
+            min: 0.1,
+            max: 1.0,
+            step: 0.01,
+            value: 0.5,
+            unit: ''
+          }
+        ]
+      }
+    ]
+  },
   basic: {
     name: 'Basic Filters',
     filters: [

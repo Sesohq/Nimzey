@@ -14,7 +14,8 @@ export type FilterType =
   | 'findEdges'
   | 'glow'
   | 'halftone'
-  | 'image';
+  | 'image'
+  | 'perlinNoise';
 
 export type NodeType = 'filterNode' | 'imageNode' | 'outputNode';
 
