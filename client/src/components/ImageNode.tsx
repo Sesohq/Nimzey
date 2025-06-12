@@ -28,12 +28,14 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
   };
 
   return (
-    <Card className={`shadow-md w-[180px] bg-white ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className="bg-blue-500 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
+    <Card className={`shadow-md w-[180px] bg-black border-gray-700 ${selected ? 'ring-2 ring-primary' : ''}`}>
+      {/* Header bar matching other nodes */}
+      <div className="bg-gray-600 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
         <span>Source Image</span>
       </div>
       
-      <div className="p-3">
+      {/* Main content area with black background */}
+      <div className="p-3 bg-black">
         {data.src ? (
           <div 
             className="relative group cursor-pointer"
@@ -42,21 +44,21 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
             <img 
               src={data.src} 
               alt="Source image" 
-              className="w-full h-auto rounded mb-2 object-cover"
+              className="w-full h-auto rounded mb-2 object-cover border border-gray-600"
               style={{ maxHeight: '100px' }}
             />
             <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
-              <Upload className="w-6 h-6 text-white" />
-              <span className="text-white text-xs ml-1">Change image</span>
+              <Upload className="w-4 h-4 text-white" />
+              <span className="text-white text-xs ml-1">Change</span>
             </div>
           </div>
         ) : (
           <div 
-            className="w-full h-[100px] bg-gray-100 rounded mb-2 flex flex-col items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors"
+            className="w-full h-[100px] bg-gray-800 border border-gray-600 rounded mb-2 flex flex-col items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-700 transition-colors"
             onClick={handleClick}
           >
             <Plus className="h-6 w-6 mb-1" />
-            <span>Click to upload image</span>
+            <span>Click to upload</span>
           </div>
         )}
         
@@ -70,11 +72,12 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
         />
       </div>
       
-      <div className="px-3 pb-2 flex justify-end relative h-6">
+      {/* Handle positioned relative to black background */}
+      <div className="px-3 pb-2 bg-black flex justify-end relative h-6 rounded-b-md">
         <Handle
           type="source"
           position={Position.Right}
-          className="w-9 h-9 rounded-full -mr-4 bg-accent"
+          className="w-9 h-9 rounded-full -mr-4 bg-accent border-2 border-gray-600"
           style={{ top: '50%', transform: 'translateY(-50%)' }}
         />
       </div>
