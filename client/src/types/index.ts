@@ -16,7 +16,8 @@ export type FilterType =
   | 'halftone'
   | 'image'
   | 'perlinNoise'
-  | 'checkerboard';
+  | 'checkerboard'
+  | 'mask';
 
 export type NodeType = 'filterNode' | 'imageNode' | 'outputNode' | 'generatorNode';
 

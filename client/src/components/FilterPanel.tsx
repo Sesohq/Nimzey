@@ -14,7 +14,8 @@ import {
   LucideIcon, 
   Stars,
   Sparkles,
-  Brush
+  Brush,
+  Combine
 } from 'lucide-react';
 import { NodeType, FilterType } from '@/types';
 
@@ -63,6 +64,8 @@ export default function FilterPanel({ width, onAddFilter, onUploadImage, sourceI
         return <Stars size={16} />;
       case 'effect':
         return <Sparkles size={16} />;
+      case 'blenders':
+        return <Layers size={16} />;
       default:
         return <FilterIcon size={16} />;
     }
