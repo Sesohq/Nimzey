@@ -190,21 +190,21 @@ const ImageFilterNode = memo(({ data, id, selected = false }: ImageFilterNodePro
           onClick={handleClick}
         >
           {imagePreview ? (
-            <div className="rounded-md overflow-hidden bg-gray-50 border border-gray-200">
+            <div className="rounded-md overflow-hidden bg-gray-200 border border-gray-300">
               <img 
                 src={imagePreview} 
                 alt="Preview" 
                 className="w-full h-32 object-contain"
               />
-              <div className="text-center py-1 text-xs text-gray-500 bg-gray-50/80">
+              <div className="text-center py-1 text-xs text-gray-600 bg-gray-200/80">
                 Click to change image
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-40 bg-gray-50 rounded-md border border-dashed border-gray-300">
-              <ImageIcon size={32} className="text-gray-400 mb-2" />
-              <span className="text-gray-500 text-sm">Click to upload image</span>
-              <span className="text-gray-500 text-xs mt-1">JPG, PNG, GIF, etc.</span>
+            <div className="flex flex-col items-center justify-center h-40 bg-gray-200 rounded-md border border-dashed border-gray-400">
+              <ImageIcon size={32} className="text-gray-500 mb-2" />
+              <span className="text-gray-600 text-sm">Click to upload image</span>
+              <span className="text-gray-600 text-xs mt-1">JPG, PNG, GIF, etc.</span>
             </div>
           )}
           

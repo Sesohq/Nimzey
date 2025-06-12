@@ -29,8 +29,8 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
 
   return (
     <Card className={`shadow-md w-[180px] bg-card ${selected ? 'ring-2 ring-primary' : ''}`}>
-      {/* Header bar matching other nodes */}
-      <div className="bg-gray-600 text-white px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
+      {/* Header bar with neon green */}
+      <div className="bg-lime-400 text-black px-3 py-2 rounded-t-md text-sm font-medium flex items-center justify-between cursor-move">
         <span>Source Image</span>
       </div>
       
@@ -54,7 +54,7 @@ const ImageNode = ({ data, selected, onUploadImage }: ExtendedNodeProps) => {
           </div>
         ) : (
           <div 
-            className="w-full h-[100px] bg-gray-50 border border-gray-200 rounded mb-2 flex flex-col items-center justify-center text-gray-500 text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+            className="w-full h-[100px] bg-gray-200 border border-gray-300 rounded mb-2 flex flex-col items-center justify-center text-gray-600 text-xs cursor-pointer hover:bg-gray-300 transition-colors"
             onClick={handleClick}
           >
             <Plus className="h-6 w-6 mb-1" />
