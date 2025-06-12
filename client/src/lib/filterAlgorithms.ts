@@ -234,6 +234,18 @@ export const applyFilters = (
                 } else if (maskNodeData.filterType === 'perlinNoise') {
                   console.log("Generating Perlin noise mask pattern");
                   generatePerlinNoisePattern(maskCtx, maskCanvas, maskNodeData);
+                  
+                  // Debug: Check what the Perlin noise actually looks like
+                  const debugImageData = maskCtx.getImageData(0, 0, Math.min(20, maskCanvas.width), 1);
+                  const debugSample = [];
+                  for (let i = 0; i < Math.min(20, debugImageData.data.length); i += 4) {
+                    debugSample.push({
+                      r: debugImageData.data[i],
+                      g: debugImageData.data[i + 1],
+                      b: debugImageData.data[i + 2]
+                    });
+                  }
+                  console.log("Perlin noise mask first 5 pixels:", debugSample.slice(0, 5));
                 } else {
                   console.warn("Unknown mask generator type:", maskNodeData.filterType);
                 }
