@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useContext, createContext } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -21,18 +21,19 @@ import ImageFilterNode from './ImageFilterNode';
 import GeneratorNode from './GeneratorNode';
 import { Badge } from '@/components/ui/badge';
 
-// Create node types factory to inject additional props
-const createNodeTypes = (generateNodePreview?: (nodeId: string) => void): NodeTypes => ({
-  filterNode: (props: any) => (
-    <FilterNode {...props} generateNodePreview={generateNodePreview} />
-  ),
-  generatorNode: (props: any) => (
-    <GeneratorNode {...props} generateNodePreview={generateNodePreview} />
-  ),
+// Create context for passing generateNodePreview to nodes
+const NodeCanvasContext = createContext<{
+  generateNodePreview?: (nodeId: string) => void;
+}>({});
+
+// Create stable node types outside component to prevent recreation
+const nodeTypes: NodeTypes = {
+  filterNode: FilterNode,
+  generatorNode: GeneratorNode,
   imageNode: ImageNode,
   outputNode: OutputNode,
   imageFilterNode: ImageFilterNode
-});
+};
 
 interface NodeCanvasProps {
   nodes: Node[];
@@ -99,22 +100,20 @@ export default function NodeCanvas({
     }
   }, [onNodeClick]);
 
-  // Memoize nodeTypes with stable dependencies to prevent React Flow warnings
-  const nodeTypes = useMemo(() => createNodeTypes(generateNodePreview), [generateNodePreview]);
-
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden">
-      <div className="flex-1 h-full">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onPaneClick={handlePaneClick}
-          onNodeClick={handleNodeClick}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          nodeTypes={nodeTypes}
+    <NodeCanvasContext.Provider value={{ generateNodePreview }}>
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="flex-1 h-full">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onPaneClick={handlePaneClick}
+            onNodeClick={handleNodeClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
+            nodeTypes={nodeTypes}
           fitView
           minZoom={0.1}
           maxZoom={2}
@@ -133,6 +132,7 @@ export default function NodeCanvas({
           </div>
         </ReactFlow>
       </div>
-    </div>
+      </div>
+    </NodeCanvasContext.Provider>
   );
 }
