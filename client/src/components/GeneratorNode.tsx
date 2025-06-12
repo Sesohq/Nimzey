@@ -354,10 +354,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       disabled={!data.enabled}
                     />
                   </div>
-                  <div 
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="nodrag">
                     <CustomSlider
                       value={[Number(param.value)]}
                       min={param.min || 0}
@@ -371,25 +368,27 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               )}
               
               {param.controlType === 'select' && (
-                <Select 
-                  value={String(param.value || param.options?.[0] || '')} 
-                  onValueChange={(value) => {
-                    console.log('Select value changed:', value, 'for param:', param.id || param.name);
-                    handleParamChange(param.id || param.name, value);
-                  }}
-                  disabled={!data.enabled}
-                >
-                  <SelectTrigger className="w-full text-sm mt-1" onClick={(e) => e.stopPropagation()}>
-                    <SelectValue placeholder={param.options?.[0]} />
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {param.options?.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="nodrag">
+                  <Select 
+                    value={String(param.value || param.options?.[0] || '')} 
+                    onValueChange={(value) => {
+                      console.log('Select value changed:', value, 'for param:', param.id || param.name);
+                      handleParamChange(param.id || param.name, value);
+                    }}
+                    disabled={!data.enabled}
+                  >
+                    <SelectTrigger className="w-full text-sm mt-1">
+                      <SelectValue placeholder={param.options?.[0]} />
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {param.options?.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
               
               {param.controlType === 'checkbox' && (
@@ -411,44 +410,35 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                       onClick={() => setActiveColorPicker(param.id || param.name)}
                       disabled={!data.enabled}
                     />
-                    <div 
-                      className="flex-1"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="text"
-                        value={param.value as string}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          const value = e.target.value;
-                          handleParamChange(param.id || param.name, value);
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          // Validate and format the hex color on blur
-                          if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
-                            // Valid hex color
-                            if (value.length === 4) {
-                              // Convert 3-digit hex to 6-digit
-                              const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
-                              handleParamChange(param.id || param.name, fullHex);
-                            }
-                          } else if (!value.startsWith('#')) {
-                            // Add # if missing
-                            const withHash = '#' + value;
-                            if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
-                              handleParamChange(param.id || param.name, withHash);
-                            }
+                    <input
+                      type="text"
+                      value={param.value as string}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleParamChange(param.id || param.name, value);
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value;
+                        // Validate and format the hex color on blur
+                        if (/^#[0-9A-F]{6}$/i.test(value) || /^#[0-9A-F]{3}$/i.test(value)) {
+                          // Valid hex color
+                          if (value.length === 4) {
+                            // Convert 3-digit hex to 6-digit
+                            const fullHex = '#' + value[1] + value[1] + value[2] + value[2] + value[3] + value[3];
+                            handleParamChange(param.id || param.name, fullHex);
                           }
-                        }}
-                        onFocus={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        disabled={!data.enabled}
-                        className="w-full text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="#ffffff"
-                      />
-                    </div>
+                        } else if (!value.startsWith('#')) {
+                          // Add # if missing
+                          const withHash = '#' + value;
+                          if (/^#[0-9A-F]{6}$/i.test(withHash) || /^#[0-9A-F]{3}$/i.test(withHash)) {
+                            handleParamChange(param.id || param.name, withHash);
+                          }
+                        }
+                      }}
+                      disabled={!data.enabled}
+                      className="nodrag flex-1 text-xs font-mono px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="#ffffff"
+                    />
                   </div>
                   
                   {/* Color Picker Popup */}
