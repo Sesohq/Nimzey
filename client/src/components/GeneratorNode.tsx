@@ -33,50 +33,15 @@ const EditableValue = ({
   value,
   unit,
   paramId,
-  isEditing,
-  editValue,
-  onStartEdit,
-  onChangeEdit,
-  onFinishEdit,
-  onCancelEdit,
-  disabled
+  disabled,
+  onStartEdit
 }: {
-  value: number | string,
-  unit?: string,
-  paramId: string,
-  isEditing: boolean,
-  editValue: string,
-  onStartEdit: (id: string, value: number | string | boolean) => void,
-  onChangeEdit: (value: string) => void,
-  onFinishEdit: () => void,
-  onCancelEdit: () => void,
-  disabled?: boolean
+  value: number | string | boolean;
+  unit?: string;
+  paramId: string;
+  disabled: boolean;
+  onStartEdit: (paramId: string, value: number | string | boolean) => void;
 }) => {
-  if (isEditing) {
-    return (
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Input
-          type="text"
-          value={editValue}
-          onChange={(e) => onChangeEdit(e.target.value)}
-          onBlur={onFinishEdit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              onFinishEdit();
-            } else if (e.key === 'Escape') {
-              onCancelEdit();
-            }
-          }}
-          className="text-xs w-14 h-6 px-1 py-0"
-          autoFocus
-        />
-      </div>
-    );
-  }
-  
   return (
     <span 
       className={`text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium 
@@ -118,34 +83,30 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
       if (data.onParamChange) {
         data.onParamChange(id, paramId, value);
         // Also schedule a thumbnail update
-        throttledPreview();
+        setTimeout(() => {
+          if (generateNodePreview) {
+            generateNodePreview(id);
+          }
+        }, 200);
       }
-    }, 100, { leading: true, trailing: true });
-  }, [id, data.onParamChange, throttledPreview]);
-  
-  // Handler for when fast preview is generated
-  const handleFastPreviewGenerated = useCallback((dataUrl: string) => {
-    setPreviewImageUrl(dataUrl);
-  }, []);
-  
-  const [collapsed, setCollapsed] = useState(data.collapsed || false);
-  const [showSettings, setShowSettings] = useState(false);
+    }, 200, { leading: false, trailing: true });
+  }, [id, data.onParamChange, generateNodePreview]);
+
+  // State for editing parameter values
   const [editingParam, setEditingParam] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  
+  // State for the settings panel
+  const [showSettings, setShowSettings] = useState(false);
+  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+  
+  // State for color picker
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
-  const colorPickerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const colorPickerRefs = useRef<{ [key: string]: HTMLElement | null }>({});
 
-  const handleToggleCollapse = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newCollapsedState = !collapsed;
-    setCollapsed(newCollapsedState);
-    if (data.onToggleCollapsed) {
-      data.onToggleCollapsed(id, newCollapsedState);
-    }
-  };
-
+  // Handle parameter changes
   const handleParamChange = (paramId: string, value: number | string | boolean) => {
-    // Show fast preview while user is interacting with sliders
+    // Show fast preview immediately for better user experience
     setShowFastPreview(true);
     
     if (data.onParamChange) {
@@ -171,21 +132,24 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
     }
   };
 
-  const handleChangeOpacity = (value: number) => {
-    if (data.onChangeOpacity) {
-      data.onChangeOpacity(id, value);
-    }
-  };
-
   const handleChangeColorTag = (color: NodeColorTag) => {
     if (data.onChangeColorTag) {
       data.onChangeColorTag(id, color);
     }
   };
-  
+
+  const handleToggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    if (data.onToggleCollapsed) {
+      data.onToggleCollapsed(id, newCollapsedState);
+    }
+  };
+
   // Handle starting to edit a parameter value
   const handleStartEditing = (paramId: string, value: number | string | boolean) => {
-    if (!data.enabled) return;
+    if (!data.enabled || data.params?.find(p => p.id === paramId)?.isConnected) return;
     
     // Only allow editing numeric or string values
     if (typeof value === 'boolean') return;
@@ -220,6 +184,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
       }
     }
     setEditingParam(null);
+    setEditingValue('');
   };
 
   return (
@@ -321,7 +286,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
               <div className="relative border border-gray-200 rounded overflow-hidden" style={{ height: '100px' }}>
                 <img 
                   src={data.preview} 
-                  alt={`${data.label} generated texture`}
+                  alt="Generated pattern" 
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -330,7 +295,9 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
           
           {/* Parameters */}
           {(data.params || []).map((param) => (
-            <div key={param.id || param.name} className="mb-4 relative nodrag" 
+            <div 
+              key={param.id || param.name} 
+              className="mb-4 relative nodrag" 
               onMouseDown={(e) => e.stopPropagation()}
               onMouseUp={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
@@ -353,28 +320,36 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                 <div className="mt-1">
                   <div className="flex items-center justify-between mb-1">
                     <EditableValue
-                      value={typeof param.value === 'number' || typeof param.value === 'string' ? param.value : (param.value ? 1 : 0)}
+                      value={param.value as number}
                       unit={param.unit}
                       paramId={param.id || param.name}
-                      isEditing={editingParam === (param.id || param.name)}
-                      editValue={editingValue}
+                      disabled={!data.enabled}
                       onStartEdit={handleStartEditing}
-                      onChangeEdit={setEditingValue}
-                      onFinishEdit={handleFinishEditing}
-                      onCancelEdit={() => setEditingParam(null)}
-                      disabled={!data.enabled}
                     />
+                    <span className="text-xs text-gray-400">
+                      {param.min} - {param.max}
+                    </span>
                   </div>
-                  <div className="nodrag">
-                    <CustomSlider
-                      value={[Number(param.value)]}
-                      min={param.min || 0}
-                      max={param.max || 100}
-                      step={param.step || (param.paramType === 'integer' ? 1 : 0.1)}
-                      onValueChange={(values) => handleParamChange(param.id || param.name, values[0])}
-                      disabled={!data.enabled}
-                    />
-                  </div>
+                  <CustomSlider
+                    value={[param.value as number]}
+                    min={param.min}
+                    max={param.max}
+                    step={param.step}
+                    color="warning"
+                    size="md"
+                    className="nodrag"
+                    onValueChange={(values) => {
+                      setShowFastPreview(true);
+                      handleParamChange(param.id || param.name, values[0]);
+                    }}
+                    onValueCommit={(values) => {
+                      setTimeout(() => {
+                        setShowFastPreview(false);
+                        throttledParamChange(param.id || param.name, values[0]);
+                      }, 300);
+                    }}
+                    disabled={!data.enabled}
+                  />
                 </div>
               )}
               
@@ -433,9 +408,12 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                         {(param.value as string).substring(1).toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex-1 text-xs text-gray-600">
-                      {param.label}
-                    </div>
+                    
+                    <IsolatedHexInput
+                      value={param.value as string}
+                      onChange={(color) => handleParamChange(param.id || param.name, color)}
+                      disabled={!data.enabled}
+                    />
                   </div>
                   
                   {/* Debug: Show active color picker state */}
@@ -456,7 +434,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                           handleParamChange(param.id || param.name, color);
                         }}
                         onClose={() => {
-                          console.log('Closing color picker for:', param.id || param.name);
+                          console.log('Color picker closed for:', param.id || param.name);
                           setActiveColorPicker(null);
                         }}
                         isOpen={true}
