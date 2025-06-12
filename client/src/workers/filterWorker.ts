@@ -563,5 +563,43 @@ function applyHalftoneFilter(data: Uint8ClampedArray, width: number, height: num
   }
 }
 
+// Mask filter - implements Filter Forge's exact mask behavior
+function applyMaskFilter(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  maskData: Uint8ClampedArray, 
+  useLuma: boolean = false
+): void {
+  // Apply mask to each pixel
+  for (let i = 0; i < data.length; i += 4) {
+    const sourceR = data[i];
+    const sourceG = data[i + 1];
+    const sourceB = data[i + 2];
+    const sourceA = data[i + 3];
+    
+    const maskR = maskData[i];
+    const maskG = maskData[i + 1];
+    const maskB = maskData[i + 2];
+    const maskA = maskData[i + 3];
+    
+    // Calculate mask value based on mode
+    let maskValue: number;
+    if (useLuma) {
+      // Luma mode: use Rec.709 luminance
+      maskValue = (0.2126 * maskR + 0.7152 * maskG + 0.0722 * maskB) / 255;
+    } else {
+      // Alpha mode: use alpha channel
+      maskValue = maskA / 255;
+    }
+    
+    // Apply mask to source
+    data[i] = sourceR * maskValue;     // Red
+    data[i + 1] = sourceG * maskValue; // Green
+    data[i + 2] = sourceB * maskValue; // Blue
+    data[i + 3] = sourceA * maskValue; // Alpha
+  }
+}
+
 // Worker export
 export default {} as typeof Worker & { new(): Worker };
