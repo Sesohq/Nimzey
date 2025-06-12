@@ -1,6 +1,6 @@
 import React, { memo, useRef, useState, useEffect } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
-import { ImageIcon, XIcon, Layers } from 'lucide-react';
+import { ImageIcon, XIcon, Layers, Plus } from 'lucide-react';
 import { FilterNodeData, BlendMode } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -202,8 +202,10 @@ const ImageFilterNode = memo(({ data, id, selected = false }: ImageFilterNodePro
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-40 bg-gray-200 rounded-md border border-dashed border-gray-400">
-              <ImageIcon size={32} className="text-gray-500 mb-2" />
-              <span className="text-gray-600 text-sm">Click to upload image</span>
+              <div className="flex items-center mb-1">
+                <Plus size={16} className="text-gray-500 mr-1" />
+                <span className="text-gray-600 text-sm">Click to upload</span>
+              </div>
               <span className="text-gray-600 text-xs mt-1">JPG, PNG, GIF, etc.</span>
             </div>
           )}
