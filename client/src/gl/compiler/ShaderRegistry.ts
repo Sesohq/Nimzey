@@ -10,6 +10,7 @@ import { FilterType } from '@/types';
 import { GLShader, GLShaderFactory, ShaderParameter } from '../core/GLShader';
 import { createPerlinNoiseShader } from '../shaders/perlinNoiseShader';
 import { createCheckerboardShader } from '../shaders/checkerboardShader';
+import { createMaskShader } from '../shaders/maskShader';
 
 export class ShaderRegistry {
   private shaders: Map<string, GLShader> = new Map();
@@ -89,6 +90,9 @@ export class ShaderRegistry {
     
     // Register the Checkerboard generator
     this.registerShader('checkerboard', createCheckerboardShader());
+    
+    // Register the Mask blender
+    this.registerShader('mask', createMaskShader());
     
     // In the real implementation, we would populate these with our actual shader implementations
     // e.g. this.registerShader('blur', blurShader());

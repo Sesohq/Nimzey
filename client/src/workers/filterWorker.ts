@@ -34,7 +34,8 @@ const filterFunctions: Record<string, FilterFunction> = {
   pixelate: applyPixelateFilter,
   findEdges: applyFindEdgesFilter,
   glow: applyGlowFilter,
-  halftone: applyHalftoneFilter
+  halftone: applyHalftoneFilter,
+  mask: applyMaskFilter
 };
 
 // Event listener for messages from main thread

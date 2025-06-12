@@ -57,6 +57,10 @@
   border-left: 3px solid #F59AFF;
 }
 
+.blenders-header {
+  border-left: 3px solid #FF9500;
+}
+
 /* Add a subtle glow effect on hover */
 .basic-header:hover {
   box-shadow: inset 2px 0 10px rgba(91, 143, 185, 0.3);
@@ -68,6 +72,10 @@
 
 .distortion-header:hover {
   box-shadow: inset 2px 0 10px rgba(255, 125, 125, 0.3);
+}
+
+.blenders-header:hover {
+  box-shadow: inset 2px 0 10px rgba(255, 149, 0, 0.3);
 }
 
 .photo-header:hover {
