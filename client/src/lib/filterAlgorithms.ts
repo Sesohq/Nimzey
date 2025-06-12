@@ -206,12 +206,10 @@ export const applyFilters = (
         
         // Look for node connected specifically to the mask handle
         const maskSourceEdge = edges.find(
-          e => e.target === node.id && e.targetHandle === 'mask'
+          e => e.target === node.id && e.targetHandle === 'param-mask-mask'
         );
         
-        // Debug: Log all edges to this node to see what's available
-        console.log("Debug - All edges to mask node:", edges.filter(e => e.target === node.id));
-        console.log("Debug - Looking for targetHandle === 'mask'");
+        console.log("Debug - Looking for mask input with targetHandle:", 'param-mask-mask');
         
         if (maskSourceEdge) {
           const maskSourceNode = nodes.find(n => n.id === maskSourceEdge.source);
