@@ -235,7 +235,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             id={`enable-${id}`}
             checked={data.enabled}
             onCheckedChange={handleToggleEnabled}
-            className="bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
+            className="nodrag bg-white data-[state=checked]:bg-white data-[state=checked]:text-accent border-white h-4 w-4"
             onClick={(e) => e.stopPropagation()}
           />
           <Zap className="h-3 w-3" />
@@ -246,7 +246,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  className="hover:bg-white/20 rounded p-1" 
+                  className="nodrag hover:bg-white/20 rounded p-1" 
                   onClick={() => setShowSettings(!showSettings)}
                 >
                   <Layers className="h-3 w-3" />
@@ -262,7 +262,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  className="hover:bg-white/20 rounded p-1" 
+                  className="nodrag hover:bg-white/20 rounded p-1" 
                   onClick={handleToggleCollapse}
                 >
                   {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
@@ -282,17 +282,18 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="block text-xs text-gray-500 mb-1">Color Tag</Label>
-              <Select 
-                value={data.colorTag || 'default'} 
-                onValueChange={(value) => {
-                  console.log('Color tag changed:', value);
-                  handleChangeColorTag(value as NodeColorTag);
-                }}
-              >
-                <SelectTrigger className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-50">
+              <div className="nodrag">
+                <Select 
+                  value={data.colorTag || 'default'} 
+                  onValueChange={(value) => {
+                    console.log('Color tag changed:', value);
+                    handleChangeColorTag(value as NodeColorTag);
+                  }}
+                >
+                  <SelectTrigger className="w-full text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-50">
                   <SelectItem value="default">Default</SelectItem>
                   <SelectItem value="red">Red</SelectItem>
                   <SelectItem value="orange">Orange</SelectItem>
@@ -302,7 +303,8 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   <SelectItem value="purple">Purple</SelectItem>
                   <SelectItem value="pink">Pink</SelectItem>
                 </SelectContent>
-              </Select>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -397,7 +399,7 @@ const GeneratorNode = ({ data, selected, id, generateNodePreview }: GeneratorNod
                   checked={param.value as boolean}
                   onCheckedChange={(checked) => handleParamChange(param.id || param.name, Boolean(checked))}
                   disabled={!data.enabled}
-                  className="mt-1"
+                  className="nodrag mt-1"
                 />
               )}
               
