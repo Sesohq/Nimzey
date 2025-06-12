@@ -31,7 +31,7 @@ export const filterCategories: Record<string, FilterCategory> = {
             id: 'mask-mask',
             name: 'mask',
             label: 'Mask',
-            controlType: 'select',
+            controlType: 'hidden',
             paramType: 'image',
             value: ''
           },
