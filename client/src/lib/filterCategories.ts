@@ -756,40 +756,40 @@ export const filterCategories: Record<string, FilterCategory> = {
         type: 'halftone',
         params: [
           {
-            id: 'halftone-gridSize',
-            name: 'gridSize',
-            label: 'Grid Size',
+            id: 'halftone-cellSize',
+            name: 'cellSize',
+            label: 'Cell Size',
             controlType: 'range',
             paramType: 'integer',
-            min: 2,
-            max: 30,
+            min: 4,
+            max: 32,
             step: 1,
-            value: 14,
+            value: 8,
             unit: 'px'
           },
           {
-            id: 'halftone-minDotSize',
-            name: 'minDotSize',
-            label: 'Min Dot Size',
+            id: 'halftone-dotSize',
+            name: 'dotSize',
+            label: 'Dot Size',
             controlType: 'range',
             paramType: 'float',
-            min: 0,
-            max: 100,
-            step: 1,
-            value: 22,
-            unit: '%'
+            min: 0.1,
+            max: 1.0,
+            step: 0.1,
+            value: 0.8,
+            unit: ''
           },
           {
-            id: 'halftone-maxDotSize',
-            name: 'maxDotSize',
-            label: 'Max Dot Size',
+            id: 'halftone-angle',
+            name: 'angle',
+            label: 'Grid Angle',
             controlType: 'range',
             paramType: 'float',
             min: 0,
-            max: 100,
+            max: 360,
             step: 1,
-            value: 25,
-            unit: '%'
+            value: 0,
+            unit: '°'
           },
           {
             id: 'halftone-shape',
@@ -797,38 +797,29 @@ export const filterCategories: Record<string, FilterCategory> = {
             label: 'Dot Shape',
             controlType: 'select',
             paramType: 'option',
-            options: ['Circle', 'Square', 'Line', 'Cross', 'Diamond'],
+            options: ['Circle', 'Square', 'Diamond'],
             value: 'Circle'
           },
           {
-            id: 'halftone-angle',
-            name: 'angle',
-            label: 'Rotation Angle',
+            id: 'halftone-colorMode',
+            name: 'colorMode',
+            label: 'Color Mode',
+            controlType: 'select',
+            paramType: 'option',
+            options: ['RGB', 'Grayscale'],
+            value: 'RGB'
+          },
+          {
+            id: 'halftone-intensity',
+            name: 'intensity',
+            label: 'Effect Intensity',
             controlType: 'range',
             paramType: 'float',
             min: 0,
-            max: 90,
-            step: 1,
-            value: 0,
-            unit: '°'
-          },
-          {
-            id: 'halftone-dotColor',
-            name: 'dotColor',
-            label: 'Dot Color',
-            controlType: 'select',
-            paramType: 'color',
-            options: ['Black', 'White', 'Custom'],
-            value: 'Black'
-          },
-          {
-            id: 'halftone-channelMode',
-            name: 'channelMode',
-            label: 'Channel Mode',
-            controlType: 'select',
-            paramType: 'option',
-            options: ['Grayscale', 'RGB', 'CMYK'],
-            value: 'Grayscale'
+            max: 1,
+            step: 0.1,
+            value: 0.8,
+            unit: ''
           }
         ]
       }

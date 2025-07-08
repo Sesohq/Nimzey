@@ -2183,13 +2183,12 @@ function applyHalftoneFilter(
   });
   
   // Parse parameters
-  const gridSize = parseInt(String(paramsObj.gridSize || '8'));
-  const minDotSize = parseFloat(String(paramsObj.minDotSize || '0')) / 100; // Convert from percentage to 0-1 range
-  const maxDotSize = parseFloat(String(paramsObj.maxDotSize || '90')) / 100; // Convert from percentage to 0-1 range
+  const cellSize = parseInt(String(paramsObj.cellSize || '8'));
+  const dotSize = parseFloat(String(paramsObj.dotSize || '0.8'));
+  const angle = parseFloat(String(paramsObj.angle || '0')) * Math.PI / 180; // Convert to radians
   const shape = paramsObj.shape || 'Circle';
-  const angle = parseInt(String(paramsObj.angle || '0'));
-  const dotColor = paramsObj.dotColor || 'Black';
-  const channelMode = paramsObj.channelMode || 'Grayscale';
+  const colorMode = paramsObj.colorMode || 'RGB';
+  const intensity = parseFloat(String(paramsObj.intensity || '0.8'));
   
   // Save original image data
   const originalData = new Uint8ClampedArray(data.length);
@@ -2197,309 +2196,190 @@ function applyHalftoneFilter(
     originalData[i] = data[i];
   }
   
-  // Create a temporary canvas for drawing the halftone pattern
+  // Create temporary canvas for halftone effect
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = width;
   tempCanvas.height = height;
   const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
   
-  // Fill with a background color - will be visible between dots
-  if (dotColor === 'Black') {
-    tempCtx.fillStyle = 'white';
-  } else if (dotColor === 'White') {
-    tempCtx.fillStyle = 'black';
+  // Put original image on temp canvas
+  const imageData = new ImageData(originalData, width, height);
+  tempCtx.putImageData(imageData, 0, 0);
+  
+  // Apply halftone effect
+  if (colorMode === 'RGB') {
+    applyRGBHalftone(tempCtx, width, height, cellSize, dotSize, angle, shape, intensity, originalData);
   } else {
-    tempCtx.fillStyle = 'white'; // Default for Original and Custom
+    applyGrayscaleHalftone(tempCtx, width, height, cellSize, dotSize, angle, shape, intensity, originalData);
   }
   
-  tempCtx.fillRect(0, 0, width, height);
+  // Get the processed image data
+  const processedImageData = tempCtx.getImageData(0, 0, width, height);
   
-  // Define dot color
-  let fillColorR = 0, fillColorG = 0, fillColorB = 0;
-  
-  if (dotColor === 'Black') {
-    fillColorR = fillColorG = fillColorB = 0;
-  } else if (dotColor === 'White') {
-    fillColorR = fillColorG = fillColorB = 255;
-  } else if (dotColor === 'Custom') {
-    // Some preset custom color - could be parameterized further
-    fillColorR = 50;
-    fillColorG = 100;
-    fillColorB = 200;
-  }
-  
-  // Save context state
-  tempCtx.save();
-  
-  // Note: We don't apply rotation to the entire canvas here anymore
-  // The rotation angle will be passed to the drawHalftonePattern function
-  // and applied individually to each dot pattern
-  
-  // Handle different channel modes
-  if (channelMode === 'Grayscale') {
-    // Process as grayscale
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      dotColor === 'Original' ? null : { r: fillColorR, g: fillColorG, b: fillColorB },
-      null,
-      null,
-      angle // Pass the rotation angle to pattern
-    );
-  } 
-  else if (channelMode === 'RGB') {
-    // Process R, G, B channels separately with different angles
-    // First clear to white/black
-    tempCtx.clearRect(0, 0, width, height);
-    
-    // Calculate base angles for each channel with user's rotation added
-    const redAngle = (15 + angle) % 90; // Red at 15° + user angle
-    const greenAngle = (75 + angle) % 90; // Green at 75° + user angle
-    const blueAngle = (0 + angle) % 90; // Blue at 0° + user angle
-    
-    // Red channel
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 255, g: 0, b: 0 },
-      0, // red channel
-      null,
-      redAngle // Pass appropriate angle to the pattern
-    );
-    
-    // Green channel
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 0, g: 255, b: 0 },
-      1, // green channel
-      null,
-      greenAngle
-    );
-    
-    // Blue channel
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 0, g: 0, b: 255 },
-      2, // blue channel
-      null,
-      blueAngle
-    );
-  }
-  else if (channelMode === 'CMYK') {
-    // Process C, M, Y, K channels separately 
-    // First clear to white
-    tempCtx.clearRect(0, 0, width, height);
-    tempCtx.fillStyle = 'white';
-    tempCtx.fillRect(0, 0, width, height);
-    tempCtx.globalCompositeOperation = 'multiply'; // Use multiply blend mode to simulate CMYK
-    
-    // Cyan channel (typically at 15 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((15 * Math.PI) / 180);
-    tempCtx.translate(-width / 2, -height / 2);
-    
-    // Use RGB to simulate CMYK
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 0, g: 255, b: 255 }, // Cyan
-      null, // all channels
-      invertBrightness
-    );
-    tempCtx.restore();
-    
-    // Magenta channel (typically at 75 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((75 * Math.PI) / 180);
-    tempCtx.translate(-width / 2, -height / 2);
-    
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 255, g: 0, b: 255 }, // Magenta
-      null, // all channels
-      invertBrightness
-    );
-    tempCtx.restore();
-    
-    // Yellow channel (typically at 0 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((0 * Math.PI) / 180);
-    tempCtx.translate(-width / 2, -height / 2);
-    
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 255, g: 255, b: 0 }, // Yellow
-      null, // all channels
-      invertBrightness
-    );
-    tempCtx.restore();
-    
-    // Black/Key channel (typically at 45 degrees in print)
-    tempCtx.save();
-    tempCtx.translate(width / 2, height / 2);
-    tempCtx.rotate((45 * Math.PI) / 180);
-    tempCtx.translate(-width / 2, -height / 2);
-    
-    drawHalftonePattern(
-      originalData,
-      tempCtx,
-      width,
-      height,
-      gridSize,
-      minDotSize,
-      maxDotSize,
-      shape,
-      { r: 0, g: 0, b: 0 }, // Black
-      null, // all channels
-      // For K channel we use luminance calculation
-      (r, g, b) => {
-        const luminance = 0.3 * r + 0.59 * g + 0.11 * b;
-        return 255 - luminance; // Inverted for K channel
-      }
-    );
-    tempCtx.restore();
-    
-    // Reset blend mode
-    tempCtx.globalCompositeOperation = 'source-over';
-  }
-  
-  // Restore context state
-  tempCtx.restore();
-  
-  // Get the halftone image data and replace original
-  const halftoneData = tempCtx.getImageData(0, 0, width, height).data;
+  // Copy the processed data back to the original data
   for (let i = 0; i < data.length; i++) {
-    data[i] = halftoneData[i];
+    data[i] = processedImageData.data[i];
   }
   
-  // Helper functions
-  
-  // Function to draw the halftone pattern
-  function drawHalftonePattern(
-    sourceData: Uint8ClampedArray,
+  // Helper function for RGB halftone with primary colors
+  function applyRGBHalftone(
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
-    gridSize: number,
-    minDotSize: number,
-    maxDotSize: number,
+    cellSize: number,
+    dotSize: number,
+    angle: number,
     shape: string,
-    color: { r: number, g: number, b: number } | null,
-    channel: number | null = null,
-    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null,
-    rotationAngle: number = 0 // Add rotation angle parameter
+    intensity: number,
+    originalData: Uint8ClampedArray
   ) {
-    // Step through the image in grid cells
-    for (let y = 0; y < height; y += gridSize) {
-      for (let x = 0; x < width; x += gridSize) {
-        // Calculate center of the grid cell
-        const centerX = x + gridSize / 2;
-        const centerY = y + gridSize / 2;
-        
-        // Get the average brightness in this grid cell
-        let brightness = getAverageBrightnessInGrid(sourceData, x, y, gridSize, width, height, channel, brightnessMapper);
-        
-        // Map brightness to dot size radius (smaller dots for darker areas in normal halftone)
-        const radius = mapBrightnessToRadius(brightness, gridSize, minDotSize, maxDotSize);
-        
-        // Set the fill color
-        if (color) {
-          ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-        } else {
-          // Use original image color at this cell
-          const centerIdx = ((Math.min(y + Math.floor(gridSize / 2), height - 1)) * width + (Math.min(x + Math.floor(gridSize / 2), width - 1))) * 4;
-          const r = sourceData[centerIdx];
-          const g = sourceData[centerIdx + 1];
-          const b = sourceData[centerIdx + 2];
-          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-        }
-        
-        // Draw the appropriate shape with rotation
-        drawShape(ctx, centerX, centerY, radius, shape, rotationAngle);
-      }
-    }
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw original image as background
+    ctx.putImageData(new ImageData(originalData, width, height), 0, 0);
+    
+    // Calculate angles for each color channel (offset by 120 degrees for better separation)
+    const redAngle = angle;
+    const greenAngle = angle + (2 * Math.PI / 3);
+    const blueAngle = angle + (4 * Math.PI / 3);
+    
+    // Apply each color channel with blend mode
+    ctx.globalCompositeOperation = 'multiply';
+    
+    // Red channel
+    drawColorChannelHalftone(ctx, width, height, cellSize, dotSize, redAngle, shape, intensity, originalData, 0, { r: 255, g: 0, b: 0 });
+    
+    // Green channel
+    drawColorChannelHalftone(ctx, width, height, cellSize, dotSize, greenAngle, shape, intensity, originalData, 1, { r: 0, g: 255, b: 0 });
+    
+    // Blue channel
+    drawColorChannelHalftone(ctx, width, height, cellSize, dotSize, blueAngle, shape, intensity, originalData, 2, { r: 0, g: 0, b: 255 });
+    
+    ctx.globalCompositeOperation = 'source-over';
   }
   
-  // Function to get average brightness in a grid cell
-  function getAverageBrightnessInGrid(
+  // Helper function for grayscale halftone
+  function applyGrayscaleHalftone(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    cellSize: number,
+    dotSize: number,
+    angle: number,
+    shape: string,
+    intensity: number,
+    originalData: Uint8ClampedArray
+  ) {
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw original image as background
+    ctx.putImageData(new ImageData(originalData, width, height), 0, 0);
+    
+    // Apply grayscale halftone overlay
+    ctx.globalCompositeOperation = 'multiply';
+    drawColorChannelHalftone(ctx, width, height, cellSize, dotSize, angle, shape, intensity, originalData, -1, { r: 0, g: 0, b: 0 });
+    
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  
+  // Helper function to draw halftone pattern for a specific color channel
+  function drawColorChannelHalftone(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    cellSize: number,
+    dotSize: number,
+    angle: number,
+    shape: string,
+    intensity: number,
+    originalData: Uint8ClampedArray,
+    channel: number, // 0=red, 1=green, 2=blue, -1=grayscale
+    dotColor: { r: number, g: number, b: number }
+  ) {
+    // Save context state
+    ctx.save();
+    
+    // Create a new canvas for this color channel
+    const channelCanvas = document.createElement('canvas');
+    channelCanvas.width = width;
+    channelCanvas.height = height;
+    const channelCtx = channelCanvas.getContext('2d', { willReadFrequently: true })!;
+    
+    // Fill with white background
+    channelCtx.fillStyle = 'white';
+    channelCtx.fillRect(0, 0, width, height);
+    
+    // Calculate grid with rotation
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    // Step through the image in grid cells
+    for (let y = 0; y < height; y += cellSize) {
+      for (let x = 0; x < width; x += cellSize) {
+        // Calculate center of the grid cell
+        const centerX = x + cellSize / 2;
+        const centerY = y + cellSize / 2;
+        
+        // Get the average brightness in this grid cell for the specific channel
+        let brightness = getChannelBrightness(originalData, x, y, cellSize, width, height, channel);
+        
+        // Invert brightness for darker dots on lighter areas
+        brightness = 255 - brightness;
+        
+        // Calculate dot size based on brightness
+        const actualDotSize = (brightness / 255) * dotSize * cellSize * intensity;
+        
+        // Skip if dot is too small
+        if (actualDotSize < 0.5) continue;
+        
+        // Apply rotation to dot position
+        const rotatedX = centerX * cos - centerY * sin + width / 2 * (1 - cos) + height / 2 * sin;
+        const rotatedY = centerX * sin + centerY * cos + height / 2 * (1 - cos) - width / 2 * sin;
+        
+        // Set dot color
+        channelCtx.fillStyle = `rgb(${dotColor.r}, ${dotColor.g}, ${dotColor.b})`;
+        
+        // Draw the dot
+        drawHalftoneDot(channelCtx, rotatedX, rotatedY, actualDotSize, shape);
+      }
+    }
+    
+    // Apply the channel to the main context
+    ctx.drawImage(channelCanvas, 0, 0);
+    
+    ctx.restore();
+  }
+  
+  // Helper function to get average brightness for a specific channel
+  function getChannelBrightness(
     data: Uint8ClampedArray,
     startX: number,
     startY: number,
-    gridSize: number,
+    cellSize: number,
     width: number,
     height: number,
-    channel: number | null = null,
-    brightnessMapper: ((r: number, g: number, b: number) => number) | null = null
+    channel: number
   ): number {
     let totalBrightness = 0;
     let pixelCount = 0;
     
-    const endX = Math.min(startX + gridSize, width);
-    const endY = Math.min(startY + gridSize, height);
-    
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
+    for (let y = startY; y < Math.min(startY + cellSize, height); y++) {
+      for (let x = startX; x < Math.min(startX + cellSize, width); x++) {
         const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
         
         let brightness;
-        if (channel !== null) {
-          // Use specific RGB channel
-          brightness = data[idx + channel]; 
-        } else if (brightnessMapper) {
-          // Use custom brightness mapping function
-          brightness = brightnessMapper(data[idx], data[idx + 1], data[idx + 2]);
+        if (channel === 0) {
+          brightness = r; // Red channel
+        } else if (channel === 1) {
+          brightness = g; // Green channel  
+        } else if (channel === 2) {
+          brightness = b; // Blue channel
         } else {
-          // Use standard luminance formula
-          brightness = Math.round(0.3 * data[idx] + 0.59 * data[idx + 1] + 0.11 * data[idx + 2]);
+          // Grayscale luminance
+          brightness = 0.299 * r + 0.587 * g + 0.114 * b;
         }
         
         totalBrightness += brightness;
@@ -2510,85 +2390,47 @@ function applyHalftoneFilter(
     return pixelCount > 0 ? totalBrightness / pixelCount : 0;
   }
   
-  // Function to map brightness to dot radius
-  function mapBrightnessToRadius(brightness: number, gridSize: number, minDotSize: number, maxDotSize: number): number {
-    // Map brightness (0-255) to dot size (min to max of grid size)
-    const normalizedBrightness = brightness / 255;
-    const dotSizeRange = maxDotSize - minDotSize;
-    return (normalizedBrightness * dotSizeRange + minDotSize) * (gridSize / 2);
-  }
-  
-  // Function to draw different shapes with rotation
-  function drawShape(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, shape: string, angle: number = 0): void {
-    // Save the context state to restore later
+  // Helper function to draw individual halftone dot
+  function drawHalftoneDot(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    shape: string
+  ) {
     ctx.save();
-    
-    // Apply rotation if needed - translate to the center point, rotate, then translate back
-    if (angle !== 0) {
-      ctx.translate(x, y);
-      ctx.rotate((angle * Math.PI) / 180);
-      ctx.translate(-x, -y);
-    }
     
     switch (shape) {
       case 'Circle':
-        // Circles look the same when rotated, so no special handling needed
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
         ctx.fill();
         break;
-        
+      
       case 'Square':
-        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
         break;
-        
-      case 'Line':
-        ctx.beginPath();
-        ctx.lineWidth = radius / 2;
-        ctx.moveTo(x - radius, y);
-        ctx.lineTo(x + radius, y);
-        ctx.stroke();
-        break;
-        
-      case 'Cross':
-        ctx.beginPath();
-        ctx.lineWidth = radius / 2;
-        ctx.moveTo(x - radius, y);
-        ctx.lineTo(x + radius, y);
-        ctx.moveTo(x, y - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.stroke();
-        break;
-        
+      
       case 'Diamond':
         ctx.beginPath();
-        ctx.moveTo(x, y - radius);
-        ctx.lineTo(x + radius, y);
-        ctx.lineTo(x, y + radius);
-        ctx.lineTo(x - radius, y);
+        ctx.moveTo(x, y - size / 2);
+        ctx.lineTo(x + size / 2, y);
+        ctx.lineTo(x, y + size / 2);
+        ctx.lineTo(x - size / 2, y);
         ctx.closePath();
         ctx.fill();
         break;
-        
+      
       default:
-        // Default to circle
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
         ctx.fill();
+        break;
     }
     
-    // Restore the context state
     ctx.restore();
   }
-  
-  // Function to invert brightness (for CMYK-like effects)
-  function invertBrightness(r: number, g: number, b: number): number {
-    const luminance = 0.3 * r + 0.59 * g + 0.11 * b;
-    return 255 - luminance;
-  }
 }
-
-// Simplified Canny edge detection
 function applyCannyEdgeDetection(
   srcData: Uint8ClampedArray,
   dstData: Uint8ClampedArray,
