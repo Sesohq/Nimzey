@@ -1791,7 +1791,7 @@ export function useFilterGraph() {
     // Create two new edges: source -> insertedNode and insertedNode -> target
     // For filter nodes, connect to the "Source Image" parameter handle instead of main node input
     const insertedNode = nodes.find(node => node.id === nodeId);
-    const targetHandle = insertedNode?.type === 'filter' ? 'param-sourceImage' : 'node-input';
+    const targetHandle = (insertedNode?.type === 'filterNode' || insertedNode?.type === 'generatorNode') ? 'param-sourceImage' : 'node-input';
     
     const newEdge1: Edge = {
       id: `${targetEdge.source}-${nodeId}-${uuidv4().substring(0, 8)}`,
