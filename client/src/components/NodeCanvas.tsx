@@ -52,6 +52,7 @@ interface NodeCanvasProps {
   zoomOut: () => void;
   zoomLevel: number;
   onUploadImage?: (file: File) => void;
+  onInsertNodeIntoChain?: (nodeId: string, targetEdgeId: string, dropPosition: { x: number; y: number }) => void;
 }
 
 export default function NodeCanvas({ 
@@ -65,15 +66,70 @@ export default function NodeCanvas({
   zoomIn,
   zoomOut,
   zoomLevel,
-  onUploadImage
+  onUploadImage,
+  onInsertNodeIntoChain
 }: NodeCanvasProps) {
   // NodeCanvas component - renders the node-based editor
   const reactFlowInstance = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  // Handle dropping a node onto the canvas
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    
+    const nodeId = event.dataTransfer.getData('application/reactflow');
+    if (!nodeId || !onInsertNodeIntoChain) return;
+    
+    const reactFlowBounds = event.currentTarget.getBoundingClientRect();
+    const position = reactFlowInstance.project({
+      x: event.clientX - reactFlowBounds.left,
+      y: event.clientY - reactFlowBounds.top,
+    });
+    
+    // Find the closest edge to the drop position
+    const closestEdge = findClosestEdge(position, edges, nodes);
+    
+    if (closestEdge) {
+      onInsertNodeIntoChain(nodeId, closestEdge.id, position);
+    }
+  }, [reactFlowInstance, edges, nodes, onInsertNodeIntoChain]);
+
+  // Find the closest edge to a given position
+  const findClosestEdge = useCallback((position: { x: number; y: number }, edges: Edge[], nodes: Node[]) => {
+    let closestEdge: Edge | null = null;
+    let minDistance = Infinity;
+    
+    edges.forEach(edge => {
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+      
+      if (sourceNode && targetNode) {
+        // Calculate the midpoint of the edge
+        const midpoint = {
+          x: (sourceNode.position.x + targetNode.position.x) / 2,
+          y: (sourceNode.position.y + targetNode.position.y) / 2
+        };
+        
+        // Calculate distance from drop position to edge midpoint
+        const distance = Math.sqrt(
+          Math.pow(position.x - midpoint.x, 2) + 
+          Math.pow(position.y - midpoint.y, 2)
+        );
+        
+        if (distance < minDistance && distance < 100) { // Only consider edges within 100px
+          minDistance = distance;
+          closestEdge = edge;
+        }
+      }
+    });
+    
+    return closestEdge;
   }, []);
 
   const handlePaneClick = () => {
@@ -84,6 +140,20 @@ export default function NodeCanvas({
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
   };
+
+  // Handle node drag start for insertion
+  const handleNodeDragStart = useCallback((event: React.DragEvent, node: Node) => {
+    // Only allow dragging of unconnected nodes
+    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
+    
+    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode') {
+      event.dataTransfer.setData('application/reactflow', node.id);
+      event.dataTransfer.effectAllowed = 'move';
+      setDraggedNodeId(node.id);
+    } else {
+      event.preventDefault();
+    }
+  }, [edges]);
   
   // Handle double-click on edges to delete them
   const handleEdgeDoubleClick = (_: React.MouseEvent, edge: Edge) => {
@@ -118,15 +188,17 @@ export default function NodeCanvas({
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
+            onNodeDragStart={handleNodeDragStart}
             nodeTypes={nodeTypes}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-          snapToGrid={true}
-          snapGrid={[15, 15]}
-          onDragOver={onDragOver}
-          deleteKeyCode="Delete"
-        >
+            fitView
+            minZoom={0.1}
+            maxZoom={2}
+            snapToGrid={true}
+            snapGrid={[15, 15]}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            deleteKeyCode="Delete"
+          >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />
           

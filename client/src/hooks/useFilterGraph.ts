@@ -1444,10 +1444,7 @@ export function useFilterGraph() {
     }
   }, [findFilterByType, handleParamChange, handleToggleEnabled, generateNodePreview, sourceImageRef]);
 
-  // Handle nodes changes
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes(nds => applyNodeChanges(changes, nds));
-  }, []);
+
 
   // Handle edges changes
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
@@ -1478,6 +1475,61 @@ export function useFilterGraph() {
     // Apply the changes to the edges state
     setEdges(eds => applyEdgeChanges(changes, eds));
   }, [edges, handleDisconnectParam]);
+
+  // Handle node deletion with automatic re-linking
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const deleteChanges = changes.filter(change => change.type === 'remove') as Array<NodeChange & { type: 'remove' }>;
+    
+    // Process each deletion to re-link the chain
+    deleteChanges.forEach(change => {
+      const nodeId = change.id;
+      const nodeToDelete = nodes.find(n => n.id === nodeId);
+      
+      if (nodeToDelete && nodeToDelete.type !== 'imageNode' && nodeToDelete.type !== 'outputNode') {
+        // Find incoming and outgoing edges for this node
+        const incomingEdges = edges.filter(edge => edge.target === nodeId);
+        const outgoingEdges = edges.filter(edge => edge.source === nodeId);
+        
+        // Create new connections to bridge the gap
+        const newEdges: Edge[] = [];
+        
+        incomingEdges.forEach(incomingEdge => {
+          outgoingEdges.forEach(outgoingEdge => {
+            // Only create main node connections (not parameter connections)
+            if (!incomingEdge.targetHandle?.startsWith('param-') && 
+                !outgoingEdge.sourceHandle?.startsWith('output-param-')) {
+              
+              const newEdge: Edge = {
+                id: `${incomingEdge.source}-${outgoingEdge.target}-${uuidv4().substring(0, 8)}`,
+                source: incomingEdge.source,
+                target: outgoingEdge.target,
+                sourceHandle: incomingEdge.sourceHandle || 'output',
+                targetHandle: outgoingEdge.targetHandle || 'input',
+                type: 'smoothstep',
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  color: '#666',
+                  width: 20,
+                  height: 20,
+                },
+                style: {
+                  strokeWidth: 2,
+                  stroke: '#666',
+                },
+              };
+              newEdges.push(newEdge);
+            }
+          });
+        });
+        
+        // Add the new bridging edges
+        setEdges(eds => [...eds, ...newEdges]);
+      }
+    });
+    
+    // Apply the node changes
+    setNodes(nds => applyNodeChanges(changes, nds));
+  }, [nodes, edges]);
 
   // Check if adding a connection would create a cycle in the graph
   const checkForCycles = (currentEdges: Edge[], allNodes: Node[], newConnection: Connection): boolean => {
@@ -1720,6 +1772,68 @@ export function useFilterGraph() {
     return outputNodeId;
   }, [nodes]);
 
+  // Function to insert a node into an existing chain
+  const insertNodeIntoChain = useCallback((nodeId: string, targetEdgeId: string, position: { x: number; y: number }) => {
+    const targetEdge = edges.find(edge => edge.id === targetEdgeId);
+    if (!targetEdge) return;
+    
+    const nodeToInsert = nodes.find(node => node.id === nodeId);
+    if (!nodeToInsert) return;
+    
+    // Update the position of the node to insert
+    setNodes(nds => nds.map(node => 
+      node.id === nodeId ? { ...node, position } : node
+    ));
+    
+    // Remove the original edge
+    setEdges(eds => eds.filter(edge => edge.id !== targetEdgeId));
+    
+    // Create two new edges: source -> insertedNode and insertedNode -> target
+    const newEdge1: Edge = {
+      id: `${targetEdge.source}-${nodeId}-${uuidv4().substring(0, 8)}`,
+      source: targetEdge.source,
+      target: nodeId,
+      sourceHandle: targetEdge.sourceHandle || 'output',
+      targetHandle: 'input',
+      type: 'smoothstep',
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#666',
+        width: 20,
+        height: 20,
+      },
+      style: {
+        strokeWidth: 2,
+        stroke: '#666',
+      },
+    };
+    
+    const newEdge2: Edge = {
+      id: `${nodeId}-${targetEdge.target}-${uuidv4().substring(0, 8)}`,
+      source: nodeId,
+      target: targetEdge.target,
+      sourceHandle: 'output',
+      targetHandle: targetEdge.targetHandle || 'input',
+      type: 'smoothstep',
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#666',
+        width: 20,
+        height: 20,
+      },
+      style: {
+        strokeWidth: 2,
+        stroke: '#666',
+      },
+    };
+    
+    // Add the new edges
+    setEdges(eds => [...eds, newEdge1, newEdge2]);
+    
+    // Process the image to update the chain
+    setTimeout(() => processImage(), 100);
+  }, [nodes, edges, processImage]);
+
   return {
     nodes,
     edges,
@@ -1729,6 +1843,7 @@ export function useFilterGraph() {
     onNodeSelect,
     addNode,
     addOutputNode,
+    insertNodeIntoChain,
     selectedNode,
     selectedNodeId,
     processedImage,

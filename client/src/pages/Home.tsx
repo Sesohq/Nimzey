@@ -15,6 +15,7 @@ export default function Home() {
     onNodeSelect,
     addNode,
     addOutputNode,
+    insertNodeIntoChain,
     selectedNode,
     selectedNodeId,
     processedImage,
@@ -58,6 +59,7 @@ export default function Home() {
           zoomOut={zoomOut}
           zoomLevel={zoomLevel}
           onUploadImage={uploadImage}
+          onInsertNodeIntoChain={insertNodeIntoChain}
         />
         
         <PreviewPanel 
