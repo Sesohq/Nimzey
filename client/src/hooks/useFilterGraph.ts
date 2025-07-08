@@ -1503,8 +1503,8 @@ export function useFilterGraph() {
                 id: `${incomingEdge.source}-${outgoingEdge.target}-${uuidv4().substring(0, 8)}`,
                 source: incomingEdge.source,
                 target: outgoingEdge.target,
-                sourceHandle: incomingEdge.sourceHandle || 'output',
-                targetHandle: outgoingEdge.targetHandle || 'input',
+                sourceHandle: incomingEdge.sourceHandle || 'node-output',
+                targetHandle: outgoingEdge.targetHandle || 'node-input',
                 type: 'smoothstep',
                 markerEnd: {
                   type: MarkerType.ArrowClosed,
@@ -1793,8 +1793,8 @@ export function useFilterGraph() {
       id: `${targetEdge.source}-${nodeId}-${uuidv4().substring(0, 8)}`,
       source: targetEdge.source,
       target: nodeId,
-      sourceHandle: targetEdge.sourceHandle || 'output',
-      targetHandle: 'input',
+      sourceHandle: targetEdge.sourceHandle || 'node-output',
+      targetHandle: 'node-input',
       type: 'smoothstep',
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -1812,8 +1812,8 @@ export function useFilterGraph() {
       id: `${nodeId}-${targetEdge.target}-${uuidv4().substring(0, 8)}`,
       source: nodeId,
       target: targetEdge.target,
-      sourceHandle: 'output',
-      targetHandle: targetEdge.targetHandle || 'input',
+      sourceHandle: 'node-output',
+      targetHandle: targetEdge.targetHandle || 'node-input',
       type: 'smoothstep',
       markerEnd: {
         type: MarkerType.ArrowClosed,
