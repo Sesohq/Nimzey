@@ -79,26 +79,32 @@ export default function NodeCanvas({
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // Handle dropping a node onto the canvas
-  const onDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
+  // Handle node drag to detect insertion into chains
+  const handleNodeDrag = useCallback((event: React.MouseEvent, node: Node) => {
+    // Check if this is an unconnected node
+    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
     
-    const nodeId = event.dataTransfer.getData('application/reactflow');
-    if (!nodeId || !onInsertNodeIntoChain) return;
-    
-    const reactFlowBounds = event.currentTarget.getBoundingClientRect();
-    const position = reactFlowInstance.project({
-      x: event.clientX - reactFlowBounds.left,
-      y: event.clientY - reactFlowBounds.top,
-    });
-    
-    // Find the closest edge to the drop position
-    const closestEdge = findClosestEdge(position, edges, nodes);
-    
-    if (closestEdge) {
-      onInsertNodeIntoChain(nodeId, closestEdge.id, position);
+    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode') {
+      setDraggedNodeId(node.id);
     }
-  }, [reactFlowInstance, edges, nodes, onInsertNodeIntoChain]);
+  }, [edges]);
+
+  // Handle node drag stop to potentially insert into chain
+  const handleNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    // Check if this is an unconnected node
+    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
+    
+    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode' && onInsertNodeIntoChain) {
+      // Find the closest edge to the node's current position
+      const closestEdge = findClosestEdge(node.position, edges, nodes);
+      
+      if (closestEdge) {
+        onInsertNodeIntoChain(node.id, closestEdge.id, node.position);
+      }
+    }
+    
+    setDraggedNodeId(null);
+  }, [edges, nodes, onInsertNodeIntoChain]);
 
   // Find the closest edge to a given position
   const findClosestEdge = useCallback((position: { x: number; y: number }, edges: Edge[], nodes: Node[]) => {
@@ -141,19 +147,7 @@ export default function NodeCanvas({
     onNodeClick(node.id);
   };
 
-  // Handle node drag start for insertion
-  const handleNodeDragStart = useCallback((event: React.DragEvent, node: Node) => {
-    // Only allow dragging of unconnected nodes
-    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
-    
-    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode') {
-      event.dataTransfer.setData('application/reactflow', node.id);
-      event.dataTransfer.effectAllowed = 'move';
-      setDraggedNodeId(node.id);
-    } else {
-      event.preventDefault();
-    }
-  }, [edges]);
+
   
   // Handle double-click on edges to delete them
   const handleEdgeDoubleClick = (_: React.MouseEvent, edge: Edge) => {
@@ -188,7 +182,8 @@ export default function NodeCanvas({
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onNodeDragStart={handleNodeDragStart}
+            onNodeDrag={handleNodeDrag}
+            onNodeDragStop={handleNodeDragStop}
             nodeTypes={nodeTypes}
             fitView
             minZoom={0.1}
@@ -196,7 +191,6 @@ export default function NodeCanvas({
             snapToGrid={true}
             snapGrid={[15, 15]}
             onDragOver={onDragOver}
-            onDrop={onDrop}
             deleteKeyCode="Delete"
           >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
