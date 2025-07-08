@@ -1495,16 +1495,23 @@ export function useFilterGraph() {
         
         incomingEdges.forEach(incomingEdge => {
           outgoingEdges.forEach(outgoingEdge => {
-            // Only create main node connections (not parameter connections)
-            if (!incomingEdge.targetHandle?.startsWith('param-') && 
-                !outgoingEdge.sourceHandle?.startsWith('output-param-')) {
+            // Allow main node connections and sourceImage parameter connections
+            const isMainConnection = !incomingEdge.targetHandle?.startsWith('param-') && 
+                                   !outgoingEdge.sourceHandle?.startsWith('output-param-');
+            const isSourceImageConnection = incomingEdge.targetHandle === 'param-sourceImage';
+            
+            if (isMainConnection || isSourceImageConnection) {
+              // Determine the correct target handle for the new connection
+              const targetNode = nodes.find(n => n.id === outgoingEdge.target);
+              const newTargetHandle = (targetNode?.type === 'filterNode' || targetNode?.type === 'generatorNode') ? 
+                'param-sourceImage' : 'node-input';
               
               const newEdge: Edge = {
                 id: `${incomingEdge.source}-${outgoingEdge.target}-${uuidv4().substring(0, 8)}`,
                 source: incomingEdge.source,
                 target: outgoingEdge.target,
                 sourceHandle: incomingEdge.sourceHandle || 'node-output',
-                targetHandle: outgoingEdge.targetHandle || 'node-input',
+                targetHandle: newTargetHandle,
                 type: 'smoothstep',
                 markerEnd: {
                   type: MarkerType.ArrowClosed,
@@ -1524,6 +1531,23 @@ export function useFilterGraph() {
         
         // Add the new bridging edges
         setEdges(eds => [...eds, ...newEdges]);
+        
+        // Update parameter connection status for new sourceImage connections
+        newEdges.forEach(edge => {
+          if (edge.targetHandle === 'param-sourceImage') {
+            setNodes(nds => nds.map(node => {
+              if (node.id === edge.target && node.data.params) {
+                const updatedParams = node.data.params.map(param => 
+                  param.id === 'sourceImage' || param.name === 'sourceImage' 
+                    ? { ...param, isConnected: true }
+                    : param
+                );
+                return { ...node, data: { ...node.data, params: updatedParams } };
+              }
+              return node;
+            }));
+          }
+        });
       }
     });
     
