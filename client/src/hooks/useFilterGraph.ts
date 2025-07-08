@@ -1789,12 +1789,16 @@ export function useFilterGraph() {
     setEdges(eds => eds.filter(edge => edge.id !== targetEdgeId));
     
     // Create two new edges: source -> insertedNode and insertedNode -> target
+    // For filter nodes, connect to the "Source Image" parameter handle instead of main node input
+    const insertedNode = nodes.find(node => node.id === nodeId);
+    const targetHandle = insertedNode?.type === 'filter' ? 'param-sourceImage' : 'node-input';
+    
     const newEdge1: Edge = {
       id: `${targetEdge.source}-${nodeId}-${uuidv4().substring(0, 8)}`,
       source: targetEdge.source,
       target: nodeId,
       sourceHandle: targetEdge.sourceHandle || 'node-output',
-      targetHandle: 'node-input',
+      targetHandle: targetHandle,
       type: 'smoothstep',
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -1829,6 +1833,22 @@ export function useFilterGraph() {
     
     // Add the new edges
     setEdges(eds => [...eds, newEdge1, newEdge2]);
+    
+    // If connecting to a parameter, mark it as connected
+    if (targetHandle.startsWith('param-')) {
+      const paramName = targetHandle.replace('param-', '');
+      setNodes(nds => nds.map(node => {
+        if (node.id === nodeId && node.data.params) {
+          const updatedParams = node.data.params.map(param => 
+            param.id === paramName || param.name === paramName 
+              ? { ...param, isConnected: true }
+              : param
+          );
+          return { ...node, data: { ...node.data, params: updatedParams } };
+        }
+        return node;
+      }));
+    }
     
     // Process the image to update the chain
     setTimeout(() => processImage(), 100);
