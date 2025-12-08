@@ -120,17 +120,17 @@ export function useFilterGraph() {
           const sourceNodeData = sourceNode.data as FilterNodeData;
           
           // Find the source parameter
-          const sourceParam = sourceNodeData.params.find(p => 
+          const sourceParam = sourceNodeData.params?.find(p => 
             (p.id || p.name) === sourceParamId
           );
           
           // Find the target parameter
-          const targetParamIndex = nodeData.params.findIndex(p => 
+          const targetParamIndex = nodeData.params?.findIndex(p => 
             (p.id || p.name) === paramId
-          );
+          ) ?? -1;
           
           // If both parameters exist, update the target parameter value
-          if (sourceParam && targetParamIndex !== -1) {
+          if (sourceParam && targetParamIndex !== -1 && nodeData.params) {
             // Convert values if necessary based on parameter types
             let updatedValue = sourceParam.value;
             const targetParam = nodeData.params[targetParamIndex];
@@ -145,7 +145,7 @@ export function useFilterGraph() {
               currentNodes.map(n => {
                 if (n.id === node.id) {
                   const data = n.data as FilterNodeData;
-                  const updatedParams = [...data.params];
+                  const updatedParams = [...(data.params || [])];
                   updatedParams[targetParamIndex] = {
                     ...updatedParams[targetParamIndex],
                     value: updatedValue,
@@ -189,7 +189,6 @@ export function useFilterGraph() {
     // Find all edges coming from this node
     const outgoingEdges = edges.filter(edge => edge.source === sourceNodeId);
     if (outgoingEdges.length === 0) {
-      console.log(`No outgoing edges from node ${sourceNodeId}`);
       setIsProcessing(false);
       return;
     }
@@ -984,7 +983,7 @@ export function useFilterGraph() {
           const nodeData = node.data as FilterNodeData;
           
           // Update the parameter to mark it as connected
-          const updatedParams = nodeData.params.map(param => {
+          const updatedParams = (nodeData.params || []).map((param: FilterParam) => {
             if ((param.id || param.name) === paramId) {
               return { 
                 ...param, 
@@ -1033,7 +1032,7 @@ export function useFilterGraph() {
           const nodeData = node.data as FilterNodeData;
           
           // Update the parameter to mark it as disconnected
-          const updatedParams = nodeData.params.map(param => {
+          const updatedParams = (nodeData.params || []).map((param: FilterParam) => {
             if ((param.id || param.name) === paramId) {
               // Create a new parameter without the connection properties
               const { isConnected, sourceNodeId, sourceParamId, ...rest } = param;
@@ -1170,7 +1169,8 @@ export function useFilterGraph() {
               if (node.id !== nodeId) return node;
               
               // Update the params array with the image data URL for serialization
-              const newParams = (node.data as FilterNodeData).params.map(p => {
+              const nodeData = node.data as FilterNodeData;
+              const newParams = (nodeData.params || []).map((p: FilterParam) => {
                 if (p.id === 'image-data' || p.name === 'imageData') {
                   return { ...p, value: imageDataUrl };
                 }
@@ -1536,8 +1536,9 @@ export function useFilterGraph() {
         newEdges.forEach(edge => {
           if (edge.targetHandle === 'param-sourceImage') {
             setNodes(nds => nds.map(node => {
-              if (node.id === edge.target && node.data.params) {
-                const updatedParams = node.data.params.map(param => 
+              const nodeData = node.data as FilterNodeData;
+              if (node.id === edge.target && nodeData.params) {
+                const updatedParams = nodeData.params.map((param: FilterParam) => 
                   param.id === 'sourceImage' || param.name === 'sourceImage' 
                     ? { ...param, isConnected: true }
                     : param
@@ -1862,8 +1863,9 @@ export function useFilterGraph() {
     if (targetHandle.startsWith('param-')) {
       const paramName = targetHandle.replace('param-', '');
       setNodes(nds => nds.map(node => {
-        if (node.id === nodeId && node.data.params) {
-          const updatedParams = node.data.params.map(param => 
+        const nodeData = node.data as FilterNodeData;
+        if (node.id === nodeId && nodeData.params) {
+          const updatedParams = nodeData.params.map((param: FilterParam) => 
             param.id === paramName || param.name === paramName 
               ? { ...param, isConnected: true }
               : param
