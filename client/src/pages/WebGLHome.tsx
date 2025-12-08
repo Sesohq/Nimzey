@@ -59,7 +59,10 @@ export default function WebGLHome() {
   // Callback for node click
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
-    generateNodePreview(nodes.find(node => node.id === nodeId)!);
+    const node = nodes.find((n: { id: string }) => n.id === nodeId);
+    if (node) {
+      generateNodePreview(node);
+    }
   }, [setSelectedNodeId, generateNodePreview, nodes]);
   
   // Quality change handler
@@ -118,7 +121,7 @@ export default function WebGLHome() {
         {/* Right panel - Preview */}
         <WebGLPreviewPanel
           width={rightPanelWidth}
-          selectedNode={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)! : null}
+          selectedNode={selectedNodeId ? nodes.find((n: { id: string }) => n.id === selectedNodeId) || null : null}
           nodePreview={nodePreview}
           processedImage={processedImage}
           processedImages={processedImages}

@@ -49,6 +49,7 @@ export function useGLFilterGraph() {
   const uploadFunctionRef = useRef<((file: File) => void)>(() => {});
   const isDraggingRef = useRef<boolean>(false);
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const requestProcessingRef = useRef<(quality?: QualityLevel) => void>(() => {});
   
   // Initialize WebGL renderer
   useEffect(() => {
@@ -439,12 +440,12 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Immediately start a low-quality preview render
-    requestProcessing('preview');
+    // Immediately start a low-quality preview render using ref
+    requestProcessingRef.current('preview');
     
     // Since we already have the node ID, schedule a thumbnail update
     // We'll handle this with a useEffect that watches for node changes
-  }, [nodes, requestProcessing]);
+  }, [nodes]);
   
   // Debounced processing request to avoid too frequent updates
   const debouncedRequestProcessing = useCallback(() => {
@@ -456,14 +457,14 @@ export function useGLFilterGraph() {
     // Set quality to preview during interaction
     setQualityLevel('preview');
     
-    // Schedule new update at low quality first
+    // Schedule new update at low quality first using ref
     updateTimerRef.current = setTimeout(() => {
-      requestProcessing('preview');
+      requestProcessingRef.current('preview');
       
       // Schedule a high-quality update after interaction stops
       updateTimerRef.current = setTimeout(() => {
         setQualityLevel('full');
-        requestProcessing('full');
+        requestProcessingRef.current('full');
       }, 500);
     }, 100);
   }, []);
@@ -485,8 +486,8 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Process image
-    requestProcessing();
+    // Process image using ref
+    requestProcessingRef.current();
   }, []);
   
   // Handle collapsing/expanding a node
@@ -524,8 +525,8 @@ export function useGLFilterGraph() {
       })
     );
     
-    // Process image
-    requestProcessing();
+    // Process image using ref
+    requestProcessingRef.current();
   }, []);
   
   // Handle changing node opacity
@@ -642,6 +643,11 @@ export function useGLFilterGraph() {
       setIsProcessing(false);
     }
   }, [nodes, edges, activeOutputNodeId]);
+  
+  // Keep the ref updated
+  useEffect(() => {
+    requestProcessingRef.current = requestProcessing;
+  }, [requestProcessing]);
   
   // Export the processed image
   const exportImage = useCallback((format: string = 'png') => {
@@ -789,5 +795,32 @@ export function useGLFilterGraph() {
     }
   }, [nodes, selectedNodeId, generateNodePreview]);
   
-  return graphData;
+  return {
+    nodes,
+    edges,
+    sourceImage,
+    processedImage,
+    processedImages,
+    selectedNodeId,
+    zoomLevel,
+    nodePreview,
+    isProcessing,
+    activeOutputNodeId,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    uploadImage: uploadFunctionRef.current,
+    addNode,
+    addOutputNode,
+    setSelectedNodeId,
+    generateNodePreview,
+    requestProcessing,
+    zoomIn,
+    zoomOut,
+    exportImage,
+    clearGraph,
+    resetNodePositions,
+    qualityLevel,
+    setQualityLevel,
+  };
 }

@@ -800,7 +800,7 @@ const applyFilter = (
     case 'mask':
       // Handle mask filter - requires both source and mask inputs
       const lumaParam = params.find(p => p.name === 'lumaMode')?.value;
-      const useLuma = lumaParam === true || lumaParam === 1 || lumaParam === 'true';
+      const useLuma = lumaParam === 'true' || lumaParam === 1 || String(lumaParam) === 'true';
       
       console.log("Applying mask filter with luma mode:", useLuma);
       
