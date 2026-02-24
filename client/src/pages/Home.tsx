@@ -1,79 +1,75 @@
-import { useState } from 'react';
+/**
+ * Home - Main application page.
+ * Uses the unified GPU-accelerated pipeline with registry-driven node system.
+ */
+
+import { useState, useCallback } from 'react';
+import { ReactFlowProvider } from 'reactflow';
+import 'reactflow/dist/style.css';
+
 import Header from '@/components/Header';
 import FilterPanel from '@/components/FilterPanel';
 import NodeCanvas from '@/components/NodeCanvas';
 import PreviewPanel from '@/components/PreviewPanel';
-import { useFilterGraph } from '@/hooks/useFilterGraph';
+import { useNimzeyGraph } from '@/hooks/useNimzeyGraph';
 
-export default function Home() {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    onNodeSelect,
-    addNode,
-    addOutputNode,
-    insertNodeIntoChain,
-    selectedNode,
-    selectedNodeId,
-    processedImage,
-    processedImages,
-    uploadImage,
-    exportImage,
-    sourceImage,
-    resetCanvas,
-    zoomIn,
-    zoomOut,
-    zoomLevel,
-    nodePreview,
-    isProcessing
-  } = useFilterGraph();
+function HomeContent() {
+  const graph = useNimzeyGraph({ quality: 'draft' });
+  const [leftPanelWidth] = useState(260);
+  const [rightPanelWidth] = useState(320);
 
-  const [filtersPanelWidth, setFiltersPanelWidth] = useState(256);
-  const [previewPanelWidth, setPreviewPanelWidth] = useState(288);
+  const handleNewProject = useCallback(() => {
+    window.location.reload();
+  }, []);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background text-foreground">
-      <Header onNewProject={resetCanvas} />
-      
+    <div className="h-screen w-full flex flex-col bg-zinc-950 text-zinc-100">
+      <Header onNewProject={handleNewProject} />
+
       <div className="flex flex-1 overflow-hidden">
-        <FilterPanel 
-          width={filtersPanelWidth} 
-          onAddFilter={addNode}
-          onUploadImage={uploadImage}
-          sourceImage={sourceImage}
-          onAddOutputNode={addOutputNode}
+        {/* Left - Node palette */}
+        <FilterPanel
+          width={leftPanelWidth}
+          onAddNode={graph.addNode}
+          onUploadImage={graph.uploadSourceImage}
         />
-        
+
+        {/* Center - Graph editor */}
         <NodeCanvas
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeSelect}
-          selectedNodeId={selectedNodeId}
-          zoomIn={zoomIn}
-          zoomOut={zoomOut}
-          zoomLevel={zoomLevel}
-          onUploadImage={uploadImage}
-          onInsertNodeIntoChain={insertNodeIntoChain}
+          nodes={graph.nodes}
+          edges={graph.edges}
+          graphState={graph.graphState}
+          onNodesChange={graph.onNodesChange}
+          onEdgesChange={graph.onEdgesChange}
+          onConnect={graph.onConnect}
+          onNodeClick={graph.onNodeClick}
+          onParameterChange={graph.onParameterChange}
+          onToggleEnabled={graph.onToggleEnabled}
+          onToggleCollapsed={graph.onToggleCollapsed}
+          onSetColorTag={graph.onSetColorTag}
+          onUploadImage={graph.uploadNodeImage}
+          onDrop={graph.onDrop}
         />
-        
-        <PreviewPanel 
-          width={previewPanelWidth}
-          selectedNode={selectedNode}
-          nodePreview={nodePreview}
-          processedImage={processedImage}
-          processedImages={processedImages}
-          onExportImage={exportImage}
-          nodes={nodes}
-          edges={edges}
-          isProcessing={isProcessing}
+
+        {/* Right - Preview */}
+        <PreviewPanel
+          width={rightPanelWidth}
+          processedImage={graph.processedImage}
+          isRendering={graph.isRendering}
+          quality={graph.quality}
+          onQualityChange={graph.setQuality}
+          onExportImage={graph.exportImage}
+          initCanvas={graph.initCanvas}
         />
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ReactFlowProvider>
+      <HomeContent />
+    </ReactFlowProvider>
   );
 }

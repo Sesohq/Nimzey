@@ -1,462 +1,436 @@
 /**
- * GLContext.ts
- * 
- * Core WebGL context manager for the filter engine.
- * Handles creation of WebGL context, framebuffers, textures, and shaders.
+ * GLContext - WebGL2 context manager with HDR float texture support.
+ * Manages textures, framebuffers, shader programs, and a texture pool
+ * for efficient ping-pong rendering.
  */
+
+import { ManagedTexture } from '@/types';
+import { STANDARD_VERTEX_SHADER } from '../shaders/ShaderDefinition';
+
+export type TextureFormat = 'uint8' | 'float16' | 'float32';
 
 export class GLContext {
   private canvas: HTMLCanvasElement;
-  private gl: WebGL2RenderingContext | null = null;
-  private quadBuffer: WebGLBuffer | null = null;
-  private framebuffers: Map<string, WebGLFramebuffer> = new Map();
-  private textures: Map<string, WebGLTexture> = new Map();
-  private programs: Map<string, WebGLProgram> = new Map();
-  
+  private gl: WebGL2RenderingContext;
+  private quadBuffer: WebGLBuffer;
+  private programs = new Map<string, WebGLProgram>();
+  private textures = new Map<string, ManagedTexture>();
+  private supportsFloat16 = false;
+  private supportsFloat32 = false;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.initGL();
-    this.initQuad();
+
+    const gl = canvas.getContext('webgl2', {
+      alpha: true,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: true,
+      antialias: false,
+      stencil: false,
+    });
+    if (!gl) throw new Error('WebGL2 not supported');
+    this.gl = gl;
+
+    // Detect float texture support
+    const floatExt = gl.getExtension('EXT_color_buffer_float');
+    if (floatExt) {
+      this.supportsFloat16 = true;
+      this.supportsFloat32 = true;
+    } else {
+      const halfFloatExt = gl.getExtension('EXT_color_buffer_half_float');
+      if (halfFloatExt) this.supportsFloat16 = true;
+    }
+    // Ensure float textures are filterable
+    gl.getExtension('OES_texture_float_linear');
+
+    // Global state
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+
+    // Full-screen quad
+    const buf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1, 1, 1,
+    ]), gl.STATIC_DRAW);
+    this.quadBuffer = buf;
   }
-  
+
+  // ---- Accessors ----
+
+  getGL(): WebGL2RenderingContext { return this.gl; }
+  getCanvas(): HTMLCanvasElement { return this.canvas; }
+  hasFloat16(): boolean { return this.supportsFloat16; }
+  hasFloat32(): boolean { return this.supportsFloat32; }
+
   /**
-   * Initialize WebGL context
+   * Get the best available HDR format, falling back gracefully.
    */
-  private initGL(): void {
-    try {
-      // Try to grab the standard WebGL2 context
-      this.gl = this.canvas.getContext('webgl2', {
-        alpha: true,
-        premultipliedAlpha: false,
-        preserveDrawingBuffer: true,
-        antialias: false,
-        stencil: false
-      });
-      
-      if (!this.gl) {
-        throw new Error('WebGL2 not supported');
-      }
-      
-      // Configure global WebGL settings
-      this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
-      this.gl.disable(this.gl.DEPTH_TEST);
-      this.gl.clearColor(0, 0, 0, 0);
-      
-      console.log('WebGL2 initialized successfully');
-    } catch (err) {
-      console.error('Failed to initialize WebGL2 context:', err);
-      throw err;
-    }
+  getBestFormat(): TextureFormat {
+    if (this.supportsFloat16) return 'float16';
+    return 'uint8';
   }
-  
-  /**
-   * Initialize a full-screen quad for rendering
-   */
-  private initQuad(): void {
-    if (!this.gl) return;
-    
-    // Create a buffer for a full-screen quad (two triangles)
-    const positions = new Float32Array([
-      -1, -1,  // Bottom left
-       1, -1,  // Bottom right
-      -1,  1,  // Top left
-       1,  1   // Top right
-    ]);
-    
-    // Create and configure buffer
-    this.quadBuffer = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quadBuffer);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
+
+  // ---- Shader Programs ----
+
+  createProgram(name: string, fragmentSource: string, vertexSource?: string): WebGLProgram | null {
+    if (this.programs.has(name)) return this.programs.get(name)!;
+
+    const gl = this.gl;
+    const vs = gl.createShader(gl.VERTEX_SHADER)!;
+    gl.shaderSource(vs, vertexSource || STANDARD_VERTEX_SHADER);
+    gl.compileShader(vs);
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+      console.error('Vertex shader error:', gl.getShaderInfoLog(vs));
+      gl.deleteShader(vs);
+      return null;
+    }
+
+    const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
+    gl.shaderSource(fs, fragmentSource);
+    gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+      console.error('Fragment shader error:', gl.getShaderInfoLog(fs));
+      console.error('Source:\n', fragmentSource.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'));
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      return null;
+    }
+
+    const prog = gl.createProgram()!;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error('Link error:', gl.getProgramInfoLog(prog));
+      gl.deleteProgram(prog);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      return null;
+    }
+
+    gl.detachShader(prog, vs);
+    gl.detachShader(prog, fs);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+
+    this.programs.set(name, prog);
+    return prog;
   }
-  
-  /**
-   * Compile and link a shader program
-   */
-  public createProgram(
-    name: string, 
-    vsSource: string, 
-    fsSource: string
-  ): WebGLProgram | null {
-    if (!this.gl) return null;
-    
-    // Create and compile vertex shader
-    const vertexShader = this.gl.createShader(this.gl.VERTEX_SHADER);
-    if (!vertexShader) {
-      console.error('Failed to create vertex shader');
-      return null;
-    }
-    
-    this.gl.shaderSource(vertexShader, vsSource);
-    this.gl.compileShader(vertexShader);
-    
-    // Check for compilation errors
-    if (!this.gl.getShaderParameter(vertexShader, this.gl.COMPILE_STATUS)) {
-      console.error('Vertex shader compilation failed:', 
-        this.gl.getShaderInfoLog(vertexShader));
-      this.gl.deleteShader(vertexShader);
-      return null;
-    }
-    
-    // Create and compile fragment shader
-    const fragmentShader = this.gl.createShader(this.gl.FRAGMENT_SHADER);
-    if (!fragmentShader) {
-      console.error('Failed to create fragment shader');
-      return null;
-    }
-    
-    this.gl.shaderSource(fragmentShader, fsSource);
-    this.gl.compileShader(fragmentShader);
-    
-    // Check for compilation errors
-    if (!this.gl.getShaderParameter(fragmentShader, this.gl.COMPILE_STATUS)) {
-      console.error('Fragment shader compilation failed:', 
-        this.gl.getShaderInfoLog(fragmentShader));
-      this.gl.deleteShader(vertexShader);
-      this.gl.deleteShader(fragmentShader);
-      return null;
-    }
-    
-    // Create shader program and link shaders
-    const program = this.gl.createProgram();
-    if (!program) {
-      console.error('Failed to create shader program');
-      return null;
-    }
-    
-    this.gl.attachShader(program, vertexShader);
-    this.gl.attachShader(program, fragmentShader);
-    this.gl.linkProgram(program);
-    
-    // Check for linking errors
-    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-      console.error('Shader program linking failed:', 
-        this.gl.getProgramInfoLog(program));
-      this.gl.deleteProgram(program);
-      return null;
-    }
-    
-    // Store program in cache
-    this.programs.set(name, program);
-    
-    // Clean up shaders (they're now linked to the program)
-    this.gl.detachShader(program, vertexShader);
-    this.gl.detachShader(program, fragmentShader);
-    this.gl.deleteShader(vertexShader);
-    this.gl.deleteShader(fragmentShader);
-    
-    return program;
+
+  getProgram(name: string): WebGLProgram | undefined {
+    return this.programs.get(name);
   }
-  
+
+  // ---- Textures ----
+
   /**
-   * Create a texture from an image
+   * Create a managed texture (with associated framebuffer for render targets).
    */
-  public createTexture(
-    name: string, 
-    source: HTMLImageElement | HTMLCanvasElement | ImageData | null,
-    width?: number, 
-    height?: number
-  ): WebGLTexture | null {
-    if (!this.gl) return null;
-    
-    // Create and bind texture
-    const texture = this.gl.createTexture();
-    if (!texture) {
-      console.error('Failed to create texture');
-      return null;
+  createManagedTexture(
+    name: string,
+    width: number,
+    height: number,
+    format: TextureFormat = 'uint8',
+    source?: HTMLImageElement | HTMLCanvasElement | ImageData | null
+  ): ManagedTexture | null {
+    const gl = this.gl;
+
+    // Choose internal format
+    let internalFormat: number;
+    let dataFormat: number;
+    let dataType: number;
+
+    switch (format) {
+      case 'float32':
+        if (!this.supportsFloat32) format = this.supportsFloat16 ? 'float16' : 'uint8';
+        internalFormat = gl.RGBA32F;
+        dataFormat = gl.RGBA;
+        dataType = gl.FLOAT;
+        break;
+      case 'float16':
+        if (!this.supportsFloat16) format = 'uint8';
+        internalFormat = gl.RGBA16F;
+        dataFormat = gl.RGBA;
+        dataType = gl.HALF_FLOAT;
+        break;
+      default:
+        internalFormat = gl.RGBA8;
+        dataFormat = gl.RGBA;
+        dataType = gl.UNSIGNED_BYTE;
     }
-    
-    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-    
-    // Configure texture parameters
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-    
-    // Upload texture data
+
+    // Recheck after fallback
+    if (format === 'uint8') {
+      internalFormat = gl.RGBA8;
+      dataFormat = gl.RGBA;
+      dataType = gl.UNSIGNED_BYTE;
+    }
+
+    const texture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
     if (source instanceof HTMLImageElement || source instanceof HTMLCanvasElement) {
-      // Upload image or canvas
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D, 
-        0, 
-        this.gl.RGBA, 
-        this.gl.RGBA, 
-        this.gl.UNSIGNED_BYTE, 
-        source
-      );
+      gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, dataFormat, dataType, source);
     } else if (source instanceof ImageData) {
-      // Upload image data
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D, 
-        0, 
-        this.gl.RGBA, 
-        source.width, 
-        source.height, 
-        0, 
-        this.gl.RGBA, 
-        this.gl.UNSIGNED_BYTE, 
-        source.data
-      );
-    } else if (width && height) {
-      // Create empty texture with specified dimensions
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D, 
-        0, 
-        this.gl.RGBA, 
-        width, 
-        height, 
-        0, 
-        this.gl.RGBA, 
-        this.gl.UNSIGNED_BYTE, 
-        null
-      );
+      gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, source.width, source.height, 0, dataFormat, dataType, source.data);
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, dataType, null);
     }
-    
-    // Store in cache
-    this.textures.set(name, texture);
-    
-    return texture;
+
+    // Create framebuffer
+    const framebuffer = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      console.warn(`Framebuffer incomplete (${format}), falling back to uint8`);
+      gl.deleteTexture(texture);
+      gl.deleteFramebuffer(framebuffer);
+      if (format !== 'uint8') {
+        return this.createManagedTexture(name, width, height, 'uint8', source);
+      }
+      return null;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    const managed: ManagedTexture = { texture, framebuffer, width, height, format, inUse: false };
+    this.textures.set(name, managed);
+    return managed;
   }
-  
+
   /**
-   * Create a framebuffer with attached texture
+   * Upload an image source into an existing managed texture.
    */
-  public createFramebuffer(
-    name: string, 
-    textureName: string,
-    width: number, 
-    height: number
-  ): WebGLFramebuffer | null {
-    if (!this.gl) return null;
-    
-    // Create texture for the framebuffer if it doesn't exist
-    if (!this.textures.has(textureName)) {
-      this.createTexture(textureName, null, width, height);
+  uploadToTexture(name: string, source: HTMLImageElement | HTMLCanvasElement | ImageData): void {
+    const managed = this.textures.get(name);
+    if (!managed) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, managed.texture);
+    if (source instanceof HTMLImageElement || source instanceof HTMLCanvasElement) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      managed.width = source.width;
+      managed.height = source.height;
+    } else if (source instanceof ImageData) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, source.width, source.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.data);
+      managed.width = source.width;
+      managed.height = source.height;
     }
-    
-    // Get the texture
-    const texture = this.textures.get(textureName);
-    if (!texture) {
-      console.error('Texture not found');
-      return null;
-    }
-    
-    // Create and bind framebuffer
-    const framebuffer = this.gl.createFramebuffer();
-    if (!framebuffer) {
-      console.error('Failed to create framebuffer');
-      return null;
-    }
-    
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-    
-    // Attach texture to framebuffer
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER, 
-      this.gl.COLOR_ATTACHMENT0, 
-      this.gl.TEXTURE_2D, 
-      texture, 
-      0
-    );
-    
-    // Check if framebuffer is complete
-    const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
-    if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
-      console.error('Framebuffer not complete:', status);
-      return null;
-    }
-    
-    // Unbind framebuffer
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    
-    // Store in cache
-    this.framebuffers.set(name, framebuffer);
-    
-    return framebuffer;
   }
-  
+
+  getTexture(name: string): ManagedTexture | undefined {
+    return this.textures.get(name);
+  }
+
+  // ---- Rendering ----
+
   /**
-   * Draw a full-screen quad using the specified program
+   * Render a full-screen quad with a program, binding inputs and setting uniforms.
    */
-  public drawQuad(
-    programName: string, 
-    framebufferName: string | null = null,
-    uniforms: Record<string, any> = {}
+  renderPass(
+    programName: string,
+    outputName: string | null,
+    inputs: { name: string; textureId: string }[],
+    uniforms: Record<string, number | number[] | boolean | string>,
+    viewport: { width: number; height: number }
   ): void {
-    if (!this.gl) return;
-    
-    // Get program
+    const gl = this.gl;
     const program = this.programs.get(programName);
     if (!program) {
       console.error('Program not found:', programName);
       return;
     }
-    
-    // Bind framebuffer if specified
-    if (framebufferName) {
-      const framebuffer = this.framebuffers.get(framebufferName);
-      if (!framebuffer) {
-        console.error('Framebuffer not found:', framebufferName);
+
+    // Bind output framebuffer (null = canvas)
+    if (outputName) {
+      const output = this.textures.get(outputName);
+      if (!output) {
+        console.error('Output texture not found:', outputName);
         return;
       }
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, output.framebuffer);
+      gl.viewport(0, 0, output.width, output.height);
     } else {
-      // Draw to canvas
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, viewport.width, viewport.height);
     }
-    
-    // Set viewport
-    if (framebufferName) {
-      // Get the texture name associated with the framebuffer
-      const textureName = Array.from(this.textures.entries())
-        .find(([_, texture]) => {
-          // This is simplified; we'd need a proper mapping
-          return framebufferName.includes(String(_));
-        })?.[0];
-      
-      if (textureName) {
-        // This would need more structure to properly track texture dimensions
-        // Here we're assuming the framebuffer is full canvas size
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-      }
-    } else {
-      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+    gl.useProgram(program);
+
+    // Bind input textures
+    for (let i = 0; i < inputs.length; i++) {
+      const input = inputs[i];
+      const managed = this.textures.get(input.textureId);
+      if (!managed) continue;
+      gl.activeTexture(gl.TEXTURE0 + i);
+      gl.bindTexture(gl.TEXTURE_2D, managed.texture);
+      const loc = gl.getUniformLocation(program, input.name);
+      if (loc) gl.uniform1i(loc, i);
     }
-    
-    // Use program
-    this.gl.useProgram(program);
-    
+
     // Set uniforms
     for (const [name, value] of Object.entries(uniforms)) {
-      const location = this.gl.getUniformLocation(program, name);
-      if (location === null) {
-        console.warn(`Uniform not found: ${name}`);
-        continue;
-      }
-      
-      // Set uniform based on value type
-      if (typeof value === 'number') {
-        this.gl.uniform1f(location, value);
-      } else if (Array.isArray(value)) {
-        switch (value.length) {
-          case 2:
-            this.gl.uniform2fv(location, value);
-            break;
-          case 3:
-            this.gl.uniform3fv(location, value);
-            break;
-          case 4:
-            this.gl.uniform4fv(location, value);
-            break;
-          default:
-            console.warn(`Unsupported uniform length: ${value.length}`);
+      const loc = gl.getUniformLocation(program, name);
+      if (!loc) continue;
+
+      if (typeof value === 'boolean') {
+        gl.uniform1i(loc, value ? 1 : 0);
+      } else if (typeof value === 'number') {
+        // Detect integer uniforms by name convention (u_mode, u_formula, etc.)
+        if (Number.isInteger(value) && (name.includes('mode') || name.includes('formula') ||
+            name.includes('octaves') || name.includes('channel') || name.includes('method') ||
+            name.includes('units') || name.includes('operation') || name.includes('type') ||
+            name.includes('vertices') || name.includes('repeat') || name.includes('seed') ||
+            name.includes('bond'))) {
+          gl.uniform1i(loc, value);
+        } else {
+          gl.uniform1f(loc, value);
         }
-      } else if (value instanceof WebGLTexture) {
-        // Handle texture uniforms
-        const textureIndex = uniforms._textureMap?.[name] || 0;
-        this.gl.activeTexture(this.gl.TEXTURE0 + textureIndex);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, value);
-        this.gl.uniform1i(location, textureIndex);
+      } else if (Array.isArray(value)) {
+        if (value.length === 2) gl.uniform2fv(loc, value);
+        else if (value.length === 3) gl.uniform3fv(loc, value);
+        else if (value.length === 4) gl.uniform4fv(loc, value);
       }
     }
-    
-    // Set up vertex attribute
-    const positionLocation = this.gl.getAttribLocation(program, 'a_position');
-    this.gl.enableVertexAttribArray(positionLocation);
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quadBuffer);
-    this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 0, 0);
-    
-    // Draw the quad
-    this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
-    
-    // Disable vertex attribute
-    this.gl.disableVertexAttribArray(positionLocation);
+
+    // Set resolution uniform
+    const resLoc = gl.getUniformLocation(program, 'u_resolution');
+    if (resLoc) gl.uniform2fv(resLoc, [viewport.width, viewport.height]);
+
+    // Draw quad
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(posLoc);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disableVertexAttribArray(posLoc);
   }
-  
+
   /**
-   * Get a texture from the cache
+   * Read pixels from a managed texture.
    */
-  public getTexture(name: string): WebGLTexture | null {
-    return this.textures.get(name) || null;
-  }
-  
-  /**
-   * Read pixels from framebuffer
-   */
-  public readPixels(
-    framebufferName: string,
-    width: number,
-    height: number
-  ): Uint8Array {
-    if (!this.gl) {
-      return new Uint8Array(width * height * 4);
-    }
-    
-    const framebuffer = this.framebuffers.get(framebufferName);
-    if (!framebuffer) {
-      console.error('Framebuffer not found:', framebufferName);
-      return new Uint8Array(width * height * 4);
-    }
-    
-    // Bind the framebuffer
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-    
-    // Read pixels
-    const pixels = new Uint8Array(width * height * 4);
-    this.gl.readPixels(0, 0, width, height, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
-    
-    // Unbind framebuffer
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    
+  readPixels(name: string): Uint8Array {
+    const managed = this.textures.get(name);
+    if (!managed) return new Uint8Array(0);
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, managed.framebuffer);
+    const pixels = new Uint8Array(managed.width * managed.height * 4);
+    gl.readPixels(0, 0, managed.width, managed.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return pixels;
   }
-  
+
   /**
-   * Clean up WebGL resources
+   * Read pixels from canvas.
    */
-  public dispose(): void {
-    if (!this.gl) return;
-    
-    // Delete programs
-    this.programs.forEach(program => {
-      this.gl?.deleteProgram(program);
-    });
-    this.programs.clear();
-    
-    // Delete textures
-    this.textures.forEach(texture => {
-      this.gl?.deleteTexture(texture);
-    });
-    this.textures.clear();
-    
-    // Delete framebuffers
-    this.framebuffers.forEach(framebuffer => {
-      this.gl?.deleteFramebuffer(framebuffer);
-    });
-    this.framebuffers.clear();
-    
-    // Delete quad buffer
-    if (this.quadBuffer) {
-      this.gl.deleteBuffer(this.quadBuffer);
-      this.quadBuffer = null;
-    }
+  readCanvasPixels(): Uint8Array {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const pixels = new Uint8Array(this.canvas.width * this.canvas.height * 4);
+    gl.readPixels(0, 0, this.canvas.width, this.canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    return pixels;
   }
-  
-  /**
-   * Get the WebGL context
-   */
-  public getGL(): WebGL2RenderingContext | null {
-    return this.gl;
-  }
-  
-  /**
-   * Resize canvas and update viewport
-   */
-  public resize(width: number, height: number): void {
-    if (!this.gl) return;
-    
+
+  // ---- Lifecycle ----
+
+  resize(width: number, height: number): void {
     this.canvas.width = width;
     this.canvas.height = height;
     this.gl.viewport(0, 0, width, height);
+  }
+
+  clear(): void {
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  }
+
+  dispose(): void {
+    const gl = this.gl;
+    this.programs.forEach(p => gl.deleteProgram(p));
+    this.programs.clear();
+    this.textures.forEach(t => {
+      gl.deleteTexture(t.texture);
+      gl.deleteFramebuffer(t.framebuffer);
+    });
+    this.textures.clear();
+    if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
+  }
+}
+
+/**
+ * TexturePool - manages a pool of reusable render targets for ping-pong rendering.
+ */
+export class TexturePool {
+  private ctx: GLContext;
+  private pool: ManagedTexture[] = [];
+  private inUse = new Map<string, ManagedTexture>();
+  private counter = 0;
+
+  constructor(ctx: GLContext) {
+    this.ctx = ctx;
+  }
+
+  /**
+   * Acquire a render target from the pool.
+   */
+  acquire(width: number, height: number, format?: TextureFormat): string {
+    const fmt = format || this.ctx.getBestFormat();
+
+    // Try to find a matching unused texture in the pool
+    for (let i = 0; i < this.pool.length; i++) {
+      const t = this.pool[i];
+      if (!t.inUse && t.width === width && t.height === height && t.format === fmt) {
+        t.inUse = true;
+        const id = `pool_${this.counter++}`;
+        this.inUse.set(id, t);
+        return id;
+      }
+    }
+
+    // Create new managed texture
+    const id = `pool_${this.counter++}`;
+    const managed = this.ctx.createManagedTexture(id, width, height, fmt);
+    if (managed) {
+      managed.inUse = true;
+      this.pool.push(managed);
+      this.inUse.set(id, managed);
+    }
+    return id;
+  }
+
+  /**
+   * Release a render target back to the pool.
+   */
+  release(id: string): void {
+    const t = this.inUse.get(id);
+    if (t) {
+      t.inUse = false;
+      this.inUse.delete(id);
+    }
+  }
+
+  /**
+   * Release all textures.
+   */
+  releaseAll(): void {
+    for (const t of this.inUse.values()) {
+      t.inUse = false;
+    }
+    this.inUse.clear();
+  }
+
+  /**
+   * Get a managed texture by pool ID.
+   */
+  get(id: string): ManagedTexture | undefined {
+    return this.inUse.get(id) || this.ctx.getTexture(id);
   }
 }

@@ -1,4 +1,9 @@
-import { useCallback, useState, useMemo, useContext, createContext } from 'react';
+/**
+ * NodeCanvas - ReactFlow-based graph editor with single unified node type.
+ * Registers NimzeyNode for all node types, handles connections, drag-and-drop, and validation.
+ */
+
+import { useCallback, useMemo } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -9,201 +14,139 @@ import ReactFlow, {
   NodeChange,
   EdgeChange,
   Connection,
-  useReactFlow,
-  NodeTypes
+  NodeTypes,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from 'reactflow';
-import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import FilterNode from './FilterNode';
-import ImageNode from './ImageNode';
-import OutputNode from './OutputNode';
-import ImageFilterNode from './ImageFilterNode';
-import GeneratorNode from './GeneratorNode';
-import { Badge } from '@/components/ui/badge';
+import { NimzeyNode, NimzeyNodeContext, NimzeyNodeActions } from './nodes/NimzeyNode';
+import { NimzeyNodeData, NodeColorTag } from '@/types';
+import { getIsValidConnection } from '@/adapters/ReactFlowAdapter';
+import { GraphState } from '@/stores/graphStore';
 
-// Create context for passing generateNodePreview to nodes
-const NodeCanvasContext = createContext<{
-  generateNodePreview?: (nodeId: string) => void;
-}>({});
-
-// Create wrapper component for ImageNode that receives onUploadImage
-const ImageNodeWrapper = (props: any) => {
-  return <ImageNode {...props} onUploadImage={props.data.onUploadImage} />;
-};
-
-// Create stable node types outside component to prevent recreation
+// Single node type for all nodes
 const nodeTypes: NodeTypes = {
-  filterNode: FilterNode,
-  generatorNode: GeneratorNode,
-  imageNode: ImageNodeWrapper,
-  outputNode: OutputNode,
-  imageFilterNode: ImageFilterNode
+  nimzeyNode: NimzeyNode as any,
 };
 
 interface NodeCanvasProps {
-  nodes: Node[];
+  nodes: Node<NimzeyNodeData>[];
   edges: Edge[];
+  graphState: GraphState;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
   onNodeClick: (nodeId: string) => void;
-  selectedNodeId: string | null;
-  zoomIn: () => void;
-  zoomOut: () => void;
-  zoomLevel: number;
-  onUploadImage?: (file: File) => void;
-  onInsertNodeIntoChain?: (nodeId: string, targetEdgeId: string, dropPosition: { x: number; y: number }) => void;
+  onParameterChange: (nodeId: string, paramId: string, value: number | string | boolean | number[]) => void;
+  onToggleEnabled: (nodeId: string) => void;
+  onToggleCollapsed: (nodeId: string) => void;
+  onSetColorTag: (nodeId: string, tag: NodeColorTag) => void;
+  onUploadImage?: (nodeId: string, file: File) => void;
+  onDrop?: (definitionId: string, position: { x: number; y: number }) => void;
 }
 
-export default function NodeCanvas({ 
-  nodes, 
-  edges, 
-  onNodesChange, 
-  onEdgesChange, 
+export default function NodeCanvas({
+  nodes,
+  edges,
+  graphState,
+  onNodesChange,
+  onEdgesChange,
   onConnect,
   onNodeClick,
-  selectedNodeId,
-  zoomIn,
-  zoomOut,
-  zoomLevel,
+  onParameterChange,
+  onToggleEnabled,
+  onToggleCollapsed,
+  onSetColorTag,
   onUploadImage,
-  onInsertNodeIntoChain
+  onDrop,
 }: NodeCanvasProps) {
-  // NodeCanvas component - renders the node-based editor
-  const reactFlowInstance = useReactFlow();
-  const [isDragging, setIsDragging] = useState(false);
-  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  // Build the context actions for NimzeyNode
+  const nodeActions: NimzeyNodeActions = useMemo(() => ({
+    onParameterChange,
+    onToggleEnabled,
+    onToggleCollapsed,
+    onSetColorTag,
+    onUploadImage,
+  }), [onParameterChange, onToggleEnabled, onToggleCollapsed, onSetColorTag, onUploadImage]);
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
+  // Connection validation using typed ports
+  const isValidConnection = useMemo(
+    () => getIsValidConnection(graphState),
+    [graphState],
+  );
 
-  // Handle node drag to detect insertion into chains
-  const handleNodeDrag = useCallback((event: React.MouseEvent, node: Node) => {
-    // Check if this is an unconnected node
-    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
-    
-    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode') {
-      setDraggedNodeId(node.id);
-    }
-  }, [edges]);
-
-  // Handle node drag stop to potentially insert into chain
-  const handleNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
-    // Check if this is an unconnected node
-    const hasConnections = edges.some(edge => edge.source === node.id || edge.target === node.id);
-    
-    if (!hasConnections && node.type !== 'imageNode' && node.type !== 'outputNode' && onInsertNodeIntoChain) {
-      // Find the closest edge to the node's current position
-      const closestEdge = findClosestEdge(node.position, edges, nodes);
-      
-      if (closestEdge) {
-        onInsertNodeIntoChain(node.id, closestEdge.id, node.position);
-      }
-    }
-    
-    setDraggedNodeId(null);
-  }, [edges, nodes, onInsertNodeIntoChain]);
-
-  // Find the closest edge to a given position
-  const findClosestEdge = useCallback((position: { x: number; y: number }, edges: Edge[], nodes: Node[]) => {
-    let closestEdge: Edge | null = null;
-    let minDistance = Infinity;
-    
-    edges.forEach(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
-      
-      if (sourceNode && targetNode) {
-        // Calculate the midpoint of the edge
-        const midpoint = {
-          x: (sourceNode.position.x + targetNode.position.x) / 2,
-          y: (sourceNode.position.y + targetNode.position.y) / 2
-        };
-        
-        // Calculate distance from drop position to edge midpoint
-        const distance = Math.sqrt(
-          Math.pow(position.x - midpoint.x, 2) + 
-          Math.pow(position.y - midpoint.y, 2)
-        );
-        
-        if (distance < minDistance && distance < 100) { // Only consider edges within 100px
-          minDistance = distance;
-          closestEdge = edge;
-        }
-      }
-    });
-    
-    return closestEdge;
-  }, []);
-
-  const handlePaneClick = () => {
-    // Deselect node when clicking on the pane
+  const handlePaneClick = useCallback(() => {
     onNodeClick('');
-  };
-
-  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
-    onNodeClick(node.id);
-  };
-
-
-  
-  // Handle double-click on edges to delete them
-  const handleEdgeDoubleClick = (_: React.MouseEvent, edge: Edge) => {
-    // Create a remove change for this edge
-    const removeChange: EdgeChange = {
-      id: edge.id,
-      type: 'remove',
-    };
-    
-    // Apply the change
-    onEdgesChange([removeChange]);
-  };
-
-  // Create stable generateNodePreview callback
-  const generateNodePreview = useCallback((nodeId: string) => {
-    // Simply call onNodeClick with the nodeId for preview generation
-    if (onNodeClick && nodeId) {
-      onNodeClick(nodeId);
-    }
   }, [onNodeClick]);
 
+  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    onNodeClick(node.id);
+  }, [onNodeClick]);
+
+  // Double-click edge to delete
+  const handleEdgeDoubleClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    onEdgesChange([{ id: edge.id, type: 'remove' }]);
+  }, [onEdgesChange]);
+
+  // Drag-and-drop from filter panel
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const definitionId = e.dataTransfer.getData('application/nimzey-node');
+    if (!definitionId || !onDrop) return;
+
+    // Get drop position in flow coordinates
+    const bounds = (e.target as HTMLElement).closest('.react-flow')?.getBoundingClientRect();
+    if (!bounds) return;
+
+    const position = {
+      x: e.clientX - bounds.left,
+      y: e.clientY - bounds.top,
+    };
+
+    onDrop(definitionId, position);
+  }, [onDrop]);
+
   return (
-    <NodeCanvasContext.Provider value={{ generateNodePreview }}>
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        <div className="flex-1 h-full">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onPaneClick={handlePaneClick}
-            onNodeClick={handleNodeClick}
-            onEdgeDoubleClick={handleEdgeDoubleClick}
-            onNodeDrag={handleNodeDrag}
-            onNodeDragStop={handleNodeDragStop}
-            nodeTypes={nodeTypes}
-            fitView
-            minZoom={0.1}
-            maxZoom={2}
-            snapToGrid={true}
-            snapGrid={[15, 15]}
-            onDragOver={onDragOver}
-            deleteKeyCode="Delete"
-          >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-          <Controls showInteractive={false} />
-          
-          {/* Small hint for users about connections */}
-          <div className="absolute top-2 right-2 z-10 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm border border-gray-200">
-            <div className="mb-1">Drag between handles to connect • Double-click on connections to delete</div>
-            <div>Click the red disconnect button to remove parameter connections</div>
-          </div>
+    <NimzeyNodeContext.Provider value={nodeActions}>
+      <div className="flex-1 flex flex-col relative overflow-hidden h-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onPaneClick={handlePaneClick}
+          onNodeClick={handleNodeClick}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          nodeTypes={nodeTypes}
+          isValidConnection={isValidConnection}
+          fitView
+          minZoom={0.1}
+          maxZoom={2}
+          snapToGrid
+          snapGrid={[15, 15]}
+          deleteKeyCode="Delete"
+          className="bg-zinc-950"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
+          <Controls showInteractive={false} className="!bg-zinc-800 !border-zinc-700 !shadow-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button]:!text-zinc-400 [&>button:hover]:!bg-zinc-700" />
+          <MiniMap
+            nodeColor={(n) => {
+              if (n.data?.definitionId === 'result') return '#3b82f6';
+              if (n.data?.definitionId === 'image') return '#22c55e';
+              return '#52525b';
+            }}
+            className="!bg-zinc-900 !border-zinc-700"
+            maskColor="rgba(0,0,0,0.6)"
+          />
         </ReactFlow>
       </div>
-      </div>
-    </NodeCanvasContext.Provider>
+    </NimzeyNodeContext.Provider>
   );
 }
