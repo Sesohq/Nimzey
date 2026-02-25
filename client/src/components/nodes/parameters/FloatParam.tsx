@@ -76,13 +76,17 @@ export const FloatParam = memo(function FloatParam({ param, value, onChange }: F
           </span>
         )}
       </div>
-      <div className="relative h-3 flex items-center">
-        <div className="absolute w-full h-1 bg-zinc-700 rounded-full overflow-hidden">
+      <div className="relative h-4 flex items-center group">
+        <div className="absolute w-full h-[3px] bg-zinc-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full"
             style={{ width: `${percent}%` }}
           />
         </div>
+        <div
+          className="absolute w-3 h-3 bg-blue-500 rounded-full border-2 border-zinc-900 shadow-sm pointer-events-none transition-transform group-hover:scale-110"
+          style={{ left: `calc(${percent}% - 6px)` }}
+        />
         <input
           type="range"
           min={min}
@@ -90,7 +94,7 @@ export const FloatParam = memo(function FloatParam({ param, value, onChange }: F
           step={step}
           value={value}
           onChange={handleSliderChange}
-          className="absolute w-full h-3 opacity-0 cursor-pointer"
+          className="absolute w-full h-4 opacity-0 cursor-pointer"
         />
       </div>
     </div>

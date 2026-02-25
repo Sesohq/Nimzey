@@ -19,7 +19,7 @@ export class RenderPipeline {
   private ctx: GLContext;
   private pool: TexturePool;
   private compiledPrograms = new Map<string, boolean>();
-  private lastPlan: ExecutionPlan | null = null;
+  public lastPlan: ExecutionPlan | null = null;
 
   constructor(ctx: GLContext) {
     this.ctx = ctx;

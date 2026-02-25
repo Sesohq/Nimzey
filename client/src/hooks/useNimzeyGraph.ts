@@ -14,17 +14,73 @@ import {
   applyEdgeChanges,
   useReactFlow,
 } from 'reactflow';
-import { useGraphStore } from '@/stores/graphStore';
+import { useGraphStore, GraphState } from '@/stores/graphStore';
 import { useRenderController } from '@/stores/renderController';
 import {
   graphStateToReactFlow,
   connectionToEdge,
 } from '@/adapters/ReactFlowAdapter';
-import { NimzeyNodeData, NodeColorTag, QualityLevel } from '@/types';
+import { NodeRegistry } from '@/registry/nodes';
+import { DataType, NimzeyNodeData, NodeColorTag, NodeDefinition, QualityLevel, GraphEdge } from '@/types';
+import { graphTemplates } from '@/templates/graphTemplates';
+
+// ---------------------------------------------------------------------------
+// Pure helpers for auto-connect position calculation
+// ---------------------------------------------------------------------------
+
+const NODE_GAP = 280;
+
+function computeAutoPosition(
+  def: NodeDefinition,
+  state: GraphState,
+): { x: number; y: number } {
+  const resultNode = state.nodes.get(state.resultNodeId);
+  if (!resultNode) return { x: 200, y: 200 };
+
+  // Find edge feeding Result's source
+  let existingEdge: GraphEdge | undefined;
+  for (const edge of state.edges.values()) {
+    if (edge.targetNodeId === state.resultNodeId && edge.targetPortId === 'source') {
+      existingEdge = edge;
+      break;
+    }
+  }
+
+  if (def.isGenerator) {
+    if (!existingEdge) {
+      return { x: resultNode.position.x - NODE_GAP, y: resultNode.position.y };
+    }
+    // Place below the existing upstream node
+    const upstream = state.nodes.get(existingEdge.sourceNodeId);
+    return {
+      x: upstream ? upstream.position.x : resultNode.position.x - NODE_GAP,
+      y: (upstream ? upstream.position.y : resultNode.position.y) + 150,
+    };
+  }
+
+  // Processor
+  if (!existingEdge) {
+    return { x: resultNode.position.x - NODE_GAP, y: resultNode.position.y };
+  }
+
+  // Splice: place to the right of upstream with fixed spacing
+  const upstreamNode = state.nodes.get(existingEdge.sourceNodeId);
+  if (upstreamNode) {
+    return {
+      x: upstreamNode.position.x + NODE_GAP,
+      y: upstreamNode.position.y,
+    };
+  }
+
+  return { x: resultNode.position.x - NODE_GAP, y: resultNode.position.y };
+}
 
 export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
   const graph = useGraphStore();
-  const renderer = useRenderController(graph.state, options);
+  const renderer = useRenderController(graph.state, {
+    ...options,
+    onNodePreview: graph.setNodePreview,
+  });
 
   // Convert internal state to ReactFlow format
   const { nodes: rfNodes, edges: rfEdges } = useMemo(
@@ -56,6 +112,9 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
       if (change.type === 'remove') {
         graph.disconnect(change.id);
       }
+      if (change.type === 'select') {
+        graph.selectEdge(change.id, change.selected);
+      }
     }
   }, [graph]);
 
@@ -68,8 +127,28 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
   // ---- Node actions ----
 
   const addNode = useCallback((definitionId: string, position?: { x: number; y: number }) => {
-    const pos = position || { x: 400, y: 300 };
+    const pos = position || { x: 200, y: 200 };
     return graph.addNode(definitionId, pos);
+  }, [graph]);
+
+  // Smart auto-connect: adds node and wires it into the chain
+  const autoConnectNode = useCallback((definitionId: string, position?: { x: number; y: number }) => {
+    const def = NodeRegistry.get(definitionId);
+    if (!def) return '';
+    const pos = position || computeAutoPosition(def, graph.state);
+    return graph.autoInsertNode(definitionId, pos);
+  }, [graph]);
+
+  // Generate texture: adds perlin noise and auto-connects
+  const generateTexture = useCallback(() => {
+    const def = NodeRegistry.get('perlin-noise');
+    if (!def) return '';
+    return graph.autoInsertNode('perlin-noise', computeAutoPosition(def, graph.state));
+  }, [graph]);
+
+  // Splice a node into an existing edge
+  const spliceIntoEdge = useCallback((definitionId: string, edgeId: string, position: { x: number; y: number }) => {
+    return graph.spliceNodeIntoEdge(definitionId, position, edgeId);
   }, [graph]);
 
   const onParameterChange = useCallback((nodeId: string, paramId: string, value: number | string | boolean | number[]) => {
@@ -92,7 +171,7 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     if (nodeId) {
       graph.selectNode(nodeId);
     } else {
-      graph.clearSelection();
+      graph.clearSelection(); // Clears both node and edge selection
     }
   }, [graph]);
 
@@ -123,19 +202,28 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     reader.readAsDataURL(file);
   }, [graph, renderer]);
 
-  // Source image upload (creates an image node and connects to result)
+  // Source image upload (creates an image node and auto-connects)
   const uploadSourceImage = useCallback((file: File) => {
-    const nodeId = graph.addNode('image', { x: 200, y: 300 });
+    const def = NodeRegistry.get('image');
+    if (!def) return;
+    const pos = computeAutoPosition(def, graph.state);
+    const nodeId = graph.autoInsertNode('image', pos);
     if (nodeId) {
       uploadNodeImage(nodeId, file);
-      // Auto-connect to result node if nothing else is connected
-      graph.connect(nodeId, 'out', graph.state.resultNodeId, 'source');
     }
   }, [graph, uploadNodeImage]);
 
-  // Drop handler for drag-and-drop from filter panel
+  // Drop handler for drag-and-drop from filter panel (auto-connects)
   const onDrop = useCallback((definitionId: string, position: { x: number; y: number }) => {
-    graph.addNode(definitionId, position);
+    graph.autoInsertNode(definitionId, position);
+  }, [graph]);
+
+  // Apply a starter template
+  const applyTemplate = useCallback((templateId: string) => {
+    const template = graphTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    const buildResult = template.build();
+    graph.applyTemplate(buildResult);
   }, [graph]);
 
   return {
@@ -152,6 +240,9 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
 
     // Node actions
     addNode,
+    autoConnectNode,
+    generateTexture,
+    spliceIntoEdge,
     onParameterChange,
     onToggleEnabled,
     onToggleCollapsed,
@@ -159,6 +250,7 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     uploadNodeImage,
     uploadSourceImage,
     onDrop,
+    applyTemplate,
 
     // Renderer
     initCanvas: renderer.initCanvas,

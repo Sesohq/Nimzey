@@ -4,13 +4,15 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { DataType, GraphEdge, GraphNode, NodeColorTag } from '@/types';
+import { DataType, GraphEdge, GraphNode, NodeColorTag, NodeDefinition } from '@/types';
 import { NodeRegistry } from '@/registry/nodes';
+import { TemplateBuildResult } from '@/templates/graphTemplates';
 
 export interface GraphState {
   nodes: Map<string, GraphNode>;
   edges: Map<string, GraphEdge>;
   selectedNodeIds: Set<string>;
+  selectedEdgeIds: Set<string>;
   resultNodeId: string;
 }
 
@@ -20,7 +22,7 @@ function createResultNode(): GraphNode {
   return {
     id: 'result-node',
     definitionId: 'result',
-    position: { x: 800, y: 300 },
+    position: { x: 500, y: 200 },
     parameters: NodeRegistry.get('result')?.parameters.reduce((acc, p) => {
       acc[p.id] = p.defaultValue;
       return acc;
@@ -40,6 +42,7 @@ export function useGraphStore() {
   });
   const [edges, setEdges] = useState<Map<string, GraphEdge>>(new Map());
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<Set<string>>(new Set());
 
   const resultNodeId = 'result-node';
 
@@ -61,7 +64,7 @@ export function useGraphStore() {
       position,
       parameters: params,
       enabled: true,
-      collapsed: false,
+      collapsed: true,
       colorTag: 'default',
     };
 
@@ -170,10 +173,27 @@ export function useGraphStore() {
       }
       return new Set([nodeId]);
     });
+    setSelectedEdgeIds(new Set()); // Clear edge selection when selecting nodes
+  }, []);
+
+  const selectEdge = useCallback((edgeId: string, selected: boolean) => {
+    setSelectedEdgeIds(prev => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(edgeId);
+      } else {
+        next.delete(edgeId);
+      }
+      return next;
+    });
+    if (selected) {
+      setSelectedNodeIds(new Set()); // Clear node selection when selecting edges
+    }
   }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedNodeIds(new Set());
+    setSelectedEdgeIds(new Set());
   }, []);
 
   // ---- Edge Operations ----
@@ -248,12 +268,279 @@ export function useGraphStore() {
     return Array.from(visited);
   }, [edges]);
 
+  // ---- Edge Queries ----
+
+  const getEdgeToPort = useCallback((targetNodeId: string, targetPortId: string): GraphEdge | undefined => {
+    for (const edge of edges.values()) {
+      if (edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId) {
+        return edge;
+      }
+    }
+    return undefined;
+  }, [edges]);
+
+  const getEdge = useCallback((edgeId: string): GraphEdge | undefined => {
+    return edges.get(edgeId);
+  }, [edges]);
+
+  // ---- Auto-Connect Operations ----
+
+  /**
+   * Atomically add a node and auto-wire it into the chain.
+   * Processors get spliced before Result; generators connect if Result is empty.
+   */
+  const autoInsertNode = useCallback((
+    definitionId: string,
+    position: { x: number; y: number },
+  ): string => {
+    const def = NodeRegistry.get(definitionId);
+    if (!def) return '';
+
+    const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const params = NodeRegistry.getDefaultParameters(definitionId);
+    const newNode: GraphNode = {
+      id,
+      definitionId,
+      position,
+      parameters: params,
+      enabled: true,
+      collapsed: true,
+      colorTag: 'default',
+    };
+
+    const primaryInput = findPrimaryMapInput(def);
+    const hasMapOutput = def.outputs.some(p => p.dataType === DataType.Map);
+
+    // Check if we need to splice (processor with existing chain)
+    // We peek at edges to decide whether to shift Result right
+    const needsSplice = !def.isGenerator && primaryInput && hasMapOutput;
+    let willSplice = false;
+    if (needsSplice) {
+      for (const edge of edges.values()) {
+        if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
+          willSplice = true;
+          break;
+        }
+      }
+    }
+
+    setNodes(prev => {
+      const next = new Map(prev);
+      next.set(id, newNode);
+
+      // When splicing, shift Result right if it would overlap with the new node
+      if (willSplice) {
+        const result = next.get(resultNodeId);
+        if (result && position.x + 280 > result.position.x) {
+          next.set(resultNodeId, {
+            ...result,
+            position: { x: position.x + 280, y: result.position.y },
+          });
+        }
+      }
+
+      return next;
+    });
+
+    setEdges(prev => {
+      const next = new Map(prev);
+
+      // Find existing edge feeding Result's source
+      let existingEdge: GraphEdge | undefined;
+      for (const edge of next.values()) {
+        if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
+          existingEdge = edge;
+          break;
+        }
+      }
+
+      if (def.isGenerator) {
+        if (!existingEdge && hasMapOutput) {
+          const edgeId = `edge_${edgeCounter++}`;
+          next.set(edgeId, {
+            id: edgeId,
+            sourceNodeId: id,
+            sourcePortId: 'out',
+            targetNodeId: resultNodeId,
+            targetPortId: 'source',
+            dataType: DataType.Map,
+          });
+        }
+      } else if (primaryInput && hasMapOutput) {
+        if (!existingEdge) {
+          const edgeId = `edge_${edgeCounter++}`;
+          next.set(edgeId, {
+            id: edgeId,
+            sourceNodeId: id,
+            sourcePortId: 'out',
+            targetNodeId: resultNodeId,
+            targetPortId: 'source',
+            dataType: DataType.Map,
+          });
+        } else {
+          // Splice: oldSource → newNode → Result
+          next.delete(existingEdge.id);
+
+          const edgeId1 = `edge_${edgeCounter++}`;
+          next.set(edgeId1, {
+            id: edgeId1,
+            sourceNodeId: existingEdge.sourceNodeId,
+            sourcePortId: existingEdge.sourcePortId,
+            targetNodeId: id,
+            targetPortId: primaryInput.id,
+            dataType: DataType.Map,
+          });
+
+          const edgeId2 = `edge_${edgeCounter++}`;
+          next.set(edgeId2, {
+            id: edgeId2,
+            sourceNodeId: id,
+            sourcePortId: 'out',
+            targetNodeId: resultNodeId,
+            targetPortId: 'source',
+            dataType: DataType.Map,
+          });
+        }
+      }
+
+      return next;
+    });
+
+    return id;
+  }, [resultNodeId]);
+
+  /**
+   * Atomically splice a new node into an existing edge.
+   * Removes the edge and creates: source → newNode → target.
+   */
+  const spliceNodeIntoEdge = useCallback((
+    definitionId: string,
+    position: { x: number; y: number },
+    edgeId: string,
+  ): string => {
+    const def = NodeRegistry.get(definitionId);
+    if (!def || def.isGenerator) return '';
+
+    const primaryInput = findPrimaryMapInput(def);
+    const hasMapOutput = def.outputs.some(p => p.dataType === DataType.Map);
+    if (!primaryInput || !hasMapOutput) return '';
+
+    const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const params = NodeRegistry.getDefaultParameters(definitionId);
+    const newNode: GraphNode = {
+      id,
+      definitionId,
+      position,
+      parameters: params,
+      enabled: true,
+      collapsed: true,
+      colorTag: 'default',
+    };
+
+    setNodes(prev => {
+      const next = new Map(prev);
+      next.set(id, newNode);
+      return next;
+    });
+
+    setEdges(prev => {
+      const next = new Map(prev);
+      const targetEdge = next.get(edgeId);
+      if (!targetEdge) return prev;
+
+      next.delete(edgeId);
+
+      const edgeId1 = `edge_${edgeCounter++}`;
+      next.set(edgeId1, {
+        id: edgeId1,
+        sourceNodeId: targetEdge.sourceNodeId,
+        sourcePortId: targetEdge.sourcePortId,
+        targetNodeId: id,
+        targetPortId: primaryInput.id,
+        dataType: DataType.Map,
+      });
+
+      const edgeId2 = `edge_${edgeCounter++}`;
+      next.set(edgeId2, {
+        id: edgeId2,
+        sourceNodeId: id,
+        sourcePortId: 'out',
+        targetNodeId: targetEdge.targetNodeId,
+        targetPortId: targetEdge.targetPortId,
+        dataType: DataType.Map,
+      });
+
+      return next;
+    });
+
+    return id;
+  }, []);
+
+  /**
+   * Atomically apply a template: clear all non-result nodes/edges, add template nodes and edges.
+   */
+  const applyTemplate = useCallback((buildResult: TemplateBuildResult) => {
+    const nodeIds: string[] = [];
+
+    // Create all template nodes
+    const newNodes = new Map<string, GraphNode>();
+    const resultNode = nodes.get(resultNodeId) || createResultNode();
+    newNodes.set(resultNodeId, resultNode);
+
+    for (const tNode of buildResult.nodes) {
+      const def = NodeRegistry.get(tNode.definitionId);
+      if (!def) continue;
+      const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_${nodeIds.length}`;
+      nodeIds.push(id);
+      const params = NodeRegistry.getDefaultParameters(tNode.definitionId);
+      // Override with template-specified parameters
+      if (tNode.parameters) {
+        for (const [k, v] of Object.entries(tNode.parameters)) {
+          params[k] = v;
+        }
+      }
+      newNodes.set(id, {
+        id,
+        definitionId: tNode.definitionId,
+        position: tNode.position,
+        parameters: params,
+        enabled: true,
+        collapsed: true,
+        colorTag: 'default',
+      });
+    }
+
+    // Create all template edges
+    const newEdges = new Map<string, GraphEdge>();
+    for (const tEdge of buildResult.edges) {
+      const sourceId = tEdge.sourceIdx >= 0 ? nodeIds[tEdge.sourceIdx] : resultNodeId;
+      const targetId = tEdge.targetIdx >= 0 ? nodeIds[tEdge.targetIdx] : resultNodeId;
+      if (!sourceId || !targetId) continue;
+
+      const edgeId = `edge_${edgeCounter++}`;
+      newEdges.set(edgeId, {
+        id: edgeId,
+        sourceNodeId: sourceId,
+        sourcePortId: tEdge.sourcePort,
+        targetNodeId: targetId,
+        targetPortId: tEdge.targetPort,
+        dataType: DataType.Map,
+      });
+    }
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIds(new Set());
+  }, [nodes, resultNodeId]);
+
   const state: GraphState = useMemo(() => ({
     nodes,
     edges,
     selectedNodeIds,
+    selectedEdgeIds,
     resultNodeId,
-  }), [nodes, edges, selectedNodeIds, resultNodeId]);
+  }), [nodes, edges, selectedNodeIds, selectedEdgeIds, resultNodeId]);
 
   return {
     state,
@@ -266,14 +553,28 @@ export function useGraphStore() {
     setColorTag,
     setNodePreview,
     selectNode,
+    selectEdge,
     clearSelection,
     connect,
     disconnect,
     getUpstreamNodes,
+    getEdgeToPort,
+    getEdge,
+    autoInsertNode,
+    spliceNodeIntoEdge,
+    applyTemplate,
   };
 }
 
 // ---- Helpers ----
+
+/** Find the primary Map input port for a node definition. Prefers 'source', then required Map, then any Map. */
+function findPrimaryMapInput(def: NodeDefinition) {
+  return def.inputs.find(p => p.id === 'source' && p.dataType === DataType.Map)
+    || def.inputs.find(p => p.dataType === DataType.Map && p.required)
+    || def.inputs.find(p => p.dataType === DataType.Map)
+    || null;
+}
 
 function wouldCreateCycle(
   sourceNodeId: string,

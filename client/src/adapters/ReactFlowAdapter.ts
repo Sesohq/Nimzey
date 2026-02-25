@@ -58,6 +58,7 @@ export function graphStateToReactFlow(state: GraphState): {
       sourceHandle: edge.sourcePortId,
       targetHandle: edge.targetPortId,
       type: 'smoothstep',
+      selected: state.selectedEdgeIds.has(edge.id),
       style: {
         stroke: color,
         strokeWidth: 2,

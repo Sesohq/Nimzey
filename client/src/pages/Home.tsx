@@ -17,9 +17,14 @@ function HomeContent() {
   const graph = useNimzeyGraph({ quality: 'draft' });
   const [leftPanelWidth] = useState(260);
   const [rightPanelWidth] = useState(320);
+  const [previewCollapsed, setPreviewCollapsed] = useState(false);
 
   const handleNewProject = useCallback(() => {
     window.location.reload();
+  }, []);
+
+  const handleTogglePreview = useCallback(() => {
+    setPreviewCollapsed(prev => !prev);
   }, []);
 
   return (
@@ -30,7 +35,7 @@ function HomeContent() {
         {/* Left - Node palette */}
         <FilterPanel
           width={leftPanelWidth}
-          onAddNode={graph.addNode}
+          onAddNode={graph.autoConnectNode}
           onUploadImage={graph.uploadSourceImage}
         />
 
@@ -49,6 +54,10 @@ function HomeContent() {
           onSetColorTag={graph.onSetColorTag}
           onUploadImage={graph.uploadNodeImage}
           onDrop={graph.onDrop}
+          onSpliceIntoEdge={graph.spliceIntoEdge}
+          onUploadSourceImage={graph.uploadSourceImage}
+          onGenerateTexture={graph.generateTexture}
+          onApplyTemplate={graph.applyTemplate}
         />
 
         {/* Right - Preview */}
@@ -60,6 +69,8 @@ function HomeContent() {
           onQualityChange={graph.setQuality}
           onExportImage={graph.exportImage}
           initCanvas={graph.initCanvas}
+          isCollapsed={previewCollapsed}
+          onToggleCollapse={handleTogglePreview}
         />
       </div>
     </div>

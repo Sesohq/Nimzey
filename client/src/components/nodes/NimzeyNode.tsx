@@ -3,7 +3,7 @@
  * Reads NodeDefinition from registry and dynamically renders ports, parameters, and preview.
  */
 
-import { memo, useCallback, useState, useRef, useContext, createContext } from 'react';
+import { memo, useCallback, useState, useEffect, useRef, useContext, createContext } from 'react';
 import { NodeProps, Position, useEdges } from 'reactflow';
 import {
   NimzeyNodeData,
@@ -102,6 +102,11 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
   const [showColorPicker, setShowColorPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Close color picker when node is deselected
+  useEffect(() => {
+    if (!selected) setShowColorPicker(false);
+  }, [selected]);
+
   // Connected port IDs for this node
   const connectedInputs = new Set<string>();
   const connectedOutputs = new Set<string>();
@@ -151,7 +156,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
   return (
     <div
       className={cn(
-        'rounded-lg shadow-lg overflow-hidden border transition-all',
+        'rounded-lg shadow-lg border transition-all',
         'bg-zinc-900 min-w-[220px] max-w-[280px]',
         selected ? 'border-blue-500 ring-1 ring-blue-500/30' : 'border-zinc-700',
         !data.enabled && 'opacity-50',
@@ -159,33 +164,26 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
     >
       {/* Header */}
       <div
-        className="flex items-center gap-1.5 px-2 py-1.5 cursor-grab"
+        className="flex items-center gap-1.5 px-2 py-1.5 cursor-grab rounded-t-lg"
         style={{ backgroundColor: headerColor }}
       >
-        {/* Enable/Disable */}
         <button
-          onClick={handleToggleEnabled}
+          onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
           className="text-white/70 hover:text-white transition-colors"
         >
           {data.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
         </button>
-
-        {/* Icon + Title */}
         <IconComponent size={12} className="text-white/80" />
         <span className="text-[11px] font-medium text-white flex-1 truncate select-none">
           {def.name}
         </span>
-
-        {/* Color tag */}
         <button
           onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
           className="text-white/60 hover:text-white"
         >
           <Palette size={10} />
         </button>
-
-        {/* Collapse */}
-        <button onClick={handleToggleCollapsed} className="text-white/60 hover:text-white">
+        <button onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }} className="text-white/60 hover:text-white">
           {data.collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
         </button>
       </div>
@@ -198,10 +196,10 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
       )}
 
       {/* Body */}
-      <div className="px-2 py-1.5">
+      <div className="py-1.5">
         {/* Input Ports */}
         {def.inputs.length > 0 && (
-          <div className="flex flex-col -ml-2 mb-1">
+          <div className="flex flex-col mb-1">
             {def.inputs.map(port => (
               <TypedHandle
                 key={port.id}
@@ -219,7 +217,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
         {/* Image upload area for external/image nodes */}
         {isExternal && (
-          <div className="mb-1.5">
+          <div className="mb-1.5 px-2">
             {data.imageUrl ? (
               <div
                 className="relative group cursor-pointer rounded overflow-hidden"
@@ -249,23 +247,21 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
           </div>
         )}
 
-        {/* Preview for result node */}
-        {isResult && data.preview && (
-          <div className="mb-1.5 rounded overflow-hidden">
-            <img src={data.preview} alt="Preview" className="w-full h-auto" />
-          </div>
-        )}
-
-        {/* Node preview thumbnail */}
-        {!isResult && data.preview && (
-          <div className="mb-1.5 rounded overflow-hidden border border-zinc-700">
-            <img src={data.preview} alt="Preview" className="w-full h-auto" />
+        {/* Preview thumbnail — always visible, even when collapsed */}
+        {data.preview && !isExternal && (
+          <div className="mb-1 mx-2 rounded overflow-hidden border border-zinc-700/50">
+            <img
+              src={data.preview}
+              alt="Preview"
+              className="w-full h-auto max-h-16 object-cover"
+              draggable={false}
+            />
           </div>
         )}
 
         {/* Parameters (when expanded) */}
         {!data.collapsed && def.parameters.length > 0 && (
-          <div className="flex flex-col gap-1.5 py-1">
+          <div className="flex flex-col gap-1.5 py-1 px-2">
             {def.parameters.map(param => (
               <ParameterRenderer
                 key={param.id}
@@ -279,7 +275,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
         {/* Output Ports */}
         {def.outputs.length > 0 && (
-          <div className="flex flex-col items-end -mr-2 mt-1">
+          <div className="flex flex-col mt-1">
             {def.outputs.map(port => (
               <TypedHandle
                 key={port.id}

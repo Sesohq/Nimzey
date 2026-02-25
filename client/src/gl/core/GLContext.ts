@@ -317,16 +317,34 @@ export class GLContext {
 
   /**
    * Read pixels from a managed texture.
+   * Handles float16/float32 textures by reading as FLOAT and converting to uint8.
    */
   readPixels(name: string): Uint8Array {
     const managed = this.textures.get(name);
     if (!managed) return new Uint8Array(0);
     const gl = this.gl;
+    const w = managed.width;
+    const h = managed.height;
     gl.bindFramebuffer(gl.FRAMEBUFFER, managed.framebuffer);
-    const pixels = new Uint8Array(managed.width * managed.height * 4);
-    gl.readPixels(0, 0, managed.width, managed.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    let result: Uint8Array;
+
+    if (managed.format === 'float16' || managed.format === 'float32') {
+      // Float framebuffers must be read as FLOAT into Float32Array
+      const floatPixels = new Float32Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, floatPixels);
+      // Convert float [0..1] to uint8 [0..255]
+      result = new Uint8Array(w * h * 4);
+      for (let i = 0; i < floatPixels.length; i++) {
+        result[i] = Math.max(0, Math.min(255, Math.round(floatPixels[i] * 255)));
+      }
+    } else {
+      result = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, result);
+    }
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return pixels;
+    return result;
   }
 
   /**
