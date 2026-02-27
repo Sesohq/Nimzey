@@ -73,7 +73,7 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange, hin
         ref={svgRef}
         width={W}
         height={H}
-        className="bg-zinc-800 rounded border border-zinc-700 cursor-crosshair"
+        className="bg-zinc-800 rounded border border-zinc-700 cursor-crosshair nodrag nowheel"
       >
         {/* Grid */}
         <line x1={PAD} y1={H / 2} x2={W - PAD} y2={H / 2} stroke="#3f3f46" strokeWidth="0.5" />

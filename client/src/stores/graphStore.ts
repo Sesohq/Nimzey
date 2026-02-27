@@ -7,6 +7,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { DataType, GraphEdge, GraphNode, NodeColorTag, NodeDefinition } from '@/types';
 import { NodeRegistry } from '@/registry/nodes';
 import { TemplateBuildResult } from '@/templates/graphTemplates';
+import { SerializedGraph, serializeGraph, deserializeGraph } from '@/utils/graphSerializer';
 
 export interface GraphState {
   nodes: Map<string, GraphNode>;
@@ -43,6 +44,10 @@ export function useGraphStore() {
   const [edges, setEdges] = useState<Map<string, GraphEdge>>(new Map());
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<Set<string>>(new Set());
+  // Structural version counter - increments on node/edge/parameter changes, NOT preview updates.
+  // Used as a stable dependency for auto-save to avoid infinite loops from preview thumbnail updates.
+  const [structuralVersion, setStructuralVersion] = useState(0);
+  const bumpVersion = useCallback(() => setStructuralVersion(v => v + 1), []);
 
   const resultNodeId = 'result-node';
 
@@ -73,9 +78,10 @@ export function useGraphStore() {
       next.set(id, node);
       return next;
     });
+    bumpVersion();
 
     return id;
-  }, []);
+  }, [bumpVersion]);
 
   const removeNode = useCallback((nodeId: string) => {
     if (nodeId === resultNodeId) return; // Cannot delete result node
@@ -96,7 +102,8 @@ export function useGraphStore() {
       }
       return next;
     });
-  }, [resultNodeId]);
+    bumpVersion();
+  }, [resultNodeId, bumpVersion]);
 
   const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
     setNodes(prev => {
@@ -106,7 +113,8 @@ export function useGraphStore() {
       next.set(nodeId, { ...node, position });
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   const setParameter = useCallback((nodeId: string, paramId: string, value: number | string | boolean | number[]) => {
     setNodes(prev => {
@@ -119,7 +127,8 @@ export function useGraphStore() {
       });
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   const toggleEnabled = useCallback((nodeId: string) => {
     setNodes(prev => {
@@ -129,7 +138,8 @@ export function useGraphStore() {
       next.set(nodeId, { ...node, enabled: !node.enabled });
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   const toggleCollapsed = useCallback((nodeId: string) => {
     setNodes(prev => {
@@ -139,7 +149,8 @@ export function useGraphStore() {
       next.set(nodeId, { ...node, collapsed: !node.collapsed });
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   const setColorTag = useCallback((nodeId: string, colorTag: NodeColorTag) => {
     setNodes(prev => {
@@ -149,7 +160,8 @@ export function useGraphStore() {
       next.set(nodeId, { ...node, colorTag });
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   const setNodePreview = useCallback((nodeId: string, preview: string | null) => {
     setNodes(prev => {
@@ -240,8 +252,9 @@ export function useGraphStore() {
       return next;
     });
 
+    bumpVersion();
     return true;
-  }, [nodes, edges]);
+  }, [nodes, edges, bumpVersion]);
 
   const disconnect = useCallback((edgeId: string) => {
     setEdges(prev => {
@@ -249,7 +262,8 @@ export function useGraphStore() {
       next.delete(edgeId);
       return next;
     });
-  }, []);
+    bumpVersion();
+  }, [bumpVersion]);
 
   // ---- Graph Queries ----
 
@@ -406,8 +420,9 @@ export function useGraphStore() {
       return next;
     });
 
+    bumpVersion();
     return id;
-  }, [resultNodeId]);
+  }, [resultNodeId, bumpVersion]);
 
   /**
    * Atomically splice a new node into an existing edge.
@@ -473,8 +488,9 @@ export function useGraphStore() {
       return next;
     });
 
+    bumpVersion();
     return id;
-  }, []);
+  }, [bumpVersion]);
 
   /**
    * Atomically apply a template: clear all non-result nodes/edges, add template nodes and edges.
@@ -532,7 +548,34 @@ export function useGraphStore() {
     setEdges(newEdges);
     setSelectedNodeIds(new Set());
     setSelectedEdgeIds(new Set());
-  }, [nodes, resultNodeId]);
+    bumpVersion();
+  }, [nodes, resultNodeId, bumpVersion]);
+
+  // ---- Serialization / Persistence ----
+
+  const getSerializedState = useCallback((): SerializedGraph => {
+    return serializeGraph(nodes, edges, resultNodeId);
+  }, [nodes, edges, resultNodeId]);
+
+  const loadFromSerialized = useCallback((data: SerializedGraph) => {
+    const deserialized = deserializeGraph(data);
+    setNodes(deserialized.nodes);
+    setEdges(deserialized.edges);
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIds(new Set());
+    bumpVersion();
+  }, [bumpVersion]);
+
+  const resetGraph = useCallback(() => {
+    const initial = new Map<string, GraphNode>();
+    const result = createResultNode();
+    initial.set(result.id, result);
+    setNodes(initial);
+    setEdges(new Map());
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIds(new Set());
+    bumpVersion();
+  }, [bumpVersion]);
 
   const state: GraphState = useMemo(() => ({
     nodes,
@@ -563,6 +606,10 @@ export function useGraphStore() {
     autoInsertNode,
     spliceNodeIntoEdge,
     applyTemplate,
+    getSerializedState,
+    loadFromSerialized,
+    resetGraph,
+    structuralVersion,
   };
 }
 

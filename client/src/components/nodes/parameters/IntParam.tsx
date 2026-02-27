@@ -75,7 +75,7 @@ export const IntParam = memo(function IntParam({ param, value, onChange, hint }:
           </span>
         )}
       </div>
-      <div className="relative h-4 flex items-center group">
+      <div className="relative h-4 flex items-center group nodrag nowheel">
         <div className="absolute w-full h-[3px] bg-zinc-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full"

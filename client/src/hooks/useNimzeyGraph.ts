@@ -76,10 +76,12 @@ function computeAutoPosition(
   return { x: resultNode.position.x - NODE_GAP, y: resultNode.position.y };
 }
 
-export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
+export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: number; height?: number }) {
   const graph = useGraphStore();
   const renderer = useRenderController(graph.state, {
-    ...options,
+    width: options?.width,
+    height: options?.height,
+    quality: options?.quality,
     onNodePreview: graph.setNodePreview,
   });
   const [lastAddedNodeId, setLastAddedNodeId] = useState<string | null>(null);
@@ -304,5 +306,11 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     setQuality: renderer.setQuality,
     render: renderer.render,
     exportImage: renderer.exportImage,
+
+    // Persistence
+    getSerializedState: graph.getSerializedState,
+    loadFromSerialized: graph.loadFromSerialized,
+    resetGraph: graph.resetGraph,
+    structuralVersion: graph.structuralVersion,
   };
 }

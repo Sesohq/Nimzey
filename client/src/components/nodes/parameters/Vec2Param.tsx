@@ -37,7 +37,7 @@ export const Vec2Param = memo(function Vec2Param({ param, value, onChange, hint 
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] text-zinc-500 w-2">X</span>
-          <div className="relative flex-1 h-4 flex items-center group">
+          <div className="relative flex-1 h-4 flex items-center group nodrag nowheel">
             <div className="absolute w-full h-[3px] bg-zinc-700 rounded-full overflow-hidden">
               <div className="h-full bg-red-400 rounded-full" style={{ width: `${percentX}%` }} />
             </div>
@@ -57,7 +57,7 @@ export const Vec2Param = memo(function Vec2Param({ param, value, onChange, hint 
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] text-zinc-500 w-2">Y</span>
-          <div className="relative flex-1 h-4 flex items-center group">
+          <div className="relative flex-1 h-4 flex items-center group nodrag nowheel">
             <div className="absolute w-full h-[3px] bg-zinc-700 rounded-full overflow-hidden">
               <div className="h-full bg-green-400 rounded-full" style={{ width: `${percentY}%` }} />
             </div>

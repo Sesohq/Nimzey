@@ -29,6 +29,8 @@ interface PreviewPanelProps {
   initCanvas: (canvas: HTMLCanvasElement | null) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  canvasWidth?: number;
+  canvasHeight?: number;
 }
 
 const QUALITY_OPTIONS: { value: QualityLevel; label: string }[] = [
@@ -47,6 +49,8 @@ export default function PreviewPanel({
   initCanvas,
   isCollapsed,
   onToggleCollapse,
+  canvasWidth = 512,
+  canvasHeight = 512,
 }: PreviewPanelProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'png' | 'jpeg'>('png');
@@ -67,8 +71,8 @@ export default function PreviewPanel({
     <canvas
       ref={initCanvas}
       className="hidden"
-      width={512}
-      height={512}
+      width={canvasWidth}
+      height={canvasHeight}
     />
   );
 
@@ -108,7 +112,10 @@ export default function PreviewPanel({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
-        <span className="text-sm font-medium text-white">Preview</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-white">Preview</span>
+          <span className="text-[10px] text-zinc-500 tabular-nums">{canvasWidth} x {canvasHeight}</span>
+        </div>
         <div className="flex items-center gap-1">
           {isRendering && (
             <Loader2 size={13} className="animate-spin text-blue-400" />
