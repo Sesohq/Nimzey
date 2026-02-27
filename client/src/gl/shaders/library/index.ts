@@ -6,18 +6,25 @@
 import { ShaderDefinition, parametersToUniforms } from '../ShaderDefinition';
 
 // Import all shader definitions
-import { passthroughShader, solidColorShader, resultShader } from './special/utility';
+import { passthroughShader, solidColorShader, resultShader, numericOutputShader, resultPBRShader } from './special/utility';
 import { perlinNoiseShader } from './noise/perlin';
 import { cellsNoiseShader, blocksNoiseShader, pyramidsNoiseShader } from './noise/cells';
-import { blendShader } from './processing/blend';
+import { blendShader, multiblendShader } from './processing/blend';
+import { maskShader } from './processing/mask';
+import { halftoneShader } from './processing/halftone';
+import { ditherShader } from './processing/dither';
 import { blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader } from './processing/filters';
 import { noiseDistortionShader, refractionShader, medianShader, maximumShader, minimumShader } from './processing/advanced';
-import { brightnessContrastShader, levelsShader, hueSaturationShader, invertShader, gammaShader, desaturateShader, thresholdShader } from './adjustment/adjustments';
-import { extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader, getAlphaShader, setAlphaShader } from './channel/channels';
+import { brightnessContrastShader, levelsShader, hueSaturationShader, invertShader, gammaShader, desaturateShader, thresholdShader, toneCurveShader } from './adjustment/adjustments';
+import { extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader, getAlphaShader, setAlphaShader, extractHLSShader, assembleHLSShader } from './channel/channels';
 import { checkerShader, bricksShader, tilesShader, ellipseShader, polygonShader, rectangleShader } from './pattern/patterns';
-import { threeColorGradientShader, fiveColorGradientShader, profileGradientShader, freeGradientShader, spectrumShader } from './gradient/gradients';
-import { flipShader, rotateShader, scaleShader, offsetShader, lookupShader } from './transform/transforms';
-import { addShader, subtractShader, multiplyShader, divideShader, negateShader, absShader, minShader, maxShader, lerpShader, remapRangeShader } from './math/math';
+import { threeColorGradientShader, fiveColorGradientShader, profileGradientShader, freeGradientShader, elevationGradientShader, spectrumShader } from './gradient/gradients';
+import { flipShader, rotateShader, scaleShader, offsetShader, perspectiveShader, lookupShader } from './transform/transforms';
+import {
+  addShader, subtractShader, multiplyShader, divideShader, negateShader, absShader, minShader, maxShader, lerpShader, remapRangeShader,
+  powerShader, moduloShader, ifShader, floorShader, ceilShader, roundShader,
+  sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
+} from './math/math';
 
 class ShaderLibraryImpl {
   private shaders = new Map<string, ShaderDefinition>();
@@ -46,22 +53,30 @@ export const ShaderLibrary = new ShaderLibraryImpl();
 // Register all shaders
 ShaderLibrary.registerAll([
   // Special / Utility
-  passthroughShader, solidColorShader, resultShader,
+  passthroughShader, solidColorShader, resultShader, numericOutputShader, resultPBRShader,
   // Noise
   perlinNoiseShader, cellsNoiseShader, blocksNoiseShader, pyramidsNoiseShader,
   // Processing
-  blendShader, blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader,
+  blendShader, multiblendShader, maskShader, halftoneShader, ditherShader,
+  blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader,
   noiseDistortionShader, refractionShader, medianShader, maximumShader, minimumShader,
   // Adjustments
-  brightnessContrastShader, levelsShader, hueSaturationShader, invertShader, gammaShader, desaturateShader, thresholdShader,
+  brightnessContrastShader, levelsShader, hueSaturationShader, invertShader,
+  gammaShader, desaturateShader, thresholdShader, toneCurveShader,
   // Channels
-  extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader, getAlphaShader, setAlphaShader,
+  extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader,
+  extractHLSShader, assembleHLSShader, getAlphaShader, setAlphaShader,
   // Patterns
   checkerShader, bricksShader, tilesShader, ellipseShader, polygonShader, rectangleShader,
   // Gradients
-  threeColorGradientShader, fiveColorGradientShader, profileGradientShader, freeGradientShader, spectrumShader,
+  threeColorGradientShader, fiveColorGradientShader, profileGradientShader,
+  freeGradientShader, elevationGradientShader, spectrumShader,
   // Transforms
-  flipShader, rotateShader, scaleShader, offsetShader, lookupShader,
+  flipShader, rotateShader, scaleShader, offsetShader, perspectiveShader, lookupShader,
   // Math
-  addShader, subtractShader, multiplyShader, divideShader, negateShader, absShader, minShader, maxShader, lerpShader, remapRangeShader,
+  addShader, subtractShader, multiplyShader, divideShader, moduloShader,
+  negateShader, absShader, powerShader, minShader, maxShader,
+  lerpShader, ifShader, remapRangeShader,
+  floorShader, ceilShader, roundShader,
+  sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
 ]);

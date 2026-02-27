@@ -120,6 +120,23 @@ vec4 processPixel(vec2 uv) {
 }`,
 };
 
+export const elevationGradientShader: ShaderDefinition = {
+  id: 'gradient-elevation',
+  inputCount: 2,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_flip', type: 'bool' },
+    { name: 'u_repeat', type: 'int' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  float elev = luminance(texture(u_input0, uv).rgb);
+  if (u_flip == 1) elev = 1.0 - elev;
+  float t = fract(elev * float(u_repeat));
+  return texture(u_input1, vec2(t, 0.5));
+}`,
+};
+
 export const spectrumShader: ShaderDefinition = {
   id: 'spectrum',
   inputCount: 0,

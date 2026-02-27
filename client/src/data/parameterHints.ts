@@ -139,6 +139,32 @@ export const parameterHints: Record<string, string> = {
   'math-remap-range.outMax': 'End of the output range',
   'math-power.exponent': 'The power to raise values to. 2 = square, 0.5 = square root',
   'math-modulo.divisor': 'Values wrap around at this point',
+
+  // Mask
+  'mask.channel': 'Which part of the mask image to use as the cutout shape',
+  'mask.invert': 'Flip the mask so black becomes visible and white becomes hidden',
+  'mask.softness': 'How soft the edges of the cutout are. Higher = more feathered',
+  'mask.threshold': 'Where to cut. Adjusts which grays count as "in" or "out"',
+  'mask.range_low': 'Darkest mask value to treat as fully hidden',
+  'mask.range_high': 'Lightest mask value to treat as fully visible',
+
+  // Halftone
+  'halftone.algorithm': 'The type of dot/pattern used for the halftone effect',
+  'halftone.scale': 'Size of the dots or pattern cells. Bigger = chunkier look',
+  'halftone.angle': 'Rotation of the dot grid. Try 45° for a classic print look',
+  'halftone.softness': 'How smooth the dot edges are. 0 = sharp pixels, higher = anti-aliased',
+  'halftone.invert': 'Swap black and white in the output',
+  'halftone.colorMode': 'Mono = B&W, Preserve = keep colors, CMYK = print-style color separation',
+  'halftone.dotGain': 'Simulates ink spreading on paper. Makes dots bigger and darker',
+  'halftone.crosshatchLevels': 'How many layers of lines for the crosshatch style',
+
+  // Dither
+  'dither.algorithm': 'The dithering pattern/technique to use',
+  'dither.levels': 'How many brightness steps. 2 = pure B&W, more = smoother gradients',
+  'dither.intensity': 'Strength of the dither effect. 100% = normal, less = subtler',
+  'dither.scale': 'Size of the dither pattern. Larger = more visible pattern',
+  'dither.colorMode': 'Mono = B&W, Per Channel = dither R/G/B separately, Preserve Hue = keep colors',
+  'dither.invert': 'Swap black and white in the output',
 };
 
 /**

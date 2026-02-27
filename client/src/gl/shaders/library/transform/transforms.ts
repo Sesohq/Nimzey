@@ -80,6 +80,64 @@ vec4 processPixel(vec2 uv) {
 }`,
 };
 
+export const perspectiveShader: ShaderDefinition = {
+  id: 'perspective',
+  inputCount: 2,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_perspective', type: 'float' },
+    { name: 'u_fov', type: 'float' },
+    { name: 'u_pitch', type: 'float' },
+    { name: 'u_yaw', type: 'float' },
+    { name: 'u_roll', type: 'float' },
+    { name: 'u_mode', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  float strength = u_perspective / 100.0;
+  float fovRad = u_fov * 3.14159265 / 180.0;
+  float d = 1.0 / tan(fovRad * 0.5);
+  float pitchRad = u_pitch * 3.14159265 / 180.0;
+  float yawRad = u_yaw * 3.14159265 / 180.0;
+  float rollRad = u_roll * 3.14159265 / 180.0;
+
+  // Center UV
+  vec2 p = (uv - 0.5) * 2.0;
+
+  // Apply roll rotation
+  float cr = cos(rollRad), sr = sin(rollRad);
+  p = mat2(cr, -sr, sr, cr) * p;
+
+  // 3D perspective projection
+  float z = d + strength * (p.x * sin(yawRad) + p.y * sin(pitchRad));
+  if (z < 0.01) z = 0.01;
+  vec2 projected = vec2(
+    (p.x * cos(yawRad)) / z,
+    (p.y * cos(pitchRad)) / z
+  );
+
+  // Undo roll
+  projected = mat2(cr, sr, -sr, cr) * projected;
+
+  vec2 texCoord = projected * 0.5 + 0.5;
+
+  // Mode handling
+  if (u_mode == 1) {
+    texCoord = fract(texCoord); // Tiled
+  } else if (u_mode == 2) {
+    texCoord = abs(mod(texCoord, 2.0) - 1.0); // Infinite (mirror)
+  } else {
+    // Clipped
+    if (texCoord.x < 0.0 || texCoord.x > 1.0 || texCoord.y < 0.0 || texCoord.y > 1.0) {
+      if (u_inputCount >= 2) return texture(u_input1, uv);
+      return vec4(0.0);
+    }
+  }
+  return texture(u_input0, texCoord);
+}`,
+};
+
 export const lookupShader: ShaderDefinition = {
   id: 'lookup',
   inputCount: 3,

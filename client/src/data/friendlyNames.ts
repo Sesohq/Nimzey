@@ -45,6 +45,9 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'median': { name: 'Smooth (Keep Edges)', description: 'Smooths while keeping edges sharp' },
   'maximum': { name: 'Grow Bright', description: 'Expands bright areas' },
   'minimum': { name: 'Grow Dark', description: 'Expands dark areas' },
+  'mask': { name: 'Mask', description: 'Uses a grayscale image to cut out areas' },
+  'halftone': { name: 'Halftone', description: 'Creates newspaper-style dot patterns' },
+  'dither': { name: 'Dither', description: 'Reduces colors with artistic pixel patterns' },
 
   // Adjustments
   'brightness-contrast': { name: 'Bright & Dark', description: 'Makes image lighter or darker' },

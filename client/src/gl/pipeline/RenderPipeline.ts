@@ -127,7 +127,7 @@ export class RenderPipeline {
       // Compile shader program if needed
       const programId = `shader_${def.shaderId}`;
       if (!this.compiledPrograms.has(programId)) {
-        const fragSource = compileFragmentShader(shaderDef, def.inputs.length);
+        const fragSource = compileFragmentShader(shaderDef, Math.max(shaderDef.inputCount, def.inputs.length));
         const prog = this.ctx.createProgram(programId, fragSource);
         if (prog) {
           this.compiledPrograms.set(programId, true);

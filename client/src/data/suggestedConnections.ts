@@ -44,4 +44,9 @@ export const suggestedConnections: Record<string, string[]> = {
   'threshold': ['blur', 'invert', 'blend'],
   'invert': ['brightness-contrast', 'blend'],
   'tone-curve': ['hue-saturation', 'sharpen'],
+
+  // New processing nodes
+  'mask': ['brightness-contrast', 'blend'],
+  'halftone': ['brightness-contrast', 'invert', 'blend'],
+  'dither': ['brightness-contrast', 'invert', 'blend'],
 };
