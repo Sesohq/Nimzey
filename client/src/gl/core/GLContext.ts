@@ -290,7 +290,7 @@ export class GLContext {
             name.includes('octaves') || name.includes('channel') || name.includes('method') ||
             name.includes('units') || name.includes('operation') || name.includes('type') ||
             name.includes('vertices') || name.includes('repeat') || name.includes('seed') ||
-            name.includes('bond'))) {
+            name.includes('bond') || name.includes('Count') || name.includes('count'))) {
           gl.uniform1i(loc, value);
         } else {
           gl.uniform1f(loc, value);

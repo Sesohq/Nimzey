@@ -93,7 +93,7 @@ export default function NodeCanvas({
     mousePosRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  // Space key to open palette
+  // Keyboard shortcuts: Space for palette, Delete/Backspace for deleting selected edges
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger when typing in inputs
@@ -112,10 +112,22 @@ export default function NodeCanvas({
         });
         setQuickAddOpen(true);
       }
+
+      // Delete/Backspace: remove selected edges
+      if (e.code === 'Delete' || e.code === 'Backspace') {
+        const selectedEdgeIds = graphState.selectedEdgeIds;
+        if (selectedEdgeIds.size > 0) {
+          const removeChanges: EdgeChange[] = Array.from(selectedEdgeIds).map(id => ({
+            id,
+            type: 'remove' as const,
+          }));
+          onEdgesChange(removeChanges);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [quickAddOpen]);
+  }, [quickAddOpen, graphState.selectedEdgeIds, onEdgesChange]);
 
   // Build the context actions for NimzeyNode
   const nodeActions: NimzeyNodeActions = useMemo(() => ({

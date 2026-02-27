@@ -121,6 +121,9 @@ export class RenderPipeline {
         }
       }
 
+      // Tell shaders how many inputs are connected (for optional input detection)
+      uniforms['u_inputCount'] = inputTextures.length;
+
       // Compile shader program if needed
       const programId = `shader_${def.shaderId}`;
       if (!this.compiledPrograms.has(programId)) {

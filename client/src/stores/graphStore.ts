@@ -64,7 +64,7 @@ export function useGraphStore() {
       position,
       parameters: params,
       enabled: true,
-      collapsed: true,
+      collapsed: false,
       colorTag: 'default',
     };
 
@@ -304,7 +304,7 @@ export function useGraphStore() {
       position,
       parameters: params,
       enabled: true,
-      collapsed: true,
+      collapsed: false,
       colorTag: 'default',
     };
 
@@ -433,7 +433,7 @@ export function useGraphStore() {
       position,
       parameters: params,
       enabled: true,
-      collapsed: true,
+      collapsed: false,
       colorTag: 'default',
     };
 
@@ -505,7 +505,7 @@ export function useGraphStore() {
         position: tNode.position,
         parameters: params,
         enabled: true,
-        collapsed: true,
+        collapsed: false,
         colorTag: 'default',
       });
     }
