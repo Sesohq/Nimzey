@@ -93,3 +93,38 @@ vec4 processPixel(vec2 uv) {
   return vec4(source.rgb, alpha);
 }`,
 };
+
+export const extractHLSShader: ShaderDefinition = {
+  id: 'extract-hls',
+  inputCount: 1,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_channel', type: 'int' },
+    { name: 'u_invert', type: 'bool' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 color = texture(u_input0, uv);
+  vec3 hsl = rgb2hsl(color.rgb);
+  float v;
+  if (u_channel == 0) v = hsl.x;       // Hue
+  else if (u_channel == 1) v = hsl.z;   // Lightness (HLS order: H, L, S)
+  else v = hsl.y;                        // Saturation
+  if (u_invert == 1) v = 1.0 - v;
+  return vec4(vec3(v), 1.0);
+}`,
+};
+
+export const assembleHLSShader: ShaderDefinition = {
+  id: 'assemble-hls',
+  inputCount: 3,
+  isNeighborhood: false,
+  uniforms: [],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  float h = luminance(texture(u_input0, uv).rgb);
+  float l = luminance(texture(u_input1, uv).rgb);
+  float s = luminance(texture(u_input2, uv).rgb);
+  return vec4(hsl2rgb(vec3(h, s, l)), 1.0);
+}`,
+};

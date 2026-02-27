@@ -4,14 +4,16 @@
 
 import { memo, useCallback } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface OptionParamProps {
   param: ParameterDefinition;
   value: number | string;
   onChange: (value: number | string) => void;
+  hint?: string;
 }
 
-export const OptionParam = memo(function OptionParam({ param, value, onChange }: OptionParamProps) {
+export const OptionParam = memo(function OptionParam({ param, value, onChange, hint }: OptionParamProps) {
   const handleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
     // Try to parse as number for numeric options
@@ -21,7 +23,7 @@ export const OptionParam = memo(function OptionParam({ param, value, onChange }:
 
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <select
         value={value}
         onChange={handleChange}

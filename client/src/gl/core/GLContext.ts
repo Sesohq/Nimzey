@@ -14,6 +14,7 @@ export class GLContext {
   private gl: WebGL2RenderingContext;
   private quadBuffer: WebGLBuffer;
   private programs = new Map<string, WebGLProgram>();
+  private uniformTypes = new Map<string, Map<string, number>>(); // programName -> uniformName -> GL type
   private textures = new Map<string, ManagedTexture>();
   private supportsFloat16 = false;
   private supportsFloat32 = false;
@@ -116,6 +117,15 @@ export class GLContext {
     gl.detachShader(prog, fs);
     gl.deleteShader(vs);
     gl.deleteShader(fs);
+
+    // Introspect uniform types so we can set int/bool uniforms correctly
+    const typeMap = new Map<string, number>();
+    const numUniforms = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS) as number;
+    for (let i = 0; i < numUniforms; i++) {
+      const info = gl.getActiveUniform(prog, i);
+      if (info) typeMap.set(info.name, info.type);
+    }
+    this.uniformTypes.set(name, typeMap);
 
     this.programs.set(name, prog);
     return prog;
@@ -277,20 +287,19 @@ export class GLContext {
       if (loc) gl.uniform1i(loc, i);
     }
 
-    // Set uniforms
+    // Set uniforms (use introspected types for correct int/bool/float dispatch)
+    const typeMap = this.uniformTypes.get(programName);
     for (const [name, value] of Object.entries(uniforms)) {
       const loc = gl.getUniformLocation(program, name);
       if (!loc) continue;
 
+      const glType = typeMap?.get(name);
+
       if (typeof value === 'boolean') {
         gl.uniform1i(loc, value ? 1 : 0);
       } else if (typeof value === 'number') {
-        // Detect integer uniforms by name convention (u_mode, u_formula, etc.)
-        if (Number.isInteger(value) && (name.includes('mode') || name.includes('formula') ||
-            name.includes('octaves') || name.includes('channel') || name.includes('method') ||
-            name.includes('units') || name.includes('operation') || name.includes('type') ||
-            name.includes('vertices') || name.includes('repeat') || name.includes('seed') ||
-            name.includes('bond') || name.includes('Count') || name.includes('count'))) {
+        // Use actual GLSL type from program introspection
+        if (glType === gl.INT || glType === gl.BOOL || glType === gl.SAMPLER_2D) {
           gl.uniform1i(loc, value);
         } else {
           gl.uniform1f(loc, value);

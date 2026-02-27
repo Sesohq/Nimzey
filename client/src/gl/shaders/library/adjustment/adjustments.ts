@@ -173,3 +173,29 @@ vec4 processPixel(vec2 uv) {
   return vec4(result, color.a);
 }`,
 };
+
+export const toneCurveShader: ShaderDefinition = {
+  id: 'tone-curve',
+  inputCount: 2,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_preserveColor', type: 'bool' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 color = texture(u_input0, uv);
+  // The curve input is a 1D LUT texture: x = input luminance, output = remapped value
+  vec3 result;
+  result.r = texture(u_input1, vec2(color.r, 0.5)).r;
+  result.g = texture(u_input1, vec2(color.g, 0.5)).g;
+  result.b = texture(u_input1, vec2(color.b, 0.5)).b;
+
+  if (u_preserveColor == 1) {
+    float origLum = luminance(color.rgb);
+    float newLum = luminance(result);
+    if (newLum > 0.001) result *= origLum / newLum;
+  }
+
+  return vec4(clamp(result, 0.0, 1.0), color.a);
+}`,
+};

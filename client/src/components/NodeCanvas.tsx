@@ -23,6 +23,7 @@ import ReactFlow, {
 import { NimzeyNode, NimzeyNodeContext, NimzeyNodeActions } from './nodes/NimzeyNode';
 import EmptyStateOverlay from './EmptyStateOverlay';
 import QuickAddPalette from './QuickAddPalette';
+import { SuggestedNextPill } from './SuggestedNextPill';
 import { NimzeyNodeData, NodeColorTag } from '@/types';
 import { getIsValidConnection } from '@/adapters/ReactFlowAdapter';
 import { GraphState } from '@/stores/graphStore';
@@ -51,6 +52,9 @@ interface NodeCanvasProps {
   onUploadSourceImage?: (file: File) => void;
   onGenerateTexture?: () => void;
   onApplyTemplate?: (templateId: string) => void;
+  lastAddedNodeId?: string | null;
+  lastAddedDefinitionId?: string | null;
+  onClearSuggestion?: () => void;
 }
 
 export default function NodeCanvas({
@@ -71,6 +75,9 @@ export default function NodeCanvas({
   onUploadSourceImage,
   onGenerateTexture,
   onApplyTemplate,
+  lastAddedNodeId,
+  lastAddedDefinitionId,
+  onClearSuggestion,
 }: NodeCanvasProps) {
   const [emptyStateDismissed, setEmptyStateDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -189,7 +196,8 @@ export default function NodeCanvas({
   const handlePaneClick = useCallback((e: React.MouseEvent) => {
     onNodeClick('');
     handlePaneClickForQuickAdd(e);
-  }, [onNodeClick, handlePaneClickForQuickAdd]);
+    onClearSuggestion?.();
+  }, [onNodeClick, handlePaneClickForQuickAdd, onClearSuggestion]);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
@@ -328,6 +336,29 @@ export default function NodeCanvas({
             onClose={() => setQuickAddOpen(false)}
           />
         )}
+
+        {/* Suggested next node pills */}
+        {lastAddedNodeId && lastAddedDefinitionId && onClearSuggestion && (() => {
+          const node = graphState.nodes.get(lastAddedNodeId);
+          if (!node) return null;
+          return (
+            <SuggestedNextPill
+              nodeId={lastAddedNodeId}
+              definitionId={lastAddedDefinitionId}
+              nodePosition={node.position}
+              onSelect={(defId) => {
+                if (onDrop) {
+                  const pos = {
+                    x: node.position.x + 280,
+                    y: node.position.y,
+                  };
+                  onDrop(defId, pos);
+                }
+              }}
+              onDismiss={onClearSuggestion}
+            />
+          );
+        })()}
       </div>
     </NimzeyNodeContext.Provider>
   );

@@ -44,3 +44,26 @@ vec4 processPixel(vec2 uv) {
   return vec4(v, v, v, 1.0);
 }`,
 };
+
+export const resultPBRShader: ShaderDefinition = {
+  id: 'result-pbr',
+  inputCount: 7,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_surfaceHeight', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 baseColor = texture(u_input0, uv);
+  if (u_inputCount >= 2) {
+    float height = luminance(texture(u_input1, uv).rgb);
+    float ao = 1.0;
+    if (u_inputCount >= 7) {
+      ao = luminance(texture(u_input6, uv).rgb);
+    }
+    baseColor.rgb *= mix(1.0, ao, 0.3);
+  }
+  return baseColor;
+}`,
+};

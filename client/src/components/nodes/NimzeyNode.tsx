@@ -1,6 +1,6 @@
 /**
- * NimzeyNode - Unified node component that renders any of the 200+ node types.
- * Reads NodeDefinition from registry and dynamically renders ports, parameters, and preview.
+ * NimzeyNode - Unified node component that renders any node type.
+ * Shows friendly names in header with original name as tooltip.
  */
 
 import { memo, useCallback, useState, useEffect, useRef, useContext, createContext } from 'react';
@@ -15,6 +15,7 @@ import { NodeRegistry } from '@/registry/nodes';
 import { TypedHandle } from './TypedHandle';
 import { ParameterRenderer } from './parameters/ParameterRenderer';
 import { cn } from '@/lib/utils';
+import { getFriendlyName } from '@/data/friendlyNames';
 import {
   ChevronDown,
   ChevronUp,
@@ -153,6 +154,9 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
   const isResult = def.id === 'result' || def.id === 'result-pbr';
   const isExternal = def.category === 'external' && def.id === 'image';
 
+  const friendlyName = getFriendlyName(def.id, def.name);
+  const showOriginalName = friendlyName !== def.name;
+
   return (
     <div
       className={cn(
@@ -164,7 +168,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
     >
       {/* Header */}
       <div
-        className="flex items-center gap-1.5 px-2 py-1.5 cursor-grab rounded-t-lg"
+        className="group/header flex items-center gap-1.5 px-2 py-1.5 cursor-grab rounded-t-lg relative"
         style={{ backgroundColor: headerColor }}
       >
         <button
@@ -175,7 +179,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
         </button>
         <IconComponent size={12} className="text-white/80" />
         <span className="text-[11px] font-medium text-white flex-1 truncate select-none">
-          {def.name}
+          {friendlyName}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
@@ -186,6 +190,12 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
         <button onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }} className="text-white/60 hover:text-white">
           {data.collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
         </button>
+        {/* Tooltip showing original technical name */}
+        {showOriginalName && (
+          <div className="pointer-events-none absolute z-50 opacity-0 group-hover/header:opacity-100 transition-opacity duration-150 text-[10px] px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 whitespace-nowrap shadow-lg left-1/2 -translate-x-1/2 -top-7">
+            {def.name}
+          </div>
+        )}
       </div>
 
       {/* Color tag picker */}
@@ -268,6 +278,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
                 param={param}
                 value={data.parameters[param.id] ?? param.defaultValue}
                 onChange={handleParamChange}
+                definitionId={data.definitionId}
               />
             ))}
           </div>

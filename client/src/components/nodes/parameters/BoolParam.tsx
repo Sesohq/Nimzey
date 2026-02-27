@@ -4,19 +4,21 @@
 
 import { memo, useCallback } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface BoolParamProps {
   param: ParameterDefinition;
   value: boolean;
   onChange: (value: boolean) => void;
+  hint?: string;
 }
 
-export const BoolParam = memo(function BoolParam({ param, value, onChange }: BoolParamProps) {
+export const BoolParam = memo(function BoolParam({ param, value, onChange, hint }: BoolParamProps) {
   const toggle = useCallback(() => onChange(!value), [value, onChange]);
 
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <button
         onClick={toggle}
         className={`

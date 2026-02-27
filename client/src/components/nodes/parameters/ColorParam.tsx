@@ -2,16 +2,18 @@
  * ColorParam - Color picker for color/hdrColor parameters.
  */
 
-import { memo, useState, useCallback, useRef, useEffect } from 'react';
+import { memo, useState, useCallback, useRef } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface ColorParamProps {
   param: ParameterDefinition;
   value: string;
   onChange: (value: string) => void;
+  hint?: string;
 }
 
-export const ColorParam = memo(function ColorParam({ param, value, onChange }: ColorParamProps) {
+export const ColorParam = memo(function ColorParam({ param, value, onChange, hint }: ColorParamProps) {
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,7 +27,7 @@ export const ColorParam = memo(function ColorParam({ param, value, onChange }: C
 
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-zinc-500 tabular-nums">{value}</span>
         <button

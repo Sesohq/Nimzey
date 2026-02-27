@@ -4,14 +4,16 @@
 
 import { memo, useState, useCallback, useRef } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface AngleParamProps {
   param: ParameterDefinition;
   value: number;
   onChange: (value: number) => void;
+  hint?: string;
 }
 
-export const AngleParam = memo(function AngleParam({ param, value, onChange }: AngleParamProps) {
+export const AngleParam = memo(function AngleParam({ param, value, onChange, hint }: AngleParamProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dialRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +50,7 @@ export const AngleParam = memo(function AngleParam({ param, value, onChange }: A
 
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-zinc-300 tabular-nums">{value}&deg;</span>
         <div

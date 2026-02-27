@@ -3,7 +3,7 @@
  * Replaces both useFilterGraph.ts and useGLFilterGraph.ts.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Node as RFNode,
   Edge as RFEdge,
@@ -23,6 +23,7 @@ import {
 import { NodeRegistry } from '@/registry/nodes';
 import { DataType, NimzeyNodeData, NodeColorTag, NodeDefinition, QualityLevel, GraphEdge } from '@/types';
 import { graphTemplates } from '@/templates/graphTemplates';
+import { effectPresets, EffectPreset } from '@/data/effectPresets';
 
 // ---------------------------------------------------------------------------
 // Pure helpers for auto-connect position calculation
@@ -81,6 +82,8 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     ...options,
     onNodePreview: graph.setNodePreview,
   });
+  const [lastAddedNodeId, setLastAddedNodeId] = useState<string | null>(null);
+  const [lastAddedDefinitionId, setLastAddedDefinitionId] = useState<string | null>(null);
 
   // Convert internal state to ReactFlow format
   const { nodes: rfNodes, edges: rfEdges } = useMemo(
@@ -136,7 +139,12 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     const def = NodeRegistry.get(definitionId);
     if (!def) return '';
     const pos = position || computeAutoPosition(def, graph.state);
-    return graph.autoInsertNode(definitionId, pos);
+    const nodeId = graph.autoInsertNode(definitionId, pos);
+    if (nodeId) {
+      setLastAddedNodeId(nodeId);
+      setLastAddedDefinitionId(definitionId);
+    }
+    return nodeId;
   }, [graph]);
 
   // Generate texture: adds perlin noise and auto-connects
@@ -226,6 +234,36 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     graph.applyTemplate(buildResult);
   }, [graph]);
 
+  // Apply an effect preset (inserts chain of nodes)
+  const applyPreset = useCallback((presetId: string) => {
+    const preset = effectPresets.find(p => p.id === presetId);
+    if (!preset) return;
+    // Compute base position from live state, then offset each step
+    // (graph.state is stale within the loop since React batches setState)
+    const firstDef = NodeRegistry.get(preset.steps[0]?.definitionId);
+    const basePos = firstDef
+      ? computeAutoPosition(firstDef, graph.state)
+      : { x: 200, y: 200 };
+    for (let i = 0; i < preset.steps.length; i++) {
+      const step = preset.steps[i];
+      const def = NodeRegistry.get(step.definitionId);
+      if (!def) continue;
+      const pos = { x: basePos.x + i * NODE_GAP, y: basePos.y };
+      const nodeId = graph.autoInsertNode(step.definitionId, pos);
+      if (nodeId && step.parameters) {
+        for (const [paramId, value] of Object.entries(step.parameters)) {
+          graph.setParameter(nodeId, paramId, value);
+        }
+      }
+    }
+  }, [graph]);
+
+  // Clear suggestion pills
+  const clearSuggestion = useCallback(() => {
+    setLastAddedNodeId(null);
+    setLastAddedDefinitionId(null);
+  }, []);
+
   return {
     // ReactFlow data
     nodes: rfNodes,
@@ -251,6 +289,12 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel }) {
     uploadSourceImage,
     onDrop,
     applyTemplate,
+    applyPreset,
+
+    // Suggestions
+    lastAddedNodeId,
+    lastAddedDefinitionId,
+    clearSuggestion,
 
     // Renderer
     initCanvas: renderer.initCanvas,

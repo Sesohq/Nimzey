@@ -22,6 +22,9 @@ import {
   highPassNode, noiseDistortionNode, refractionNode, medianNode,
   maximumNode, minimumNode,
 } from './processing/blur';
+import { maskNode } from './processing/mask';
+import { halftoneNode } from './processing/halftone';
+import { ditherNode } from './processing/dither';
 
 // Adjustments
 import {
@@ -72,7 +75,7 @@ const allNodes = [
   // Processing
   blendNode, multiblendNode, blurNode, motionBlurNode, sharpenNode,
   edgeDetectorNode, highPassNode, noiseDistortionNode, refractionNode,
-  medianNode, maximumNode, minimumNode,
+  medianNode, maximumNode, minimumNode, maskNode, halftoneNode, ditherNode,
 
   // Adjustments
   brightnessContrastNode, levelsNode, hueSaturationNode, invertNode,
@@ -115,7 +118,7 @@ export {
   // Processing
   blendNode, multiblendNode, blurNode, motionBlurNode, sharpenNode,
   edgeDetectorNode, highPassNode, noiseDistortionNode, refractionNode,
-  medianNode, maximumNode, minimumNode,
+  medianNode, maximumNode, minimumNode, maskNode, halftoneNode, ditherNode,
   // Adjustments
   brightnessContrastNode, levelsNode, hueSaturationNode, invertNode,
   gammaNode, desaturateNode, thresholdNode, toneCurveNode,
