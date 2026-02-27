@@ -1,6 +1,6 @@
 /**
- * FilterPanel - Registry-driven node palette with search, categories, and drag-and-drop.
- * Reads all available nodes from NodeRegistry. Shows HoverCard on hover with node description and ports.
+ * FilterPanel - Simplified node palette with 6 groups, friendly names, and effect presets.
+ * Uses simplified category groups instead of 13 raw categories.
  */
 
 import { useState, useMemo, useCallback, useRef } from 'react';
@@ -12,9 +12,6 @@ import {
 } from '@/components/ui/hover-card';
 import { NodeRegistry } from '@/registry/nodes';
 import {
-  NodeCategory,
-  NODE_CATEGORY_LABELS,
-  NODE_CATEGORY_ICONS,
   NodeDefinition,
   DATA_TYPE_COLORS,
 } from '@/types';
@@ -22,48 +19,31 @@ import {
   Search,
   Plus,
   Upload,
-  Waves,
-  Palette,
-  Grid3x3,
-  Layers,
-  SlidersHorizontal,
-  Calculator,
-  Move,
-  Image,
-  Settings,
-  Cpu,
-  Star,
-  GitBranch,
-  Spline,
   ChevronDown,
   ChevronRight,
+  Zap,
 } from 'lucide-react';
-
-const CATEGORY_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Waves, Palette, Grid3x3, Layers, SlidersHorizontal, Calculator,
-  Move, Image, Settings, Cpu, Star, GitBranch, Spline,
-  SplitSquareHorizontal: Layers,
-};
-
-// Category display order
-const CATEGORY_ORDER: NodeCategory[] = [
-  'noise', 'gradient', 'pattern', 'processing', 'adjustment',
-  'channel', 'math', 'transform', 'curve-generator', 'curve-operation',
-  'external', 'control', 'advanced',
-];
+import { SIMPLIFIED_GROUPS } from '@/data/simplifiedGroups';
+import { getFriendlyName, getFriendlyDescription } from '@/data/friendlyNames';
+import { effectPresets } from '@/data/effectPresets';
 
 interface FilterPanelProps {
   width: number;
   onAddNode: (definitionId: string, position?: { x: number; y: number }) => void;
   onUploadImage?: (file: File) => void;
+  onApplyPreset?: (presetId: string) => void;
 }
 
 function NodeInfoCard({ def }: { def: NodeDefinition }) {
+  const friendlyDesc = getFriendlyDescription(def.id, def.description);
   return (
     <div className="flex flex-col gap-2 max-w-[220px]">
       <div>
-        <div className="text-[11px] font-semibold text-zinc-100">{def.name}</div>
-        <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{def.description}</div>
+        <div className="text-[11px] font-semibold text-zinc-100">
+          {getFriendlyName(def.id, def.name)}
+        </div>
+        <div className="text-[10px] text-zinc-500 italic">{def.name}</div>
+        <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{friendlyDesc}</div>
       </div>
 
       {/* Ports */}
@@ -119,33 +99,61 @@ function NodeInfoCard({ def }: { def: NodeDefinition }) {
   );
 }
 
-export default function FilterPanel({ width, onAddNode, onUploadImage }: FilterPanelProps) {
+export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPreset }: FilterPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(CATEGORY_ORDER.slice(0, 5))
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(['create', 'adjust', 'effects'])
   );
+  const [presetsExpanded, setPresetsExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allCategories = useMemo(() => NodeRegistry.getAllCategories(), []);
 
-  // Filter by search
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return allCategories;
-    const results = NodeRegistry.search(searchQuery);
-    const map = new Map<NodeCategory, NodeDefinition[]>();
-    for (const def of results) {
-      let list = map.get(def.category);
-      if (!list) { list = []; map.set(def.category, list); }
-      list.push(def);
+  // Build nodes grouped by simplified group
+  const groupedNodes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const groups = new Map<string, NodeDefinition[]>();
+
+    for (const group of SIMPLIFIED_GROUPS) {
+      const defs: NodeDefinition[] = [];
+      for (const cat of group.categories) {
+        const catDefs = allCategories.get(cat);
+        if (!catDefs) continue;
+        for (const def of catDefs) {
+          // Filter out special/result nodes
+          if (def.id === 'result' || def.id === 'result-pbr') continue;
+
+          if (query) {
+            const friendly = getFriendlyName(def.id, def.name).toLowerCase();
+            const friendlyDesc = getFriendlyDescription(def.id, def.description).toLowerCase();
+            const matches =
+              def.name.toLowerCase().includes(query) ||
+              friendly.includes(query) ||
+              def.description.toLowerCase().includes(query) ||
+              friendlyDesc.includes(query) ||
+              def.tags?.some(t => t.toLowerCase().includes(query));
+            if (!matches) continue;
+          }
+
+          defs.push(def);
+        }
+      }
+      // Sort alphabetically by friendly name
+      defs.sort((a, b) =>
+        getFriendlyName(a.id, a.name).localeCompare(getFriendlyName(b.id, b.name))
+      );
+      if (defs.length > 0) {
+        groups.set(group.id, defs);
+      }
     }
-    return map;
+    return groups;
   }, [searchQuery, allCategories]);
 
-  const toggleCategory = useCallback((cat: string) => {
-    setExpandedCategories(prev => {
+  const toggleGroup = useCallback((groupId: string) => {
+    setExpandedGroups(prev => {
       const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
       return next;
     });
   }, []);
@@ -167,7 +175,7 @@ export default function FilterPanel({ width, onAddNode, onUploadImage }: FilterP
     <div className="flex flex-col h-full bg-black border-r border-neutral-800 flex-shrink-0" style={{ width }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-800">
-        <Layers size={18} className="text-neutral-400" />
+        <Zap size={16} className="text-amber-400" />
         <span className="text-sm font-medium text-white">Nodes</span>
       </div>
 
@@ -185,32 +193,64 @@ export default function FilterPanel({ width, onAddNode, onUploadImage }: FilterP
         </div>
       </div>
 
-      {/* Category list */}
       <ScrollArea className="flex-1">
         <div className="py-1">
-          {CATEGORY_ORDER.map(category => {
-            const defs = filteredCategories.get(category);
+          {/* Effect Presets section */}
+          {!searchQuery && onApplyPreset && (
+            <div>
+              <button
+                onClick={() => setPresetsExpanded(!presetsExpanded)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-amber-300 hover:bg-neutral-800/50 transition-colors"
+              >
+                {presetsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <Zap size={13} className="text-amber-400" />
+                <span className="flex-1 text-left font-medium">Quick Effects</span>
+                <span className="text-[10px] text-neutral-500">{effectPresets.length}</span>
+              </button>
+              {presetsExpanded && (
+                <div className="pb-1">
+                  {effectPresets.map(preset => {
+                    const Icon = preset.icon;
+                    return (
+                      <div
+                        key={preset.id}
+                        onClick={() => onApplyPreset(preset.id)}
+                        className="flex items-center gap-2 px-5 py-1.5 mx-1 rounded text-[11px] text-neutral-300 hover:bg-amber-500/10 hover:text-amber-200 cursor-pointer transition-colors group"
+                      >
+                        <Icon size={12} className="text-amber-500/60 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="truncate">{preset.name}</div>
+                          <div className="text-[9px] text-neutral-500 truncate">{preset.description}</div>
+                        </div>
+                        <Plus size={11} className="text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Simplified node groups */}
+          {SIMPLIFIED_GROUPS.map(group => {
+            const defs = groupedNodes.get(group.id);
             if (!defs || defs.length === 0) return null;
 
-            const isExpanded = expandedCategories.has(category);
-            const iconName = NODE_CATEGORY_ICONS[category];
-            const Icon = CATEGORY_ICON_MAP[iconName] || Star;
-            const label = NODE_CATEGORY_LABELS[category] || category;
+            const isExpanded = expandedGroups.has(group.id);
+            const Icon = group.icon;
 
             return (
-              <div key={category}>
-                {/* Category header */}
+              <div key={group.id}>
                 <button
-                  onClick={() => toggleCategory(category)}
+                  onClick={() => toggleGroup(group.id)}
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white hover:bg-neutral-800/50 transition-colors"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   <Icon size={13} className="text-neutral-400" />
-                  <span className="flex-1 text-left">{label}</span>
+                  <span className="flex-1 text-left">{group.label}</span>
                   <span className="text-[10px] text-neutral-500">{defs.length}</span>
                 </button>
 
-                {/* Node items */}
                 {isExpanded && (
                   <div className="pb-1">
                     {defs.map(def => (
@@ -222,8 +262,11 @@ export default function FilterPanel({ width, onAddNode, onUploadImage }: FilterP
                             onClick={() => onAddNode(def.id)}
                             className="flex items-center gap-2 px-5 py-1 mx-1 rounded text-[11px] text-neutral-300 hover:bg-neutral-800 hover:text-white cursor-pointer transition-colors group"
                           >
-                            <span className="flex-1 truncate">{def.name}</span>
-                            <Plus size={11} className="text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="flex-1 min-w-0">
+                              <div className="truncate">{getFriendlyName(def.id, def.name)}</div>
+                              <div className="text-[9px] text-neutral-600 truncate">{def.name}</div>
+                            </div>
+                            <Plus size={11} className="text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           </div>
                         </HoverCardTrigger>
                         <HoverCardContent

@@ -5,17 +5,19 @@
 
 import { memo, useState, useCallback, useRef } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface CurveParamProps {
   param: ParameterDefinition;
   value: number[];
   onChange: (value: number[]) => void;
+  hint?: string;
 }
 
 // Default identity curve: [x1, y1, x2, y2] = [0.25, 0.25, 0.75, 0.75]
 const DEFAULT_CURVE = [0.25, 0.25, 0.75, 0.75];
 
-export const CurveParam = memo(function CurveParam({ param, value, onChange }: CurveParamProps) {
+export const CurveParam = memo(function CurveParam({ param, value, onChange, hint }: CurveParamProps) {
   const v = (value && value.length >= 4) ? value : DEFAULT_CURVE;
   const [dragging, setDragging] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -66,7 +68,7 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange }: C
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <svg
         ref={svgRef}
         width={W}

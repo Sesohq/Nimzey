@@ -4,14 +4,16 @@
 
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface IntParamProps {
   param: ParameterDefinition;
   value: number;
   onChange: (value: number) => void;
+  hint?: string;
 }
 
-export const IntParam = memo(function IntParam({ param, value, onChange }: IntParamProps) {
+export const IntParam = memo(function IntParam({ param, value, onChange, hint }: IntParamProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +55,7 @@ export const IntParam = memo(function IntParam({ param, value, onChange }: IntPa
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+        <ParamLabel label={param.label} hint={hint} />
         {isEditing ? (
           <input
             ref={inputRef}

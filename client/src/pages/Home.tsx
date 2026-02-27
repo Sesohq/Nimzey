@@ -37,6 +37,7 @@ function HomeContent() {
           width={leftPanelWidth}
           onAddNode={graph.autoConnectNode}
           onUploadImage={graph.uploadSourceImage}
+          onApplyPreset={graph.applyPreset}
         />
 
         {/* Center - Graph editor */}
@@ -58,6 +59,9 @@ function HomeContent() {
           onUploadSourceImage={graph.uploadSourceImage}
           onGenerateTexture={graph.generateTexture}
           onApplyTemplate={graph.applyTemplate}
+          lastAddedNodeId={graph.lastAddedNodeId}
+          lastAddedDefinitionId={graph.lastAddedDefinitionId}
+          onClearSuggestion={graph.clearSuggestion}
         />
 
         {/* Right - Preview */}

@@ -4,14 +4,16 @@
 
 import { memo, useCallback } from 'react';
 import { ParameterDefinition } from '@/types';
+import { ParamLabel } from './ParamLabel';
 
 interface Vec2ParamProps {
   param: ParameterDefinition;
   value: number[];
   onChange: (value: number[]) => void;
+  hint?: string;
 }
 
-export const Vec2Param = memo(function Vec2Param({ param, value, onChange }: Vec2ParamProps) {
+export const Vec2Param = memo(function Vec2Param({ param, value, onChange, hint }: Vec2ParamProps) {
   const x = value[0] ?? 0.5;
   const y = value[1] ?? 0.5;
   const min = param.min ?? 0;
@@ -31,7 +33,7 @@ export const Vec2Param = memo(function Vec2Param({ param, value, onChange }: Vec
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-zinc-400 select-none">{param.label}</span>
+      <ParamLabel label={param.label} hint={hint} />
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] text-zinc-500 w-2">X</span>
