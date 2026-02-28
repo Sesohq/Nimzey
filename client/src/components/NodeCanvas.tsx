@@ -85,6 +85,7 @@ export default function NodeCanvas({
   const [dragOverEdgeId, setDragOverEdgeId] = useState<string | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const edgeUpdateSuccessful = useRef(true);
   const reactFlowInstance = useReactFlow();
 
   // Detect empty graph (only Result node, no other nodes)
@@ -223,12 +224,25 @@ export default function NodeCanvas({
     onEdgesChange([{ id: edge.id, type: 'remove' }]);
   }, [onEdgesChange]);
 
-  // Re-wire: drag an edge endpoint to a new handle
+  // Edge re-wire: drag an edge endpoint to a new handle, or drop on empty space to disconnect
+  const handleEdgeUpdateStart = useCallback(() => {
+    edgeUpdateSuccessful.current = false;
+  }, []);
+
   const handleEdgeUpdate = useCallback((oldEdge: Edge, newConnection: Connection) => {
+    edgeUpdateSuccessful.current = true;
     // Remove old edge, create new connection
     onEdgesChange([{ id: oldEdge.id, type: 'remove' }]);
     onConnect(newConnection);
   }, [onEdgesChange, onConnect]);
+
+  const handleEdgeUpdateEnd = useCallback((_: MouseEvent | TouchEvent, edge: Edge) => {
+    if (!edgeUpdateSuccessful.current) {
+      // Edge was dragged to empty space — disconnect it
+      onEdgesChange([{ id: edge.id, type: 'remove' }]);
+    }
+    edgeUpdateSuccessful.current = true;
+  }, [onEdgesChange]);
 
   // Drag-and-drop from filter panel with edge proximity detection
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -288,7 +302,9 @@ export default function NodeCanvas({
           onNodeClick={handleNodeClick}
           onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
+          onEdgeUpdateStart={handleEdgeUpdateStart}
           onEdgeUpdate={handleEdgeUpdate}
+          onEdgeUpdateEnd={handleEdgeUpdateEnd}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -302,19 +318,19 @@ export default function NodeCanvas({
           snapToGrid
           snapGrid={[15, 15]}
           deleteKeyCode={['Delete', 'Backspace']}
-          className="bg-zinc-950"
+          className="bg-[#0d0d0d]"
           onMoveStart={() => { if (quickAddOpen) setQuickAddOpen(false); }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
-          <Controls showInteractive={false} className="!bg-zinc-800 !border-zinc-700 !shadow-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button]:!text-zinc-400 [&>button:hover]:!bg-zinc-700" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1a1a1a" />
+          <Controls showInteractive={false} className="!bg-[#1e1e1e] !border-[#2e2e2e] !shadow-lg [&>button]:!bg-[#1e1e1e] [&>button]:!border-[#2e2e2e] [&>button]:!text-[#888] [&>button:hover]:!bg-[#252525]" />
           <MiniMap
             nodeColor={(n) => {
-              if (n.data?.definitionId === 'result') return '#3b82f6';
-              if (n.data?.definitionId === 'image') return '#22c55e';
-              return '#52525b';
+              if (n.data?.definitionId === 'result') return '#6b8aaf';
+              if (n.data?.definitionId === 'image') return '#5a8a5a';
+              return '#3a3a3a';
             }}
-            className="!bg-zinc-900 !border-zinc-700"
-            maskColor="rgba(0,0,0,0.6)"
+            className="!bg-[#141414] !border-[#2a2a2a]"
+            maskColor="rgba(0,0,0,0.65)"
           />
         </ReactFlow>
 
@@ -341,11 +357,23 @@ export default function NodeCanvas({
         {lastAddedNodeId && lastAddedDefinitionId && onClearSuggestion && (() => {
           const node = graphState.nodes.get(lastAddedNodeId);
           if (!node) return null;
+
+          // Convert flow coordinates → screen-relative position for the overlay
+          const containerRect = containerRef.current?.getBoundingClientRect();
+          const screenPos = reactFlowInstance.flowToScreenPosition({
+            x: node.position.x,
+            y: node.position.y + 120,
+          });
+          const relativePos = {
+            x: screenPos.x - (containerRect?.left || 0),
+            y: screenPos.y - (containerRect?.top || 0),
+          };
+
           return (
             <SuggestedNextPill
               nodeId={lastAddedNodeId}
               definitionId={lastAddedDefinitionId}
-              nodePosition={node.position}
+              nodePosition={relativePos}
               onSelect={(defId) => {
                 if (onDrop) {
                   const pos = {

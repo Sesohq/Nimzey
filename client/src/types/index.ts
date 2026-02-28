@@ -18,11 +18,11 @@ export enum DataType {
   Numeric = 'numeric',
 }
 
-/** Visual colors for each data type in the UI */
+/** Visual colors for each data type in the UI (muted palette) */
 export const DATA_TYPE_COLORS: Record<DataType, string> = {
-  [DataType.Map]: '#22c55e',     // green-500
-  [DataType.Curve]: '#3b82f6',   // blue-500
-  [DataType.Numeric]: '#9ca3af', // gray-400
+  [DataType.Map]: '#5a8a5a',     // muted green
+  [DataType.Curve]: '#5a7a9a',   // muted blue
+  [DataType.Numeric]: '#888888', // muted gray
 };
 
 // ---------------------------------------------------------------------------
@@ -126,6 +126,24 @@ export const NODE_CATEGORY_ICONS: Record<NodeCategory, string> = {
   control: 'Settings',
   advanced: 'Cpu',
   special: 'Star',
+};
+
+/** Vibrant accent color per node category — used for header gradient tinting */
+export const NODE_CATEGORY_COLORS: Record<NodeCategory, string> = {
+  noise: '#e89030',             // vivid orange
+  gradient: '#c060e0',          // vivid purple
+  pattern: '#30c8c8',           // neon teal
+  processing: '#40a0f0',        // bright blue
+  adjustment: '#e0c040',        // vivid yellow
+  channel: '#50d060',           // neon green
+  math: '#8090e0',              // bright periwinkle
+  transform: '#f07050',         // neon coral
+  'curve-generator': '#7070f0', // neon indigo
+  'curve-operation': '#60a0d0', // bright sky
+  external: '#60e080',          // neon mint
+  control: '#b0a060',           // bright gold
+  advanced: '#a050e0',          // neon violet
+  special: '#50b0f0',           // neon blue
 };
 
 export interface NodeDefinition {
@@ -244,14 +262,14 @@ export const BLEND_MODE_LABELS: Record<BlendMode, string> = {
 export type NodeColorTag = 'default' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
 
 export const NODE_COLOR_TAG_COLORS: Record<NodeColorTag, string> = {
-  default: '#374151',   // gray-700
-  red: '#ef4444',       // red-500
-  orange: '#f97316',    // orange-500
-  yellow: '#eab308',    // yellow-500
-  green: '#22c55e',     // green-500
-  blue: '#3b82f6',      // blue-500
-  purple: '#a855f7',    // purple-500
-  pink: '#ec4899',      // pink-500
+  default: '#282828',   // warm dark (matches header base)
+  red: '#8a4a4a',       // muted red
+  orange: '#8a6a4a',    // muted orange
+  yellow: '#7a7a4a',    // muted yellow
+  green: '#4a7a4a',     // muted green
+  blue: '#4a6a8a',      // muted blue
+  purple: '#6a4a8a',    // muted purple
+  pink: '#8a4a6a',      // muted pink
 };
 
 export type QualityLevel = 'preview' | 'draft' | 'full';

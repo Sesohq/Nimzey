@@ -56,16 +56,16 @@ export const AngleParam = memo(function AngleParam({ param, value, onChange, hin
         <div
           ref={dialRef}
           onMouseDown={handleMouseDown}
-          className="w-5 h-5 rounded-full border border-zinc-600 bg-zinc-700 cursor-pointer relative nodrag nowheel"
+          className="w-5 h-5 rounded-full border border-[#333] bg-[#252525] cursor-pointer relative nodrag nowheel"
         >
           <svg width="20" height="20" className="absolute inset-0">
             <circle cx="10" cy="10" r="7" fill="none" stroke="#52525b" strokeWidth="0.5" />
             <line
               x1="10" y1="10"
               x2={needleX} y2={needleY}
-              stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round"
+              stroke="#6b8aaf" strokeWidth="1.5" strokeLinecap="round"
             />
-            <circle cx="10" cy="10" r="1.5" fill="#3b82f6" />
+            <circle cx="10" cy="10" r="1.5" fill="#6b8aaf" />
           </svg>
         </div>
       </div>

@@ -32,7 +32,7 @@ function getPreviewCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingCo
   return { canvas: previewCanvas, ctx: previewCtx2d };
 }
 
-export function useRenderController(graphState: GraphState, options: RenderControllerOptions = {}) {
+export function useRenderController(graphState: GraphState, structuralVersion: number, options: RenderControllerOptions = {}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<GLContext | null>(null);
   const pipelineRef = useRef<RenderPipeline | null>(null);
@@ -78,17 +78,17 @@ export function useRenderController(graphState: GraphState, options: RenderContr
         const pixels = ctx.readPixels(step.outputTexture);
         if (pixels.length === 0) continue;
 
-        // Determine the texture dimensions from the viewport
-        const texW = step.viewport.width;
-        const texH = step.viewport.height;
+        // Use actual texture dimensions (may differ from viewport during quality transitions)
+        const managed = ctx.getTexture(step.outputTexture);
+        const texW = managed ? managed.width : step.viewport.width;
+        const texH = managed ? managed.height : step.viewport.height;
 
-        // Create ImageData from the raw pixels (flip Y since WebGL is bottom-up)
+        // Downsample to preview size, flipping Y (WebGL is bottom-up)
         const imageData = new ImageData(PREVIEW_SIZE, PREVIEW_SIZE);
         const scaleX = texW / PREVIEW_SIZE;
         const scaleY = texH / PREVIEW_SIZE;
 
         for (let y = 0; y < PREVIEW_SIZE; y++) {
-          // Flip Y: preview row y corresponds to texture row (texH - 1 - y*scaleY)
           const srcY = Math.min(texH - 1, Math.floor((PREVIEW_SIZE - 1 - y) * scaleY));
           for (let x = 0; x < PREVIEW_SIZE; x++) {
             const srcX = Math.min(texW - 1, Math.floor(x * scaleX));
@@ -166,7 +166,7 @@ export function useRenderController(graphState: GraphState, options: RenderContr
       clearTimeout(quickTimer);
       if (renderTimerRef.current) clearTimeout(renderTimerRef.current);
     };
-  }, [graphState, render, quality, captureNodePreviews]);
+  }, [graphState, structuralVersion, render, quality, captureNodePreviews]);
 
   // Force immediate render
   const renderNow = useCallback(() => {

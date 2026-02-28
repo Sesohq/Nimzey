@@ -61,7 +61,7 @@ export function graphStateToReactFlow(state: GraphState): {
       selected: state.selectedEdgeIds.has(edge.id),
       style: {
         stroke: color,
-        strokeWidth: 2,
+        strokeWidth: 1.5,
       },
       animated: edge.dataType === DataType.Curve,
     });

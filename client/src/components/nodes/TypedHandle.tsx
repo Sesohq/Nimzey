@@ -67,30 +67,29 @@ export const TypedHandle = memo(function TypedHandle({
           top: 'auto',
           left: 'auto',
           right: 'auto',
-          // Visual style - 12px dot with transparent 20px hit area
-          width: 12,
-          height: 12,
-          minWidth: 12,
-          minHeight: 12,
-          background: isConnected ? color : '#18181b',
-          border: `2px solid ${color}`,
+          // Visual style - smaller 8px muted dots
+          width: 8,
+          height: 8,
+          minWidth: 8,
+          minHeight: 8,
+          background: isConnected ? color : 'transparent',
+          border: `1.5px solid ${isConnected ? color : '#666'}`,
           borderRadius: '50%',
           // Push to node edge with overlap
-          marginLeft: isLeft ? -7 : 4,
-          marginRight: isLeft ? 4 : -7,
-          // Larger click target via box-shadow trick
+          marginLeft: isLeft ? -5 : 4,
+          marginRight: isLeft ? 4 : -5,
+          // Subtle glow for required unconnected ports
           boxShadow: showPulse
-            ? `0 0 0 4px transparent, 0 0 8px 2px ${color}60`
-            : `0 0 0 4px transparent`,
-          // Pulsing animation for unconnected required ports
-          animation: showPulse ? 'portPulse 2s ease-in-out infinite' : 'none',
+            ? `0 0 4px 1px ${color}40`
+            : 'none',
+          animation: showPulse ? 'portPulse 2.5s ease-in-out infinite' : 'none',
         }}
       />
       {label && (
         <span
           className={cn(
             'text-[10px] select-none whitespace-nowrap',
-            required ? 'text-zinc-300' : 'text-zinc-500',
+            required ? 'text-[#aaa]' : 'text-[#666]',
           )}
         >
           {label}
@@ -100,7 +99,7 @@ export const TypedHandle = memo(function TypedHandle({
       <div
         className={cn(
           'pointer-events-none absolute z-50 opacity-0 group-hover/handle:opacity-100 transition-opacity duration-150',
-          'text-[10px] px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 whitespace-nowrap shadow-lg',
+          'text-[10px] px-2 py-1 rounded bg-[#252525] border border-[#333] text-[#888] whitespace-nowrap shadow-lg',
           isLeft ? 'right-full mr-2' : 'left-full ml-2',
           'top-1/2 -translate-y-1/2',
         )}

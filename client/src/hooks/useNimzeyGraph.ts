@@ -3,7 +3,7 @@
  * Replaces both useFilterGraph.ts and useGLFilterGraph.ts.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Node as RFNode,
   Edge as RFEdge,
@@ -24,6 +24,7 @@ import { NodeRegistry } from '@/registry/nodes';
 import { DataType, NimzeyNodeData, NodeColorTag, NodeDefinition, QualityLevel, GraphEdge } from '@/types';
 import { graphTemplates } from '@/templates/graphTemplates';
 import { effectPresets, EffectPreset } from '@/data/effectPresets';
+import { useHistory } from './useHistory';
 
 // ---------------------------------------------------------------------------
 // Pure helpers for auto-connect position calculation
@@ -78,7 +79,7 @@ function computeAutoPosition(
 
 export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: number; height?: number }) {
   const graph = useGraphStore();
-  const renderer = useRenderController(graph.state, {
+  const renderer = useRenderController(graph.state, graph.structuralVersion, {
     width: options?.width,
     height: options?.height,
     quality: options?.quality,
@@ -86,6 +87,48 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
   });
   const [lastAddedNodeId, setLastAddedNodeId] = useState<string | null>(null);
   const [lastAddedDefinitionId, setLastAddedDefinitionId] = useState<string | null>(null);
+
+  // ---- Undo/Redo ----
+  const history = useHistory();
+  const isUndoRedoRef = useRef(false);
+  const initializedRef = useRef(false);
+
+  // Record history snapshots on structural changes (debounced 300ms)
+  useEffect(() => {
+    // Skip recording during undo/redo operations
+    if (isUndoRedoRef.current) {
+      isUndoRedoRef.current = false;
+      return;
+    }
+
+    // Push initial state immediately on first mount
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      history.pushState(graph.getSerializedState());
+      return;
+    }
+
+    // Debounce subsequent changes (coalesces rapid updates like node dragging)
+    const timer = setTimeout(() => {
+      history.pushState(graph.getSerializedState());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [graph.structuralVersion]);
+
+  const undo = useCallback(() => {
+    const prevState = history.undo();
+    if (!prevState) return;
+    isUndoRedoRef.current = true;
+    graph.loadFromSerialized(prevState);
+  }, [history, graph]);
+
+  const redo = useCallback(() => {
+    const nextState = history.redo();
+    if (!nextState) return;
+    isUndoRedoRef.current = true;
+    graph.loadFromSerialized(nextState);
+  }, [history, graph]);
 
   // Convert internal state to ReactFlow format
   const { nodes: rfNodes, edges: rfEdges } = useMemo(
@@ -306,6 +349,12 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     setQuality: renderer.setQuality,
     render: renderer.render,
     exportImage: renderer.exportImage,
+
+    // Undo/Redo
+    undo,
+    redo,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
 
     // Persistence
     getSerializedState: graph.getSerializedState,

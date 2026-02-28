@@ -49,13 +49,13 @@ export const SuggestedNextPill = memo(function SuggestedNextPill({
     <div
       className="absolute z-40 flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200"
       style={{
-        // Position below the node (approximate)
+        // Position is already converted to screen-relative coordinates by NodeCanvas
         left: nodePosition.x,
-        top: nodePosition.y + 120,
+        top: nodePosition.y,
         pointerEvents: 'all',
       }}
     >
-      <span className="text-[9px] text-zinc-500 mr-0.5 select-none whitespace-nowrap">Add next:</span>
+      <span className="text-[9px] text-[#666] mr-0.5 select-none whitespace-nowrap">Add next:</span>
       {validSuggestions.map(sugId => {
         const def = NodeRegistry.get(sugId);
         if (!def) return null;
@@ -66,7 +66,7 @@ export const SuggestedNextPill = memo(function SuggestedNextPill({
               onSelect(sugId);
               onDismiss();
             }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-zinc-800/90 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors backdrop-blur-sm whitespace-nowrap"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-[#1e1e1e]/90 border border-[#2e2e2e] text-[#aaa] hover:bg-[#252525] hover:text-[#d4d4d4] transition-colors backdrop-blur-sm whitespace-nowrap"
           >
             <Plus size={9} />
             {getFriendlyName(sugId, def.name)}

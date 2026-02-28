@@ -78,8 +78,8 @@
 /* ReactFlow edge selection styling */
 .react-flow__edge.selected path,
 .react-flow__edge:focus path {
-  stroke-width: 3 !important;
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+  stroke-width: 2.5 !important;
+  filter: drop-shadow(0 0 3px rgba(107, 138, 175, 0.4));
 }
 
 /* Make edge interaction area wider for easier clicking */
@@ -89,15 +89,15 @@
 
 /* Edge update handle (re-wiring grab point) */
 .react-flow__edgeupdater {
-  fill: #3b82f6;
-  stroke: #1e3a5f;
+  fill: #6b8aaf;
+  stroke: #3a4a5a;
   stroke-width: 1;
   r: 6;
   cursor: move;
 }
 
-/* Port pulse animation for unconnected required ports */
+/* Port pulse animation for unconnected required ports — subtle glow */
 @keyframes portPulse {
-  0%, 100% { box-shadow: 0 0 0 4px transparent, 0 0 4px 1px currentColor; opacity: 1; }
-  50% { box-shadow: 0 0 0 4px transparent, 0 0 10px 3px currentColor; opacity: 0.8; }
+  0%, 100% { box-shadow: 0 0 4px 1px currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 6px 2px currentColor; opacity: 0.85; }
 }

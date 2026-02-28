@@ -73,7 +73,7 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange, hin
         ref={svgRef}
         width={W}
         height={H}
-        className="bg-zinc-800 rounded border border-zinc-700 cursor-crosshair nodrag nowheel"
+        className="bg-[#1a1a1a] rounded border border-[#2a2a2a] cursor-crosshair nodrag nowheel"
       >
         {/* Grid */}
         <line x1={PAD} y1={H / 2} x2={W - PAD} y2={H / 2} stroke="#3f3f46" strokeWidth="0.5" />
@@ -87,22 +87,22 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange, hin
         <path
           d={`M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`}
           fill="none"
-          stroke="#3b82f6"
+          stroke="#6b8aaf"
           strokeWidth="1.5"
         />
         {/* Control points */}
         <circle
           cx={p1.x} cy={p1.y} r={3}
-          fill={dragging === 0 ? '#60a5fa' : '#3b82f6'}
-          stroke="#1e3a5f"
+          fill={dragging === 0 ? '#8aa8c8' : '#6b8aaf'}
+          stroke="#3a4a5a"
           strokeWidth="1"
           className="cursor-grab"
           onMouseDown={handleMouseDown(0)}
         />
         <circle
           cx={p2.x} cy={p2.y} r={3}
-          fill={dragging === 1 ? '#60a5fa' : '#3b82f6'}
-          stroke="#1e3a5f"
+          fill={dragging === 1 ? '#8aa8c8' : '#6b8aaf'}
+          stroke="#3a4a5a"
           strokeWidth="1"
           className="cursor-grab"
           onMouseDown={handleMouseDown(1)}

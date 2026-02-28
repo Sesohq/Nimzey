@@ -1,60 +1,59 @@
 /**
- * PreviewPanel - Displays the rendered output from the GPU pipeline.
- * Shows processed image, quality controls, and export options.
- * Supports collapsing to a thin sidebar for more canvas space.
+ * PreviewPanel - Floating navigator panel (Photoshop-style).
+ * Sits in the bottom-right corner, always visible but compact.
+ * Collapse to a small icon button, expand for full preview + controls.
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
+import { useState, useCallback, useEffect } from 'react';
 import {
+  Download,
+  Loader2,
   Maximize2,
   Minimize2,
-  Download,
-  ZoomIn,
-  ZoomOut,
-  Loader2,
-  PanelRightClose,
-  PanelRightOpen,
+  Eye,
 } from 'lucide-react';
 import { QualityLevel } from '@/types';
 
 interface PreviewPanelProps {
-  width: number;
   processedImage: string | null;
   isRendering: boolean;
   quality: QualityLevel;
   onQualityChange: (quality: QualityLevel) => void;
   onExportImage: (format?: 'png' | 'jpeg') => string | null;
   initCanvas: (canvas: HTMLCanvasElement | null) => void;
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
   canvasWidth?: number;
   canvasHeight?: number;
 }
 
-const QUALITY_OPTIONS: { value: QualityLevel; label: string }[] = [
-  { value: 'preview', label: 'Preview' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'full', label: 'Full' },
+const QUALITY_OPTIONS: { value: QualityLevel; label: string; short: string }[] = [
+  { value: 'preview', label: 'Preview', short: 'P' },
+  { value: 'draft', label: 'Draft', short: 'D' },
+  { value: 'full', label: 'Full', short: 'F' },
 ];
 
 export default function PreviewPanel({
-  width,
   processedImage,
   isRendering,
   quality,
   onQualityChange,
   onExportImage,
   initCanvas,
-  isCollapsed,
-  onToggleCollapse,
   canvasWidth = 512,
   canvasHeight = 512,
 }: PreviewPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'png' | 'jpeg'>('png');
-  const [zoom, setZoom] = useState(1);
+
+  // Escape key exits fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFullscreen]);
 
   const handleExport = useCallback(() => {
     const dataUrl = onExportImage(exportFormat);
@@ -66,7 +65,7 @@ export default function PreviewPanel({
     a.click();
   }, [exportFormat, onExportImage]);
 
-  // Hidden canvas always renders regardless of collapse state
+  // Hidden canvas always renders regardless of state
   const hiddenCanvas = (
     <canvas
       ref={initCanvas}
@@ -76,155 +75,162 @@ export default function PreviewPanel({
     />
   );
 
-  // Collapsed state: thin vertical bar
-  if (isCollapsed && !isFullscreen) {
+  // Fullscreen mode
+  if (isFullscreen) {
     return (
-      <div className="flex flex-col items-center bg-black border-l border-neutral-800 flex-shrink-0 py-2 gap-2"
-        style={{ width: 36 }}
-      >
+      <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
         {hiddenCanvas}
-        <button
-          onClick={onToggleCollapse}
-          className="p-1.5 text-neutral-400 hover:text-white transition-colors"
-          title="Expand preview"
-        >
-          <PanelRightOpen size={14} />
-        </button>
-        {isRendering && (
-          <Loader2 size={12} className="animate-spin text-blue-400" />
-        )}
-        <span className="text-[9px] text-neutral-500 [writing-mode:vertical-lr] rotate-180 select-none mt-1">
-          Preview
-        </span>
-        {processedImage && (
-          <div className="mx-1 mt-auto mb-1 rounded overflow-hidden border border-neutral-700" style={{ width: 28, height: 28 }}>
-            <img src={processedImage} alt="Preview" className="w-full h-full object-cover" />
-          </div>
+        {/* Close bar */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3">
+          <span className="text-[11px] text-[#888] tabular-nums">{canvasWidth} × {canvasHeight}</span>
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="p-1.5 text-[#888] hover:text-white transition-colors"
+          >
+            <Minimize2 size={16} />
+          </button>
+        </div>
+        {/* Image */}
+        {processedImage ? (
+          <img
+            src={processedImage}
+            alt="Preview"
+            className="max-w-[90vw] max-h-[85vh] object-contain"
+            draggable={false}
+          />
+        ) : (
+          <span className="text-[#555] text-sm">No output</span>
         )}
       </div>
     );
   }
 
-  return (
-    <div
-      className={`flex flex-col bg-black border-l border-neutral-800 flex-shrink-0 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}
-      style={isFullscreen ? undefined : { width }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">Preview</span>
-          <span className="text-[10px] text-zinc-500 tabular-nums">{canvasWidth} x {canvasHeight}</span>
-        </div>
-        <div className="flex items-center gap-1">
+  // Collapsed: small floating button with tiny thumbnail
+  if (isCollapsed) {
+    return (
+      <>
+        {hiddenCanvas}
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="fixed bottom-4 right-4 z-40 rounded-lg bg-[#1e1e1e] border border-[#2e2e2e] shadow-xl hover:border-[#444] transition-all group overflow-hidden"
+          title="Show preview"
+          style={{ width: 44, height: 44 }}
+        >
+          {processedImage ? (
+            <img src={processedImage} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+          ) : (
+            <Eye size={16} className="text-[#666] group-hover:text-[#aaa] transition-colors m-auto" />
+          )}
           {isRendering && (
-            <Loader2 size={13} className="animate-spin text-blue-400" />
+            <div className="absolute top-0.5 right-0.5">
+              <Loader2 size={8} className="animate-spin text-[#6b8aaf]" />
+            </div>
           )}
-          {onToggleCollapse && (
+        </button>
+      </>
+    );
+  }
+
+  // Expanded: floating navigator panel
+  return (
+    <>
+      {hiddenCanvas}
+      <div className="fixed bottom-4 right-4 z-40 w-[280px] rounded-lg bg-[#1e1e1e] border border-[#2e2e2e] shadow-2xl overflow-hidden">
+        {/* Title bar */}
+        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] cursor-default">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-[#d4d4d4] select-none">Preview</span>
+            <span className="text-[9px] text-[#666] tabular-nums select-none">{canvasWidth}×{canvasHeight}</span>
+            {isRendering && (
+              <Loader2 size={10} className="animate-spin text-[#6b8aaf]" />
+            )}
+          </div>
+          <div className="flex items-center gap-0.5">
             <button
-              onClick={onToggleCollapse}
-              className="p-1 text-neutral-400 hover:text-white transition-colors"
-              title="Collapse preview"
+              onClick={() => setIsFullscreen(true)}
+              className="p-1 text-[#555] hover:text-[#d4d4d4] transition-colors"
+              title="Fullscreen"
             >
-              <PanelRightClose size={13} />
+              <Maximize2 size={10} />
             </button>
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className="p-1 text-[#555] hover:text-[#d4d4d4] transition-colors"
+              title="Collapse"
+            >
+              <Minimize2 size={10} />
+            </button>
+          </div>
+        </div>
+
+        {/* Preview image */}
+        <div
+          className="relative bg-[#0a0a0a] cursor-pointer"
+          onClick={() => setIsFullscreen(true)}
+        >
+          {processedImage ? (
+            <>
+              {/* Checkerboard for transparency */}
+              <div
+                className="absolute inset-0 opacity-10"
+                style={{
+                  backgroundImage: 'linear-gradient(45deg, #444 25%, transparent 25%), linear-gradient(-45deg, #444 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #444 75%), linear-gradient(-45deg, transparent 75%, #444 75%)',
+                  backgroundSize: '12px 12px',
+                  backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px',
+                }}
+              />
+              <img
+                src={processedImage}
+                alt="Preview"
+                className="relative w-full h-auto"
+                draggable={false}
+              />
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-[#444] text-[10px] select-none">
+              Connect nodes to see output
+            </div>
           )}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1 text-neutral-400 hover:text-white transition-colors"
+        </div>
+
+        {/* Bottom toolbar: quality + export */}
+        <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-[#2a2a2a]">
+          {/* Quality pills */}
+          {QUALITY_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onQualityChange(opt.value)}
+              className={`px-1.5 py-0.5 text-[9px] rounded transition-colors ${
+                quality === opt.value
+                  ? 'bg-[#6b8aaf]/20 text-[#6b8aaf] border border-[#6b8aaf]/30'
+                  : 'text-[#666] hover:text-[#aaa] border border-transparent'
+              }`}
+              title={opt.label}
+            >
+              {opt.label}
+            </button>
+          ))}
+
+          <div className="flex-1" />
+
+          {/* Export controls */}
+          <select
+            value={exportFormat}
+            onChange={e => setExportFormat(e.target.value as 'png' | 'jpeg')}
+            className="h-5 text-[9px] bg-[#252525] text-[#888] border border-[#333] rounded px-1 outline-none focus:border-[#6b8aaf]"
           >
-            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            <option value="png">PNG</option>
+            <option value="jpeg">JPG</option>
+          </select>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1 h-5 px-2 text-[9px] bg-[#6b8aaf]/20 hover:bg-[#6b8aaf]/30 text-[#6b8aaf] rounded transition-colors"
+          >
+            <Download size={9} />
+            Export
           </button>
         </div>
       </div>
-
-      {/* Quality selector */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-neutral-800">
-        {QUALITY_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => onQualityChange(opt.value)}
-            className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
-              quality === opt.value
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'text-neutral-500 hover:text-neutral-300 border border-transparent'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Canvas (hidden, used for rendering) */}
-      {hiddenCanvas}
-
-      {/* Preview area */}
-      <div className="flex-1 flex items-center justify-center bg-black p-4 overflow-auto">
-        {processedImage ? (
-          <div
-            className="relative"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
-          >
-            {/* Checkerboard background for transparency */}
-            <div
-              className="absolute inset-0 opacity-20"
-              style={{
-                backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%)',
-                backgroundSize: '16px 16px',
-                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-              }}
-            />
-            <img
-              src={processedImage}
-              alt="Processed output"
-              className="relative max-w-full max-h-full object-contain"
-              draggable={false}
-            />
-          </div>
-        ) : (
-          <div className="text-neutral-600 text-sm">
-            Connect nodes to see output
-          </div>
-        )}
-      </div>
-
-      {/* Zoom controls */}
-      <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-t border-neutral-800">
-        <button
-          onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}
-          className="p-1 text-neutral-400 hover:text-white"
-        >
-          <ZoomOut size={13} />
-        </button>
-        <span className="text-[10px] text-neutral-500 w-10 text-center tabular-nums">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => setZoom(z => Math.min(4, z + 0.25))}
-          className="p-1 text-neutral-400 hover:text-white"
-        >
-          <ZoomIn size={13} />
-        </button>
-      </div>
-
-      {/* Export controls */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-neutral-800">
-        <select
-          value={exportFormat}
-          onChange={e => setExportFormat(e.target.value as 'png' | 'jpeg')}
-          className="h-6 text-[10px] bg-neutral-900 text-neutral-300 border border-neutral-700 rounded px-1.5"
-        >
-          <option value="png">PNG</option>
-          <option value="jpeg">JPEG</option>
-        </select>
-        <button
-          onClick={handleExport}
-          className="flex-1 flex items-center justify-center gap-1.5 h-6 text-[10px] bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-        >
-          <Download size={11} />
-          Export
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

@@ -10,6 +10,7 @@ import {
   NodeColorTag,
   NODE_COLOR_TAG_COLORS,
   NODE_CATEGORY_ICONS,
+  NODE_CATEGORY_COLORS,
 } from '@/types';
 import { NodeRegistry } from '@/registry/nodes';
 import { TypedHandle } from './TypedHandle';
@@ -157,42 +158,54 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
   const friendlyName = getFriendlyName(def.id, def.name);
   const showOriginalName = friendlyName !== def.name;
 
+  // Build header gradient style — category color when default tag, user color tag overrides
+  const isDefaultTag = data.colorTag === 'default';
+  const categoryColor = NODE_CATEGORY_COLORS[def.category] || '#282828';
+  const headerStyle: React.CSSProperties = isDefaultTag
+    ? { background: `linear-gradient(90deg, ${categoryColor}66 0%, transparent 70%), #282828` }
+    : { background: `linear-gradient(90deg, ${headerColor}55 0%, transparent 70%), #282828` };
+
   return (
     <div
       className={cn(
-        'rounded-lg shadow-lg border transition-all',
-        'bg-zinc-900 min-w-[220px] max-w-[280px]',
-        selected ? 'border-blue-500 ring-1 ring-blue-500/30' : 'border-zinc-700',
+        'rounded-lg border transition-all',
+        'bg-[#1e1e1e] min-w-[220px] max-w-[280px]',
+        selected ? 'border-[#555] ring-1 ring-white/[0.04]' : 'border-[#2e2e2e]',
         !data.enabled && 'opacity-50',
       )}
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
     >
       {/* Header */}
       <div
-        className="group/header flex items-center gap-1.5 px-2 py-1.5 cursor-grab rounded-t-lg relative"
-        style={{ backgroundColor: headerColor }}
+        className="group/header flex items-center gap-1.5 px-2.5 py-2 cursor-grab rounded-t-lg relative"
+        style={headerStyle}
       >
-        <button
-          onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
-          className="text-white/70 hover:text-white transition-colors"
-        >
-          {data.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
-        </button>
-        <IconComponent size={12} className="text-white/80" />
-        <span className="text-[11px] font-medium text-white flex-1 truncate select-none">
+        {/* Icon with subtle circle background */}
+        <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center flex-shrink-0">
+          <IconComponent size={11} className="text-[#d4d4d4]" />
+        </div>
+        <span className="text-[11px] font-medium text-[#d4d4d4] flex-1 truncate select-none">
           {friendlyName}
         </span>
+        {/* Action buttons — visible on hover */}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
+          className="text-[#666] hover:text-[#d4d4d4] transition-colors opacity-0 group-hover/header:opacity-100"
+        >
+          {data.enabled ? <Eye size={11} /> : <EyeOff size={11} />}
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
-          className="text-white/60 hover:text-white"
+          className="text-[#666] hover:text-[#d4d4d4] transition-colors opacity-0 group-hover/header:opacity-100"
         >
           <Palette size={10} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }} className="text-white/60 hover:text-white">
-          {data.collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        <button onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }} className="text-[#666] hover:text-[#d4d4d4] transition-colors">
+          {data.collapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
         </button>
         {/* Tooltip showing original technical name */}
         {showOriginalName && (
-          <div className="pointer-events-none absolute z-50 opacity-0 group-hover/header:opacity-100 transition-opacity duration-150 text-[10px] px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 whitespace-nowrap shadow-lg left-1/2 -translate-x-1/2 -top-7">
+          <div className="pointer-events-none absolute z-50 opacity-0 group-hover/header:opacity-100 transition-opacity duration-150 text-[10px] px-2 py-1 rounded bg-[#252525] border border-[#333] text-[#888] whitespace-nowrap shadow-lg left-1/2 -translate-x-1/2 -top-7">
             {def.name}
           </div>
         )}
@@ -200,7 +213,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
       {/* Color tag picker */}
       {showColorPicker && (
-        <div className="bg-zinc-800 border-b border-zinc-700">
+        <div className="bg-[#252525] border-b border-[#2a2a2a]">
           <ColorTagPicker current={data.colorTag} onChange={handleColorTag} />
         </div>
       )}
@@ -209,7 +222,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
       <div className="py-1.5">
         {/* Input Ports */}
         {def.inputs.length > 0 && (
-          <div className="flex flex-col mb-1">
+          <div className="flex flex-col border-b border-[#2a2a2a] pb-1 mb-1">
             {def.inputs.map(port => (
               <TypedHandle
                 key={port.id}
@@ -241,7 +254,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
             ) : (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full h-16 border border-dashed border-zinc-600 rounded flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-zinc-300 hover:border-zinc-500 transition-colors"
+                className="w-full h-16 border border-dashed border-[#333] rounded flex flex-col items-center justify-center gap-1 text-[#666] hover:text-[#888] hover:border-[#444] transition-colors"
               >
                 <Upload size={14} />
                 <span className="text-[9px]">Upload Image</span>
@@ -259,7 +272,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
         {/* Preview thumbnail — always visible, even when collapsed */}
         {data.preview && !isExternal && (
-          <div className="mb-1 mx-2 rounded overflow-hidden border border-zinc-700/50">
+          <div className="mb-1 mx-2 rounded overflow-hidden border border-[#2a2a2a]">
             <img
               src={data.preview}
               alt="Preview"
@@ -286,7 +299,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
         {/* Output Ports */}
         {def.outputs.length > 0 && (
-          <div className="flex flex-col mt-1">
+          <div className="flex flex-col mt-1 border-t border-[#2a2a2a] pt-1">
             {def.outputs.map(port => (
               <TypedHandle
                 key={port.id}

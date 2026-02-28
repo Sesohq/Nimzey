@@ -35,8 +35,6 @@ function EditorContent({ docId }: { docId: string }) {
 
   const graph = useNimzeyGraph({ quality: 'draft', width: canvasWidth, height: canvasHeight });
   const [leftPanelWidth] = useState(260);
-  const [rightPanelWidth] = useState(320);
-  const [previewCollapsed, setPreviewCollapsed] = useState(false);
 
   // Auto-save timer ref
   const autoSaveTimer = useRef<number | null>(null);
@@ -71,6 +69,30 @@ function EditorContent({ docId }: { docId: string }) {
     }
   }, [docId]);
 
+  // Undo/Redo keyboard shortcuts (Cmd+Z / Cmd+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      // Skip when typing in inputs
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.target as HTMLElement).isContentEditable) return;
+
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        graphRef.current.undo();
+      }
+      if ((e.key === 'z' && e.shiftKey) || (e.key === 'y' && !e.shiftKey)) {
+        e.preventDefault();
+        graphRef.current.redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Auto-save: debounced save on structural graph changes (node/edge/parameter mutations).
   // Uses structuralVersion instead of graphState to avoid infinite loops from preview thumbnail updates.
   useEffect(() => {
@@ -100,10 +122,6 @@ function EditorContent({ docId }: { docId: string }) {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
   }, [graph.structuralVersion, loaded]);
-
-  const handleTogglePreview = useCallback(() => {
-    setPreviewCollapsed(prev => !prev);
-  }, []);
 
   const handleNewProject = useCallback(() => {
     setShowNewDialog(true);
@@ -227,6 +245,10 @@ function EditorContent({ docId }: { docId: string }) {
         documentName={doc.name}
         onRename={handleRename}
         onBack={handleBack}
+        onUndo={graph.undo}
+        onRedo={graph.redo}
+        canUndo={graph.canUndo}
+        canRedo={graph.canRedo}
       />
 
       <DocumentTabs
@@ -246,7 +268,7 @@ function EditorContent({ docId }: { docId: string }) {
           onApplyPreset={graph.applyPreset}
         />
 
-        {/* Center - Graph editor */}
+        {/* Center - Graph editor (full remaining width) */}
         <NodeCanvas
           nodes={graph.nodes}
           edges={graph.edges}
@@ -269,22 +291,19 @@ function EditorContent({ docId }: { docId: string }) {
           lastAddedDefinitionId={graph.lastAddedDefinitionId}
           onClearSuggestion={graph.clearSuggestion}
         />
-
-        {/* Right - Preview */}
-        <PreviewPanel
-          width={rightPanelWidth}
-          processedImage={graph.processedImage}
-          isRendering={graph.isRendering}
-          quality={graph.quality}
-          onQualityChange={graph.setQuality}
-          onExportImage={graph.exportImage}
-          initCanvas={graph.initCanvas}
-          isCollapsed={previewCollapsed}
-          onToggleCollapse={handleTogglePreview}
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-        />
       </div>
+
+      {/* Floating preview navigator (Photoshop-style) */}
+      <PreviewPanel
+        processedImage={graph.processedImage}
+        isRendering={graph.isRendering}
+        quality={graph.quality}
+        onQualityChange={graph.setQuality}
+        onExportImage={graph.exportImage}
+        initCanvas={graph.initCanvas}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+      />
 
       <NewDocumentDialog
         open={showNewDialog}

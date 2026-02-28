@@ -30,16 +30,24 @@ export const refractionShader: ShaderDefinition = {
   isNeighborhood: false,
   uniforms: [
     { name: 'u_refraction', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
-  vec4 height = texture(u_input1, uv);
+  // Use height map if connected, otherwise use source luminance as height
+  vec4 height = (u_inputCount > 1) ? texture(u_input1, uv) : texture(u_input0, uv);
   float h = luminance(height.rgb);
   vec2 texel = 1.0 / u_resolution;
 
   // Compute gradient of height map
-  float hx = luminance(texture(u_input1, uv + vec2(texel.x, 0.0)).rgb) - h;
-  float hy = luminance(texture(u_input1, uv + vec2(0.0, texel.y)).rgb) - h;
+  vec4 hxSample = (u_inputCount > 1)
+    ? texture(u_input1, uv + vec2(texel.x, 0.0))
+    : texture(u_input0, uv + vec2(texel.x, 0.0));
+  vec4 hySample = (u_inputCount > 1)
+    ? texture(u_input1, uv + vec2(0.0, texel.y))
+    : texture(u_input0, uv + vec2(0.0, texel.y));
+  float hx = luminance(hxSample.rgb) - h;
+  float hy = luminance(hySample.rgb) - h;
 
   float refract = u_refraction / 100.0;
   vec2 displaced = uv + vec2(hx, hy) * refract;

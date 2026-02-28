@@ -1,16 +1,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import nimzeyLogo from '@/assets/nimzey-logo.png';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Undo2, Redo2 } from 'lucide-react';
 
 interface HeaderProps {
   onNewProject: () => void;
   documentName?: string;
   onRename?: (name: string) => void;
   onBack?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
-export default function Header({ onNewProject, documentName, onRename, onBack }: HeaderProps) {
+export default function Header({ onNewProject, documentName, onRename, onBack, onUndo, onRedo, canUndo, canRedo }: HeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +89,27 @@ export default function Header({ onNewProject, documentName, onRename, onBack }:
         )}
       </div>
       <div className="flex items-center gap-2">
+        {/* Undo / Redo */}
+        {onUndo && onRedo && (
+          <div className="flex items-center gap-0.5 mr-1">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="p-1.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-25 disabled:cursor-default text-zinc-400 hover:text-white disabled:hover:text-zinc-400 disabled:hover:bg-transparent"
+              title="Undo (Cmd+Z)"
+            >
+              <Undo2 size={14} />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className="p-1.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-25 disabled:cursor-default text-zinc-400 hover:text-white disabled:hover:text-zinc-400 disabled:hover:bg-transparent"
+              title="Redo (Cmd+Shift+Z)"
+            >
+              <Redo2 size={14} />
+            </button>
+          </div>
+        )}
         <span className="text-[10px] text-zinc-600">Auto-saved</span>
         <Button
           size="sm"
