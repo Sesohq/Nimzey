@@ -266,9 +266,9 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     }
   }, [graph, uploadNodeImage]);
 
-  // Drop handler for drag-and-drop from filter panel (auto-connects)
+  // Drop handler for drag-and-drop from filter panel (simple placement, no auto-wiring)
   const onDrop = useCallback((definitionId: string, position: { x: number; y: number }) => {
-    graph.autoInsertNode(definitionId, position);
+    graph.addNode(definitionId, position);
   }, [graph]);
 
   // Apply a starter template

@@ -179,6 +179,14 @@ function EditorContent({ docId }: { docId: string }) {
     setLocation('/');
   }, [setLocation]);
 
+  const handleResolutionChange = useCallback((width: number, height: number) => {
+    if (!doc) return;
+    const updated = { ...doc, width, height, updatedAt: Date.now() };
+    setDoc(updated);
+    saveDocument(updated);
+    setOpenTabs(prev => prev.map(t => t.id === doc.id ? { ...t, width, height } : t));
+  }, [doc]);
+
   const handleRename = useCallback((newName: string) => {
     if (!doc) return;
     const updated = { ...doc, name: newName, updatedAt: Date.now() };
@@ -263,7 +271,7 @@ function EditorContent({ docId }: { docId: string }) {
         {/* Left - Node palette */}
         <FilterPanel
           width={leftPanelWidth}
-          onAddNode={graph.autoConnectNode}
+          onAddNode={graph.addNode}
           onUploadImage={graph.uploadSourceImage}
           onApplyPreset={graph.applyPreset}
         />
@@ -303,6 +311,7 @@ function EditorContent({ docId }: { docId: string }) {
         initCanvas={graph.initCanvas}
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
+        onResolutionChange={handleResolutionChange}
       />
 
       <NewDocumentDialog

@@ -37,10 +37,12 @@ vec4 processPixel(vec2 uv) {
   float hi = u_range_high / 100.0;
   m = clamp((m - lo) / max(hi - lo, 0.001), 0.0, 1.0);
 
-  // Apply threshold with softness via smoothstep
+  // Apply threshold with softness via smoothstep (skip when both are zero for raw mask passthrough)
   float thresh = u_threshold / 100.0;
   float soft = u_softness / 100.0 * 0.5; // half-width for smoothstep
-  m = smoothstep(thresh - soft, thresh + soft, m);
+  if (thresh > 0.001 || soft > 0.001) {
+    m = smoothstep(thresh - soft, thresh + soft, m);
+  }
 
   // Invert the mask if requested
   if (u_invert == 1) {
