@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const imageNode: NodeDefinition = {
   id: 'image',
   name: 'Image',
-  category: 'external',
+  category: 'utility',
   description: 'Loads an image file as a source. Makes the filter an Effect filter.',
   inputs: [],
   outputs: [
@@ -20,7 +20,7 @@ export const imageNode: NodeDefinition = {
 export const colorControlNode: NodeDefinition = {
   id: 'color-control',
   name: 'Color Control',
-  category: 'control',
+  category: 'utility',
   description: 'Provides a color value as a Map output. Can accept images.',
   inputs: [],
   outputs: [
@@ -39,7 +39,7 @@ export const colorControlNode: NodeDefinition = {
 export const sliderControlNode: NodeDefinition = {
   id: 'slider-control',
   name: 'Slider',
-  category: 'control',
+  category: 'utility',
   description: 'Provides a numeric value from a slider control.',
   inputs: [],
   outputs: [
@@ -59,7 +59,7 @@ export const sliderControlNode: NodeDefinition = {
 export const checkboxControlNode: NodeDefinition = {
   id: 'checkbox-control',
   name: 'Checkbox',
-  category: 'control',
+  category: 'utility',
   description: 'Provides a boolean (0 or 1) numeric value.',
   inputs: [],
   outputs: [
@@ -78,7 +78,7 @@ export const checkboxControlNode: NodeDefinition = {
 export const angleControlNode: NodeDefinition = {
   id: 'angle-control',
   name: 'Angle',
-  category: 'control',
+  category: 'utility',
   description: 'Provides an angle value as a numeric output.',
   inputs: [],
   outputs: [

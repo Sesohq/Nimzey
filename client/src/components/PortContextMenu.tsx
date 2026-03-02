@@ -8,13 +8,13 @@ import { DataType, NODE_CATEGORY_ICONS, NODE_CATEGORY_COLORS } from '@/types';
 import { NodeRegistry } from '@/registry/nodes';
 import { getFriendlyName } from '@/data/friendlyNames';
 import {
-  Waves, Palette, Grid3x3, Layers, SlidersHorizontal,
-  Calculator, Move, Image, Settings, Cpu, Star, GitBranch, Spline,
+  Sparkles, Layers, SlidersHorizontal, Wand2, Blend,
+  Move, Calculator, Spline, Settings, Star,
 } from 'lucide-react';
 
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Waves, Palette, Grid3x3, Layers, SlidersHorizontal,
-  Calculator, Move, Image, Settings, Cpu, Star, GitBranch, Spline,
+  Sparkles, Layers, SlidersHorizontal, Wand2, Blend,
+  Move, Calculator, Spline, Settings, Star,
   SplitSquareHorizontal: Layers,
 };
 
@@ -69,17 +69,16 @@ function getSuggestions(dataType: DataType): { id: string; name: string; categor
 
 /** Category display names */
 const CATEGORY_NAMES: Record<string, string> = {
-  external: 'Sources',
-  noise: 'Noise',
-  gradient: 'Gradients',
-  pattern: 'Patterns',
-  processing: 'Processing',
+  generator: 'Generators',
+  filter: 'Filters',
   adjustment: 'Adjustments',
-  channel: 'Channels',
+  effect: 'Effects',
+  blender: 'Blenders',
   transform: 'Transforms',
+  channel: 'Channels',
   math: 'Math',
-  'curve-generator': 'Curve Sources',
-  'curve-operation': 'Curve Operations',
+  curve: 'Curves',
+  utility: 'Utility',
 };
 
 export default function PortContextMenu({

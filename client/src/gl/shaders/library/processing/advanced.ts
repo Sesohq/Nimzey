@@ -146,3 +146,99 @@ vec4 processPixel(vec2 uv) {
   return minColor;
 }`,
 };
+
+export const pixelateShaderDef: ShaderDefinition = {
+  id: 'pixelate',
+  inputCount: 1,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_pixelSize', type: 'float' },
+    { name: 'u_shape', type: 'int' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  // pixel size as fraction of resolution
+  float ps = max(u_pixelSize, 1.0);
+  vec2 cellSize = vec2(ps) / u_resolution;
+
+  // Cell center
+  vec2 cell = floor(uv / cellSize);
+  vec2 cellCenter = (cell + 0.5) * cellSize;
+
+  // Sample color at cell center
+  vec4 col = texture(u_input0, cellCenter);
+
+  // Shape masking
+  if (u_shape > 0) {
+    vec2 local = (uv - cell * cellSize) / cellSize - 0.5; // -0.5 to 0.5
+    float dist = 0.0;
+
+    if (u_shape == 1) {
+      // Circle
+      dist = length(local);
+    } else if (u_shape == 2) {
+      // Diamond
+      dist = abs(local.x) + abs(local.y);
+    }
+
+    if (dist > 0.5) {
+      col = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+  }
+
+  return col;
+}`,
+};
+
+export const extrudeShaderDef: ShaderDefinition = {
+  id: 'extrude',
+  inputCount: 1,
+  isNeighborhood: false,
+  uniforms: [
+    { name: 'u_height', type: 'float' },
+    { name: 'u_angle', type: 'float' },
+    { name: 'u_steps', type: 'int' },
+    { name: 'u_fadeMode', type: 'int' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  float height = u_height / 100.0 * 0.15;
+  float angle = u_angle * 3.14159265 / 180.0;
+  vec2 dir = vec2(cos(angle), sin(angle));
+
+  int steps = max(u_steps, 1);
+  vec2 texel = 1.0 / u_resolution;
+
+  // Start from the farthest extrusion point and layer forward
+  vec4 result = vec4(0.0, 0.0, 0.0, 1.0);
+
+  for (int i = steps; i >= 0; i--) {
+    float t = float(i) / float(steps);
+    vec2 offset = dir * height * t;
+    vec4 sample_color = texture(u_input0, uv - offset);
+
+    // Fade: darken extruded layers to simulate depth
+    float fade = 1.0;
+    if (u_fadeMode == 0) {
+      // Linear darkening
+      fade = 1.0 - t * 0.6;
+    } else if (u_fadeMode == 1) {
+      // No fade (flat)
+      fade = 1.0;
+    } else if (u_fadeMode == 2) {
+      // Strong shadow
+      fade = 1.0 - t * 0.85;
+    }
+
+    if (i > 0) {
+      // Extrusion layer
+      result = vec4(sample_color.rgb * fade, sample_color.a);
+    } else {
+      // Top face (original, always full brightness)
+      result = sample_color;
+    }
+  }
+
+  return result;
+}`,
+};

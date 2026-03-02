@@ -1,30 +1,35 @@
 import { NodeRegistry, getEffectiveInputs } from '../NodeRegistry';
 
-// Noise generators
+// Generators — Noise
 import { perlinNoiseNode } from './noise/perlin';
 import { cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode } from './noise/cells';
 
-// Gradients
+// Generators — Gradients
 import {
   threeColorGradientNode, fiveColorGradientNode, profileGradientNode,
   freeGradientNode, elevationGradientNode, spectrumNode,
 } from './gradient/gradients';
 
-// Patterns
+// Generators — Patterns
 import {
   checkerNode, bricksNode, tilesNode, ellipseNode, polygonNode, rectangleNode,
 } from './pattern/patterns';
 
-// Processing
+// Blenders
 import { blendNode, multiblendNode } from './processing/blend';
+import { maskNode } from './processing/mask';
+
+// Filters
 import {
   blurNode, motionBlurNode, sharpenNode, edgeDetectorNode,
-  highPassNode, noiseDistortionNode, refractionNode, medianNode,
-  maximumNode, minimumNode,
+  highPassNode, medianNode, maximumNode, minimumNode,
 } from './processing/blur';
-import { maskNode } from './processing/mask';
+
+// Effects
+import { noiseDistortionNode, refractionNode } from './processing/blur';
 import { halftoneNode } from './processing/halftone';
 import { ditherNode } from './processing/dither';
+import { pixelateNode, extrudeNode } from './processing/effects';
 
 // Adjustments
 import {
@@ -52,33 +57,39 @@ import {
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
 } from './math/rgb-math';
 
-// External & Controls
+// Utility (sources + controls)
 import {
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
 } from './external/external';
 
-// Curve generators
+// Curves
 import { curveGeneratorNode, levelsCurveNode } from './curve/curves';
 
-// Special
+// Special (output nodes)
 import { resultNode, resultPBRNode } from './special/result';
 
 // Register all nodes
 const allNodes = [
-  // Noise
+  // Generators — Noise
   perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode,
 
-  // Gradients
+  // Generators — Gradients
   threeColorGradientNode, fiveColorGradientNode, profileGradientNode,
   freeGradientNode, elevationGradientNode, spectrumNode,
 
-  // Patterns
+  // Generators — Patterns
   checkerNode, bricksNode, tilesNode, ellipseNode, polygonNode, rectangleNode,
 
-  // Processing
-  blendNode, multiblendNode, blurNode, motionBlurNode, sharpenNode,
-  edgeDetectorNode, highPassNode, noiseDistortionNode, refractionNode,
-  medianNode, maximumNode, minimumNode, maskNode, halftoneNode, ditherNode,
+  // Blenders
+  blendNode, multiblendNode, maskNode,
+
+  // Filters
+  blurNode, motionBlurNode, sharpenNode, edgeDetectorNode,
+  highPassNode, medianNode, maximumNode, minimumNode,
+
+  // Effects
+  noiseDistortionNode, refractionNode, halftoneNode, ditherNode,
+  pixelateNode, extrudeNode,
 
   // Adjustments
   brightnessContrastNode, levelsNode, hueSaturationNode, invertNode,
@@ -98,10 +109,10 @@ const allNodes = [
   floorNode, ceilNode, roundNode,
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
 
-  // External & Controls
+  // Utility
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
 
-  // Curve generators
+  // Curves
   curveGeneratorNode, levelsCurveNode,
 
   // Special
@@ -114,17 +125,21 @@ export { NodeRegistry, getEffectiveInputs };
 
 // Re-export all node definitions for direct access
 export {
-  // Noise
+  // Generators — Noise
   perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode,
-  // Gradients
+  // Generators — Gradients
   threeColorGradientNode, fiveColorGradientNode, profileGradientNode,
   freeGradientNode, elevationGradientNode, spectrumNode,
-  // Patterns
+  // Generators — Patterns
   checkerNode, bricksNode, tilesNode, ellipseNode, polygonNode, rectangleNode,
-  // Processing
-  blendNode, multiblendNode, blurNode, motionBlurNode, sharpenNode,
-  edgeDetectorNode, highPassNode, noiseDistortionNode, refractionNode,
-  medianNode, maximumNode, minimumNode, maskNode, halftoneNode, ditherNode,
+  // Blenders
+  blendNode, multiblendNode, maskNode,
+  // Filters
+  blurNode, motionBlurNode, sharpenNode, edgeDetectorNode,
+  highPassNode, medianNode, maximumNode, minimumNode,
+  // Effects
+  noiseDistortionNode, refractionNode, halftoneNode, ditherNode,
+  pixelateNode, extrudeNode,
   // Adjustments
   brightnessContrastNode, levelsNode, hueSaturationNode, invertNode,
   gammaNode, desaturateNode, thresholdNode, toneCurveNode,
@@ -139,9 +154,9 @@ export {
   lerpNode, ifNode, remapRangeNode,
   floorNode, ceilNode, roundNode,
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
-  // External & Controls
+  // Utility
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
-  // Curve generators
+  // Curves
   curveGeneratorNode, levelsCurveNode,
   // Special
   resultNode, resultPBRNode,

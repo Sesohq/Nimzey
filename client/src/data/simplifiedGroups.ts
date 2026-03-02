@@ -1,14 +1,18 @@
 /**
- * Simplified category groups - collapses 13 technical categories into 6 intuitive groups.
+ * Simplified category groups - matches old Nimzey category style.
+ * Each group corresponds to a section in the FilterPanel sidebar.
  */
 
 import { NodeCategory } from '@/types';
 import {
   Sparkles,
+  Settings,
+  Blend,
+  Layers,
   SlidersHorizontal,
   Wand2,
-  Palette,
   Move,
+  Palette,
   Calculator,
 } from 'lucide-react';
 
@@ -21,14 +25,32 @@ export interface SimplifiedGroup {
 
 export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
   {
-    id: 'create',
-    label: 'Create',
+    id: 'generators',
+    label: 'Generators',
     icon: Sparkles,
-    categories: ['noise', 'gradient', 'pattern', 'external'],
+    categories: ['generator'],
   },
   {
-    id: 'adjust',
-    label: 'Adjust',
+    id: 'utility',
+    label: 'Utility',
+    icon: Settings,
+    categories: ['utility'],
+  },
+  {
+    id: 'blenders',
+    label: 'Blenders',
+    icon: Blend,
+    categories: ['blender'],
+  },
+  {
+    id: 'filters',
+    label: 'Filters',
+    icon: Layers,
+    categories: ['filter'],
+  },
+  {
+    id: 'adjustments',
+    label: 'Adjustments',
     icon: SlidersHorizontal,
     categories: ['adjustment'],
   },
@@ -36,7 +58,13 @@ export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
     id: 'effects',
     label: 'Effects',
     icon: Wand2,
-    categories: ['processing'],
+    categories: ['effect'],
+  },
+  {
+    id: 'transforms',
+    label: 'Transforms',
+    icon: Move,
+    categories: ['transform'],
   },
   {
     id: 'colors',
@@ -45,16 +73,10 @@ export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
     categories: ['channel'],
   },
   {
-    id: 'transform',
-    label: 'Transform',
-    icon: Move,
-    categories: ['transform'],
-  },
-  {
     id: 'math',
     label: 'Math',
     icon: Calculator,
-    categories: ['math', 'curve-generator', 'curve-operation', 'control', 'advanced'],
+    categories: ['math', 'curve'],
   },
 ];
 

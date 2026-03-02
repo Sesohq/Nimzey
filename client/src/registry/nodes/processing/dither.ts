@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const ditherNode: NodeDefinition = {
   id: 'dither',
   name: 'Dither',
-  category: 'processing',
+  category: 'effect',
   description: 'Reduces color depth with artistic dithering patterns.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true },

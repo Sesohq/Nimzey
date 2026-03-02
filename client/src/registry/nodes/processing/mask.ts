@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const maskNode: NodeDefinition = {
   id: 'mask',
   name: 'Mask',
-  category: 'processing',
+  category: 'blender',
   description: 'Uses a grayscale map to control transparency. White = visible, black = hidden.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },

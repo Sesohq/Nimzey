@@ -79,71 +79,59 @@ export interface ParameterDefinition {
 // ---------------------------------------------------------------------------
 
 export type NodeCategory =
-  | 'noise'
-  | 'gradient'
-  | 'pattern'
-  | 'processing'
+  | 'generator'
+  | 'filter'
   | 'adjustment'
+  | 'effect'
+  | 'blender'
+  | 'transform'
   | 'channel'
   | 'math'
-  | 'transform'
-  | 'curve-generator'
-  | 'curve-operation'
-  | 'external'
-  | 'control'
-  | 'advanced'
+  | 'curve'
+  | 'utility'
   | 'special';
 
 export const NODE_CATEGORY_LABELS: Record<NodeCategory, string> = {
-  noise: 'Noise Generators',
-  gradient: 'Gradients',
-  pattern: 'Patterns',
-  processing: 'Processing',
+  generator: 'Generators',
+  filter: 'Filters',
   adjustment: 'Adjustments',
-  channel: 'Channels',
-  math: 'RGB Math',
+  effect: 'Effects',
+  blender: 'Blenders',
   transform: 'Transforms',
-  'curve-generator': 'Curve Generators',
-  'curve-operation': 'Curve Operations',
-  external: 'External',
-  control: 'Controls',
-  advanced: 'Advanced',
+  channel: 'Channels',
+  math: 'Math',
+  curve: 'Curves',
+  utility: 'Utility',
   special: 'Special',
 };
 
 export const NODE_CATEGORY_ICONS: Record<NodeCategory, string> = {
-  noise: 'Waves',
-  gradient: 'Palette',
-  pattern: 'Grid3x3',
-  processing: 'Layers',
+  generator: 'Sparkles',
+  filter: 'Layers',
   adjustment: 'SlidersHorizontal',
+  effect: 'Wand2',
+  blender: 'Blend',
+  transform: 'Move',
   channel: 'SplitSquareHorizontal',
   math: 'Calculator',
-  transform: 'Move',
-  'curve-generator': 'Spline',
-  'curve-operation': 'GitBranch',
-  external: 'Image',
-  control: 'Settings',
-  advanced: 'Cpu',
+  curve: 'Spline',
+  utility: 'Settings',
   special: 'Star',
 };
 
 /** Vibrant accent color per node category — used for header gradient tinting */
 export const NODE_CATEGORY_COLORS: Record<NodeCategory, string> = {
-  noise: '#e89030',             // vivid orange
-  gradient: '#c060e0',          // vivid purple
-  pattern: '#30c8c8',           // neon teal
-  processing: '#40a0f0',        // bright blue
-  adjustment: '#e0c040',        // vivid yellow
-  channel: '#50d060',           // neon green
-  math: '#8090e0',              // bright periwinkle
-  transform: '#f07050',         // neon coral
-  'curve-generator': '#7070f0', // neon indigo
-  'curve-operation': '#60a0d0', // bright sky
-  external: '#60e080',          // neon mint
-  control: '#b0a060',           // bright gold
-  advanced: '#a050e0',          // neon violet
-  special: '#50b0f0',           // neon blue
+  generator: '#e89030',   // vivid orange — noise, gradients, patterns
+  filter: '#40a0f0',      // bright blue — blur, sharpen, edge detect
+  adjustment: '#e0c040',  // vivid yellow — brightness, levels, hue
+  effect: '#c060e0',      // vivid purple — halftone, dither, distortion
+  blender: '#50d060',     // neon green — blend, mask, composite
+  transform: '#f07050',   // neon coral — flip, rotate, scale
+  channel: '#30c8c8',     // neon teal — extract/assemble channels
+  math: '#8090e0',        // bright periwinkle — math operations
+  curve: '#7070f0',       // neon indigo — curve generators
+  utility: '#60e080',     // neon mint — image, controls
+  special: '#50b0f0',     // neon blue — result nodes
 };
 
 export interface NodeDefinition {

@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const curveGeneratorNode: NodeDefinition = {
   id: 'curve-generator',
   name: 'Curve Generator',
-  category: 'curve-generator',
+  category: 'curve',
   description: 'Generates preset curve shapes for tone mapping.',
   inputs: [],
   outputs: [
@@ -30,7 +30,7 @@ export const curveGeneratorNode: NodeDefinition = {
 export const levelsCurveNode: NodeDefinition = {
   id: 'levels-curve',
   name: 'Levels Curve',
-  category: 'curve-generator',
+  category: 'curve',
   description: 'Maps an input range to an output range with gamma control.',
   inputs: [],
   outputs: [

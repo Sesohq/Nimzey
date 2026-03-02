@@ -48,6 +48,8 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'mask': { name: 'Mask', description: 'Uses a grayscale image to cut out areas' },
   'halftone': { name: 'Halftone', description: 'Creates newspaper-style dot patterns' },
   'dither': { name: 'Dither', description: 'Reduces colors with artistic pixel patterns' },
+  'pixelate': { name: 'Pixelate', description: 'Creates a blocky, retro mosaic effect' },
+  'extrude': { name: 'Extrude', description: 'Gives a 3D pop-out effect with depth shadows' },
 
   // Adjustments
   'brightness-contrast': { name: 'Bright & Dark', description: 'Makes image lighter or darker' },

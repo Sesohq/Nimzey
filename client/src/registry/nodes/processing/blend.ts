@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const blendNode: NodeDefinition = {
   id: 'blend',
   name: 'Blend',
-  category: 'processing',
+  category: 'blender',
   description: 'Composites foreground over background using blend modes with alpha awareness.',
   inputs: [
     { id: 'foreground', label: 'Foreground', dataType: DataType.Map, required: true, hdr: true },
@@ -38,7 +38,7 @@ export const blendNode: NodeDefinition = {
 export const multiblendNode: NodeDefinition = {
   id: 'multiblend',
   name: 'Multiblend',
-  category: 'processing',
+  category: 'blender',
   description: 'Blends up to 7 layers using Normal mode with individual opacity controls.',
   inputs: [
     { id: 'layer1', label: 'Layer 1', dataType: DataType.Map, required: false, hdr: true },
