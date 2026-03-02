@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const halftoneNode: NodeDefinition = {
   id: 'halftone',
   name: 'Halftone',
-  category: 'processing',
+  category: 'effect',
   description: 'Converts image to halftone dot patterns like newspaper/print.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },

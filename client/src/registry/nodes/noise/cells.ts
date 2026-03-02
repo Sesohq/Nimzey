@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const cellsNoiseNode: NodeDefinition = {
   id: 'cells-noise',
   name: 'Cells',
-  category: 'noise',
+  category: 'generator',
   description: 'Worley/cellular noise. Creates cell-like patterns for stone, scales, bubbles.',
   inputs: [],
   outputs: [
@@ -32,7 +32,7 @@ export const cellsNoiseNode: NodeDefinition = {
 export const blocksNoiseNode: NodeDefinition = {
   id: 'blocks-noise',
   name: 'Blocks',
-  category: 'noise',
+  category: 'generator',
   description: 'Overlapping rectangles and pyramids. Creates city blocks, circuitry patterns.',
   inputs: [],
   outputs: [
@@ -54,7 +54,7 @@ export const blocksNoiseNode: NodeDefinition = {
 export const pyramidsNoiseNode: NodeDefinition = {
   id: 'pyramids-noise',
   name: 'Pyramids',
-  category: 'noise',
+  category: 'generator',
   description: 'Pyramid-shaped cellular noise.',
   inputs: [],
   outputs: [

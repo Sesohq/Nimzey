@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const perlinNoiseNode: NodeDefinition = {
   id: 'perlin-noise',
   name: 'Perlin Noise',
-  category: 'noise',
+  category: 'generator',
   description: 'Procedural gradient noise with octave composition. Creates clouds, terrain, organic textures.',
   inputs: [
     { id: 'background', label: 'Background', dataType: DataType.Map, required: false, hdr: true },

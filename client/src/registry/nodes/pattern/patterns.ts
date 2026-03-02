@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const checkerNode: NodeDefinition = {
   id: 'checker',
   name: 'Checker',
-  category: 'pattern',
+  category: 'generator',
   description: 'Checkerboard pattern with configurable colors and repeat.',
   inputs: [],
   outputs: [
@@ -26,7 +26,7 @@ export const checkerNode: NodeDefinition = {
 export const bricksNode: NodeDefinition = {
   id: 'bricks',
   name: 'Bricks',
-  category: 'pattern',
+  category: 'generator',
   description: 'Brick wall pattern with configurable bond, mortar, and bevel.',
   inputs: [],
   outputs: [
@@ -58,7 +58,7 @@ export const bricksNode: NodeDefinition = {
 export const tilesNode: NodeDefinition = {
   id: 'tiles',
   name: 'Tiles',
-  category: 'pattern',
+  category: 'generator',
   description: 'Square tile grid with mortar and bevel. Great for bathroom tiles, grids, halftone.',
   inputs: [],
   outputs: [
@@ -86,7 +86,7 @@ export const tilesNode: NodeDefinition = {
 export const ellipseNode: NodeDefinition = {
   id: 'ellipse',
   name: 'Ellipse',
-  category: 'pattern',
+  category: 'generator',
   description: 'Generates an ellipse or circle shape with optional bevel.',
   inputs: [],
   outputs: [
@@ -112,7 +112,7 @@ export const ellipseNode: NodeDefinition = {
 export const polygonNode: NodeDefinition = {
   id: 'polygon',
   name: 'Polygon',
-  category: 'pattern',
+  category: 'generator',
   description: 'Regular polygon (triangle, pentagon, hexagon, etc.) with bevel.',
   inputs: [],
   outputs: [
@@ -138,7 +138,7 @@ export const polygonNode: NodeDefinition = {
 export const rectangleNode: NodeDefinition = {
   id: 'rectangle',
   name: 'Rectangle',
-  category: 'pattern',
+  category: 'generator',
   description: 'Rectangle or rounded rectangle shape.',
   inputs: [],
   outputs: [

@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const blurNode: NodeDefinition = {
   id: 'blur',
   name: 'Blur',
-  category: 'processing',
+  category: 'filter',
   description: 'Gaussian or box blur. Softens edges and reduces detail.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -25,7 +25,7 @@ export const blurNode: NodeDefinition = {
 export const motionBlurNode: NodeDefinition = {
   id: 'motion-blur',
   name: 'Motion Blur',
-  category: 'processing',
+  category: 'filter',
   description: 'Directional blur simulating motion.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -49,7 +49,7 @@ export const motionBlurNode: NodeDefinition = {
 export const sharpenNode: NodeDefinition = {
   id: 'sharpen',
   name: 'Sharpen',
-  category: 'processing',
+  category: 'filter',
   description: 'Sharpens edges using unsharp masking.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -72,7 +72,7 @@ export const sharpenNode: NodeDefinition = {
 export const edgeDetectorNode: NodeDefinition = {
   id: 'edge-detector',
   name: 'Edge Detector',
-  category: 'processing',
+  category: 'filter',
   description: 'Detects edges using Sobel, Roberts, or gradient algorithms.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -101,7 +101,7 @@ export const edgeDetectorNode: NodeDefinition = {
 export const highPassNode: NodeDefinition = {
   id: 'high-pass',
   name: 'High Pass',
-  category: 'processing',
+  category: 'filter',
   description: 'Removes low-frequency features, preserves edges and detail.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true },
@@ -124,7 +124,7 @@ export const highPassNode: NodeDefinition = {
 export const noiseDistortionNode: NodeDefinition = {
   id: 'noise-distortion',
   name: 'Noise Distortion',
-  category: 'processing',
+  category: 'effect',
   description: 'Natural-looking distortion using Perlin noise displacement.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -149,7 +149,7 @@ export const noiseDistortionNode: NodeDefinition = {
 export const refractionNode: NodeDefinition = {
   id: 'refraction',
   name: 'Refraction',
-  category: 'processing',
+  category: 'effect',
   description: 'Simulates light bending through refractive materials.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
@@ -171,7 +171,7 @@ export const refractionNode: NodeDefinition = {
 export const medianNode: NodeDefinition = {
   id: 'median',
   name: 'Median',
-  category: 'processing',
+  category: 'filter',
   description: 'Replaces each pixel with the median color of its neighborhood. Great for noise reduction.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true },
@@ -192,7 +192,7 @@ export const medianNode: NodeDefinition = {
 export const maximumNode: NodeDefinition = {
   id: 'maximum',
   name: 'Maximum',
-  category: 'processing',
+  category: 'filter',
   description: 'Morphological dilation - replaces each pixel with the brightest in its neighborhood.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true },
@@ -213,7 +213,7 @@ export const maximumNode: NodeDefinition = {
 export const minimumNode: NodeDefinition = {
   id: 'minimum',
   name: 'Minimum',
-  category: 'processing',
+  category: 'filter',
   description: 'Morphological erosion - replaces each pixel with the darkest in its neighborhood.',
   inputs: [
     { id: 'source', label: 'Source', dataType: DataType.Map, required: true },

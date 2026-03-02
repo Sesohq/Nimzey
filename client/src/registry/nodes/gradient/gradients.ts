@@ -3,7 +3,7 @@ import { DataType, NodeDefinition } from '@/types';
 export const threeColorGradientNode: NodeDefinition = {
   id: 'gradient-3-color',
   name: '3-Color Gradient',
-  category: 'gradient',
+  category: 'generator',
   description: 'Linear gradient with 3 color stops.',
   inputs: [],
   outputs: [
@@ -29,7 +29,7 @@ export const threeColorGradientNode: NodeDefinition = {
 export const fiveColorGradientNode: NodeDefinition = {
   id: 'gradient-5-color',
   name: '5-Color Gradient',
-  category: 'gradient',
+  category: 'generator',
   description: 'Linear gradient with 5 color stops for complex color ramps.',
   inputs: [],
   outputs: [
@@ -59,7 +59,7 @@ export const fiveColorGradientNode: NodeDefinition = {
 export const profileGradientNode: NodeDefinition = {
   id: 'gradient-profile',
   name: 'Profile Gradient',
-  category: 'gradient',
+  category: 'generator',
   description: 'Two-color gradient with a profile curve controlling the transition.',
   inputs: [],
   outputs: [
@@ -83,7 +83,7 @@ export const profileGradientNode: NodeDefinition = {
 export const freeGradientNode: NodeDefinition = {
   id: 'gradient-free',
   name: 'Free Gradient',
-  category: 'gradient',
+  category: 'generator',
   description: 'Linear, radial, or angular gradient with free start/end positions.',
   inputs: [],
   outputs: [
@@ -114,7 +114,7 @@ export const freeGradientNode: NodeDefinition = {
 export const elevationGradientNode: NodeDefinition = {
   id: 'gradient-elevation',
   name: 'Elevation Gradient',
-  category: 'gradient',
+  category: 'generator',
   description: 'Applies a color gradient based on a grayscale elevation map.',
   inputs: [
     { id: 'elevation', label: 'Elevation', dataType: DataType.Map, required: true, hdr: true },
@@ -137,7 +137,7 @@ export const elevationGradientNode: NodeDefinition = {
 export const spectrumNode: NodeDefinition = {
   id: 'spectrum',
   name: 'Spectrum',
-  category: 'gradient',
+  category: 'generator',
   description: 'Full-spectrum hue gradient (all hues at full saturation).',
   inputs: [],
   outputs: [

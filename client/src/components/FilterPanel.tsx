@@ -102,7 +102,7 @@ function NodeInfoCard({ def }: { def: NodeDefinition }) {
 export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPreset }: FilterPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(['create', 'adjust', 'effects'])
+    new Set(['generators', 'filters', 'adjustments'])
   );
   const [presetsExpanded, setPresetsExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);

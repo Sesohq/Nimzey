@@ -26,35 +26,31 @@ import {
   Layers,
   Palette,
   Upload,
-  Waves,
-  Grid3x3,
+  Sparkles,
   SlidersHorizontal,
   Calculator,
   Move,
   Image,
   Settings,
-  Cpu,
   Star,
-  GitBranch,
   Spline,
+  Wand2,
+  Blend,
 } from 'lucide-react';
 
 // Icon lookup by category
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Waves,
-  Palette,
-  Grid3x3,
+  Sparkles,
   Layers,
   SlidersHorizontal,
-  Calculator,
+  Wand2,
+  Blend,
   Move,
-  Image,
-  Settings,
-  Cpu,
-  Star,
-  GitBranch,
+  Calculator,
   Spline,
-  SplitSquareHorizontal: Layers, // fallback
+  Settings,
+  Star,
+  SplitSquareHorizontal: Layers, // fallback for channels
 };
 
 // ---------- Context for graph actions passed from parent ----------
@@ -152,7 +148,7 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
 
   const headerColor = NODE_COLOR_TAG_COLORS[data.colorTag] || NODE_COLOR_TAG_COLORS.default;
   const isResult = def.id === 'result' || def.id === 'result-pbr';
-  const isExternal = def.category === 'external' && def.id === 'image';
+  const isExternal = def.category === 'utility' && def.id === 'image';
 
   const friendlyName = getFriendlyName(def.id, def.name);
   const showOriginalName = friendlyName !== def.name;

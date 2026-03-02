@@ -14,7 +14,7 @@ import { maskShader } from './processing/mask';
 import { halftoneShader } from './processing/halftone';
 import { ditherShader } from './processing/dither';
 import { blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader } from './processing/filters';
-import { noiseDistortionShader, refractionShader, medianShader, maximumShader, minimumShader } from './processing/advanced';
+import { noiseDistortionShader, refractionShader, medianShader, maximumShader, minimumShader, pixelateShaderDef, extrudeShaderDef } from './processing/advanced';
 import { brightnessContrastShader, levelsShader, hueSaturationShader, invertShader, gammaShader, desaturateShader, thresholdShader, toneCurveShader } from './adjustment/adjustments';
 import { extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader, getAlphaShader, setAlphaShader, extractHLSShader, assembleHLSShader } from './channel/channels';
 import { checkerShader, bricksShader, tilesShader, ellipseShader, polygonShader, rectangleShader } from './pattern/patterns';
@@ -61,6 +61,7 @@ ShaderLibrary.registerAll([
   blendShader, multiblendShader, maskShader, halftoneShader, ditherShader,
   blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader,
   noiseDistortionShader, refractionShader, medianShader, maximumShader, minimumShader,
+  pixelateShaderDef, extrudeShaderDef,
   // Adjustments
   brightnessContrastShader, levelsShader, hueSaturationShader, invertShader,
   gammaShader, desaturateShader, thresholdShader, toneCurveShader,
