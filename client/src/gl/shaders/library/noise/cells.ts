@@ -2,7 +2,7 @@ import { ShaderDefinition } from '../../ShaderDefinition';
 
 export const cellsNoiseShader: ShaderDefinition = {
   id: 'cells-noise',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_scale', type: 'float' },
@@ -11,10 +11,17 @@ export const cellsNoiseShader: ShaderDefinition = {
     { name: 'u_roughness', type: 'float' },
     { name: 'u_smooth', type: 'float' },
     { name: 'u_seed', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec2 p = uv * u_scale + float(u_seed) * 7.13;
+
+  // Read roughness from map input if connected, otherwise use uniform
+  float roughness = u_roughness;
+  if (u_inputCount >= 2) {
+    roughness = luminance(texture(u_input1, uv).rgb);
+  }
 
   float value = 0.0;
   float amplitude = 1.0;
@@ -26,7 +33,7 @@ vec4 processPixel(vec2 uv) {
     float w = worleyNoise(p * frequency, u_formula);
     value += w * amplitude;
     maxVal += amplitude;
-    amplitude *= u_roughness;
+    amplitude *= roughness;
     frequency *= 2.0;
   }
 
@@ -39,20 +46,27 @@ vec4 processPixel(vec2 uv) {
     value = mix(value, smoothstep(0.0, 1.0, value), s);
   }
 
-  return vec4(vec3(value), 1.0);
+  vec4 noiseColor = vec4(vec3(value), 1.0);
+
+  // Composite over background if connected
+  if (u_inputCount >= 1) {
+    vec4 bg = texture(u_input0, uv);
+    return vec4(mix(bg.rgb, noiseColor.rgb, value), max(bg.a, value));
+  }
+  return noiseColor;
 }`,
 };
 
 export const blocksNoiseShader: ShaderDefinition = {
   id: 'blocks-noise',
-  inputCount: 0,
+  inputCount: 1,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_scale', type: 'float' },
-    { name: 'u_formula', type: 'int' },
     { name: 'u_octaves', type: 'int' },
     { name: 'u_roughness', type: 'float' },
     { name: 'u_seed', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -80,20 +94,28 @@ vec4 processPixel(vec2 uv) {
   }
 
   value /= maxVal;
-  return vec4(vec3(clamp(value, 0.0, 1.0)), 1.0);
+  float v = clamp(value, 0.0, 1.0);
+  vec4 noiseColor = vec4(vec3(v), 1.0);
+
+  // Composite over background if connected
+  if (u_inputCount >= 1) {
+    vec4 bg = texture(u_input0, uv);
+    return vec4(mix(bg.rgb, noiseColor.rgb, v), max(bg.a, v));
+  }
+  return noiseColor;
 }`,
 };
 
 export const pyramidsNoiseShader: ShaderDefinition = {
   id: 'pyramids-noise',
-  inputCount: 0,
+  inputCount: 1,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_scale', type: 'float' },
-    { name: 'u_formula', type: 'int' },
     { name: 'u_octaves', type: 'int' },
     { name: 'u_roughness', type: 'float' },
     { name: 'u_seed', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -119,6 +141,14 @@ vec4 processPixel(vec2 uv) {
   }
 
   value /= maxVal;
-  return vec4(vec3(clamp(value, 0.0, 1.0)), 1.0);
+  float v = clamp(value, 0.0, 1.0);
+  vec4 noiseColor = vec4(vec3(v), 1.0);
+
+  // Composite over background if connected
+  if (u_inputCount >= 1) {
+    vec4 bg = texture(u_input0, uv);
+    return vec4(mix(bg.rgb, noiseColor.rgb, v), max(bg.a, v));
+  }
+  return noiseColor;
 }`,
 };

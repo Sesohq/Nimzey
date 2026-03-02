@@ -18,9 +18,29 @@ export class GLContext {
   private textures = new Map<string, ManagedTexture>();
   private supportsFloat16 = false;
   private supportsFloat32 = false;
+  private contextLost = false;
+  private contextLostHandler: ((e: Event) => void) | null = null;
+  private contextRestoredHandler: ((e: Event) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+
+    // Handle WebGL context loss/restoration to prevent permanently black canvas
+    this.contextLostHandler = (e: Event) => {
+      e.preventDefault(); // Allow context to be restored
+      this.contextLost = true;
+      console.warn('WebGL context lost — GPU resources invalidated');
+    };
+    this.contextRestoredHandler = () => {
+      this.contextLost = false;
+      // Clear stale references — all GPU objects are invalid after context loss
+      this.programs.clear();
+      this.uniformTypes.clear();
+      this.textures.clear();
+      console.info('WebGL context restored — resources will be recreated on next render');
+    };
+    canvas.addEventListener('webglcontextlost', this.contextLostHandler);
+    canvas.addEventListener('webglcontextrestored', this.contextRestoredHandler);
 
     const gl = canvas.getContext('webgl2', {
       alpha: true,
@@ -66,6 +86,7 @@ export class GLContext {
   getCanvas(): HTMLCanvasElement { return this.canvas; }
   hasFloat16(): boolean { return this.supportsFloat16; }
   hasFloat32(): boolean { return this.supportsFloat32; }
+  isContextLost(): boolean { return this.contextLost; }
 
   /**
    * Get the best available HDR format, falling back gracefully.
@@ -149,20 +170,35 @@ export class GLContext {
   ): ManagedTexture | null {
     const gl = this.gl;
 
+    // Clean up existing texture with same name to prevent GPU memory leak
+    const existing = this.textures.get(name);
+    if (existing) {
+      gl.deleteTexture(existing.texture);
+      gl.deleteFramebuffer(existing.framebuffer);
+      this.textures.delete(name);
+    }
+
     // Choose internal format
     let internalFormat: number;
     let dataFormat: number;
     let dataType: number;
 
+    // Apply fallback before setting GL format parameters
+    if (format === 'float32' && !this.supportsFloat32) {
+      format = this.supportsFloat16 ? 'float16' : 'uint8';
+    }
+    if (format === 'float16' && !this.supportsFloat16) {
+      format = 'uint8';
+    }
+
+    // Now set GL format parameters based on the (possibly fallen-back) format
     switch (format) {
       case 'float32':
-        if (!this.supportsFloat32) format = this.supportsFloat16 ? 'float16' : 'uint8';
         internalFormat = gl.RGBA32F;
         dataFormat = gl.RGBA;
         dataType = gl.FLOAT;
         break;
       case 'float16':
-        if (!this.supportsFloat16) format = 'uint8';
         internalFormat = gl.RGBA16F;
         dataFormat = gl.RGBA;
         dataType = gl.HALF_FLOAT;
@@ -171,13 +207,6 @@ export class GLContext {
         internalFormat = gl.RGBA8;
         dataFormat = gl.RGBA;
         dataType = gl.UNSIGNED_BYTE;
-    }
-
-    // Recheck after fallback
-    if (format === 'uint8') {
-      internalFormat = gl.RGBA8;
-      dataFormat = gl.RGBA;
-      dataType = gl.UNSIGNED_BYTE;
     }
 
     const texture = gl.createTexture()!;
@@ -325,6 +354,33 @@ export class GLContext {
   }
 
   /**
+   * Blit a managed texture to the screen canvas using a passthrough shader.
+   * GPU-only path — no readPixels, no CPU encoding.
+   * Used by focus-mode preview to avoid the slow readPixels→toDataURL roundtrip.
+   */
+  blitTexture(textureId: string): boolean {
+    const managed = this.textures.get(textureId);
+    if (!managed) return false;
+
+    // Lazily compile a minimal passthrough program
+    if (!this.programs.has('_blit')) {
+      const frag = `#version 300 es
+precision highp float;
+uniform sampler2D u_input0;
+in vec2 v_texCoord;
+out vec4 fragColor;
+void main() { fragColor = texture(u_input0, v_texCoord); }`;
+      this.createProgram('_blit', frag);
+    }
+
+    this.renderPass('_blit', null, [{ name: 'u_input0', textureId }], {}, {
+      width: this.canvas.width,
+      height: this.canvas.height,
+    });
+    return true;
+  }
+
+  /**
    * Read pixels from a managed texture.
    * Handles float16/float32 textures by reading as FLOAT and converting to uint8.
    */
@@ -380,6 +436,14 @@ export class GLContext {
   }
 
   dispose(): void {
+    // Remove context loss event listeners
+    if (this.contextLostHandler) {
+      this.canvas.removeEventListener('webglcontextlost', this.contextLostHandler);
+    }
+    if (this.contextRestoredHandler) {
+      this.canvas.removeEventListener('webglcontextrestored', this.contextRestoredHandler);
+    }
+
     const gl = this.gl;
     this.programs.forEach(p => gl.deleteProgram(p));
     this.programs.clear();

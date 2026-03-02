@@ -63,28 +63,36 @@ export const medianShader: ShaderDefinition = {
     { name: 'u_radius', type: 'int' },
   ],
   glsl: `
-// Simple median approximation using sorted partial samples
 vec4 processPixel(vec2 uv) {
   vec2 texel = 1.0 / u_resolution;
-  int r = u_radius;
-  int count = 0;
+  int r = int(u_radius);
+  if (r < 1) return texture(u_input0, uv);
 
-  // Collect samples and sort by luminance (simplified - use average)
-  vec4 sum = vec4(0.0);
-  float totalWeight = 0.0;
-  for (int x = -5; x <= 5; x++) {
-    if (abs(x) > r) continue;
-    for (int y = -5; y <= 5; y++) {
-      if (abs(y) > r) continue;
-      vec4 s = texture(u_input0, uv + vec2(float(x), float(y)) * texel);
-      sum += s;
-      totalWeight += 1.0;
+  // Proper 3x3 median via sorting network
+  vec3 s[9];
+  int idx = 0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      s[idx] = texture(u_input0, uv + vec2(float(x), float(y)) * texel * float(r)).rgb;
+      idx++;
     }
   }
-  // Approximate median as weighted center
-  vec4 avg = sum / totalWeight;
-  vec4 center = texture(u_input0, uv);
-  return mix(avg, center, 0.5);
+
+  // Sorting network for 9 elements (finds median)
+  #define SWAP(a, b) { vec3 t = min(s[a], s[b]); s[b] = max(s[a], s[b]); s[a] = t; }
+  SWAP(0,1); SWAP(3,4); SWAP(6,7);
+  SWAP(1,2); SWAP(4,5); SWAP(7,8);
+  SWAP(0,1); SWAP(3,4); SWAP(6,7);
+  SWAP(0,3); SWAP(3,6); SWAP(0,3);
+  SWAP(1,4); SWAP(4,7); SWAP(1,4);
+  SWAP(2,5); SWAP(5,8); SWAP(2,5);
+  SWAP(1,3); SWAP(5,7);
+  SWAP(2,6); SWAP(4,6); SWAP(2,4);
+  SWAP(2,3); SWAP(5,6);
+  SWAP(3,4); SWAP(4,5);
+
+  float alpha = texture(u_input0, uv).a;
+  return vec4(s[4], alpha); // s[4] is the median after sorting
 }`,
 };
 

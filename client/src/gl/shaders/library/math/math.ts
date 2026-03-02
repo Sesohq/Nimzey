@@ -1,9 +1,11 @@
 import { ShaderDefinition } from '../../ShaderDefinition';
 
 export const addShader: ShaderDefinition = {
-  id: 'math-add', inputCount: 2, isNeighborhood: false, uniforms: [],
+  id: 'math-add', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   return vec4(a.rgb + b.rgb, a.a);
@@ -11,9 +13,11 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const subtractShader: ShaderDefinition = {
-  id: 'math-subtract', inputCount: 2, isNeighborhood: false, uniforms: [],
+  id: 'math-subtract', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   return vec4(a.rgb - b.rgb, a.a);
@@ -21,9 +25,11 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const multiplyShader: ShaderDefinition = {
-  id: 'math-multiply', inputCount: 2, isNeighborhood: false, uniforms: [],
+  id: 'math-multiply', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   return vec4(a.rgb * b.rgb, a.a);
@@ -31,16 +37,18 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const divideShader: ShaderDefinition = {
-  id: 'math-divide', inputCount: 3, isNeighborhood: false, uniforms: [],
+  id: 'math-divide', inputCount: 3, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 dividend = texture(u_input0, uv);
   vec4 divisor = texture(u_input1, uv);
-  vec4 error = texture(u_input2, uv);
+  vec3 errVal = u_inputCount >= 3 ? texture(u_input2, uv).rgb : vec3(0.0);
   vec3 result;
-  result.r = abs(divisor.r) > 0.001 ? dividend.r / divisor.r : error.r;
-  result.g = abs(divisor.g) > 0.001 ? dividend.g / divisor.g : error.g;
-  result.b = abs(divisor.b) > 0.001 ? dividend.b / divisor.b : error.b;
+  result.r = abs(divisor.r) > 0.001 ? dividend.r / divisor.r : errVal.r;
+  result.g = abs(divisor.g) > 0.001 ? dividend.g / divisor.g : errVal.g;
+  result.b = abs(divisor.b) > 0.001 ? dividend.b / divisor.b : errVal.b;
   return vec4(result, dividend.a);
 }`,
 };
@@ -64,9 +72,11 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const minShader: ShaderDefinition = {
-  id: 'math-min', inputCount: 2, isNeighborhood: false, uniforms: [],
+  id: 'math-min', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   return vec4(min(a.rgb, b.rgb), a.a);
@@ -74,9 +84,11 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const maxShader: ShaderDefinition = {
-  id: 'math-max', inputCount: 2, isNeighborhood: false, uniforms: [],
+  id: 'math-max', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   return vec4(max(a.rgb, b.rgb), a.a);
@@ -84,13 +96,19 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const lerpShader: ShaderDefinition = {
-  id: 'math-lerp', inputCount: 2, isNeighborhood: false,
-  uniforms: [{ name: 'u_factor', type: 'float' }],
+  id: 'math-lerp', inputCount: 3, isNeighborhood: false,
+  uniforms: [
+    { name: 'u_factor', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
+  ],
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
   float f = u_factor / 100.0;
+  if (u_inputCount >= 3) {
+    f = luminance(texture(u_input2, uv).rgb);
+  }
   return mix(a, b, f);
 }`,
 };
@@ -115,44 +133,49 @@ vec4 processPixel(vec2 uv) {
 };
 
 export const powerShader: ShaderDefinition = {
-  id: 'math-power', inputCount: 3, isNeighborhood: false, uniforms: [],
+  id: 'math-power', inputCount: 3, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 base = texture(u_input0, uv);
   vec4 exp = texture(u_input1, uv);
-  vec4 err = texture(u_input2, uv);
+  vec3 errVal = u_inputCount >= 3 ? texture(u_input2, uv).rgb : vec3(0.0);
   vec3 result;
-  result.r = base.r >= 0.0 ? pow(base.r, exp.r) : err.r;
-  result.g = base.g >= 0.0 ? pow(base.g, exp.g) : err.g;
-  result.b = base.b >= 0.0 ? pow(base.b, exp.b) : err.b;
+  result.r = base.r >= 0.0 ? pow(base.r, exp.r) : errVal.r;
+  result.g = base.g >= 0.0 ? pow(base.g, exp.g) : errVal.g;
+  result.b = base.b >= 0.0 ? pow(base.b, exp.b) : errVal.b;
   return vec4(result, base.a);
 }`,
 };
 
 export const moduloShader: ShaderDefinition = {
-  id: 'math-modulo', inputCount: 3, isNeighborhood: false, uniforms: [],
+  id: 'math-modulo', inputCount: 3, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 dividend = texture(u_input0, uv);
   vec4 divisor = texture(u_input1, uv);
-  vec4 err = texture(u_input2, uv);
+  vec3 errVal = u_inputCount >= 3 ? texture(u_input2, uv).rgb : vec3(0.0);
   vec3 result;
-  result.r = abs(divisor.r) > 0.001 ? mod(dividend.r, divisor.r) : err.r;
-  result.g = abs(divisor.g) > 0.001 ? mod(dividend.g, divisor.g) : err.g;
-  result.b = abs(divisor.b) > 0.001 ? mod(dividend.b, divisor.b) : err.b;
+  result.r = abs(divisor.r) > 0.001 ? mod(dividend.r, divisor.r) : errVal.r;
+  result.g = abs(divisor.g) > 0.001 ? mod(dividend.g, divisor.g) : errVal.g;
+  result.b = abs(divisor.b) > 0.001 ? mod(dividend.b, divisor.b) : errVal.b;
   return vec4(result, dividend.a);
 }`,
 };
 
 export const ifShader: ShaderDefinition = {
   id: 'math-if', inputCount: 4, isNeighborhood: false,
-  uniforms: [{ name: 'u_operation', type: 'int' }],
+  uniforms: [{ name: 'u_operation', type: 'int' }, { name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  if (u_inputCount < 2) return texture(u_input0, uv);
   vec4 a = texture(u_input0, uv);
   vec4 b = texture(u_input1, uv);
-  vec4 thenVal = texture(u_input2, uv);
-  vec4 elseVal = texture(u_input3, uv);
+  vec4 thenVal = u_inputCount >= 3 ? texture(u_input2, uv) : vec4(1.0);
+  vec4 elseVal = u_inputCount >= 4 ? texture(u_input3, uv) : vec4(0.0);
   bvec3 cond;
   if (u_operation == 0) cond = lessThan(a.rgb, b.rgb);
   else if (u_operation == 1) cond = greaterThan(a.rgb, b.rgb);
@@ -227,7 +250,7 @@ vec4 processPixel(vec2 uv) {
   vec3 v = a.rgb;
   if (u_units == 0) v = v * 3.14159265 / 180.0;
   else if (u_units == 2) v = v * 6.28318530;
-  return vec4(tan(v), a.a);
+  return vec4(clamp(tan(v), -1e4, 1e4), a.a);
 }`,
 };
 

@@ -2,7 +2,7 @@ import { ShaderDefinition } from '../../ShaderDefinition';
 
 export const checkerShader: ShaderDefinition = {
   id: 'checker',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_color1', type: 'vec3' },
@@ -10,6 +10,7 @@ export const checkerShader: ShaderDefinition = {
     { name: 'u_repeatH', type: 'int' },
     { name: 'u_repeatV', type: 'int' },
     { name: 'u_inclined', type: 'bool' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -19,14 +20,17 @@ vec4 processPixel(vec2 uv) {
   }
   vec2 grid = floor(p * vec2(float(u_repeatH), float(u_repeatV)));
   float checker = mod(grid.x + grid.y, 2.0);
-  vec3 color = mix(u_color1, u_color2, checker);
+  // Use map inputs for colors if connected, otherwise use uniform colors
+  vec3 c1 = (u_inputCount >= 1) ? texture(u_input0, uv).rgb : u_color1;
+  vec3 c2 = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_color2;
+  vec3 color = mix(c1, c2, checker);
   return vec4(color, 1.0);
 }`,
 };
 
 export const bricksShader: ShaderDefinition = {
   id: 'bricks',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_bond', type: 'int' },
@@ -39,6 +43,7 @@ export const bricksShader: ShaderDefinition = {
     { name: 'u_corners', type: 'float' },
     { name: 'u_chaos', type: 'float' },
     { name: 'u_seed', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -97,9 +102,11 @@ vec4 processPixel(vec2 uv) {
     bevel = 1.0 - bevelDist;
   }
 
-  vec3 brickCol = u_brickColor + colorVar;
+  // Use map inputs for brick/mortar textures if connected
+  vec3 brickCol = (u_inputCount >= 1) ? texture(u_input0, uv).rgb + colorVar : u_brickColor + colorVar;
+  vec3 mortarCol = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_mortarColor;
   vec3 brickWithBevel = mix(brickCol, brickCol * 0.7, bevel * 0.3);
-  vec3 color = mix(brickWithBevel, u_mortarColor, isMortar);
+  vec3 color = mix(brickWithBevel, mortarCol, isMortar);
 
   return vec4(clamp(color, 0.0, 1.0), 1.0);
 }`,
@@ -107,7 +114,7 @@ vec4 processPixel(vec2 uv) {
 
 export const tilesShader: ShaderDefinition = {
   id: 'tiles',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_tileColor', type: 'vec3' },
@@ -120,6 +127,7 @@ export const tilesShader: ShaderDefinition = {
     { name: 'u_corners', type: 'float' },
     { name: 'u_chaos', type: 'float' },
     { name: 'u_seed', type: 'int' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -149,9 +157,11 @@ vec4 processPixel(vec2 uv) {
     colorVar = (hash(cellId + float(u_seed)) - 0.5) * u_chaos / 100.0;
   }
 
-  vec3 tileCol = u_tileColor + colorVar;
+  // Use map inputs for tile/mortar textures if connected, otherwise use uniform colors
+  vec3 tileCol = (u_inputCount >= 1) ? texture(u_input0, uv).rgb + colorVar : u_tileColor + colorVar;
+  vec3 mortarCol = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_mortarColor;
   vec3 tileWithBevel = mix(tileCol, tileCol * 0.7, bevel * 0.3);
-  vec3 color = mix(tileWithBevel, u_mortarColor, isMortar);
+  vec3 color = mix(tileWithBevel, mortarCol, isMortar);
 
   return vec4(clamp(color, 0.0, 1.0), 1.0);
 }`,
@@ -159,7 +169,7 @@ vec4 processPixel(vec2 uv) {
 
 export const ellipseShader: ShaderDefinition = {
   id: 'ellipse',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_color', type: 'vec3' },
@@ -170,6 +180,7 @@ export const ellipseShader: ShaderDefinition = {
     { name: 'u_centerY', type: 'float' },
     { name: 'u_bevelWidth', type: 'float' },
     { name: 'u_rotation', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -188,14 +199,17 @@ vec4 processPixel(vec2 uv) {
     shape = step(dist, 1.0);
   }
 
-  vec3 color = mix(u_background, u_color, shape);
+  // Use map inputs for colors if connected, otherwise use uniform colors
+  vec3 fg = (u_inputCount >= 1) ? texture(u_input0, uv).rgb : u_color;
+  vec3 bg = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_background;
+  vec3 color = mix(bg, fg, shape);
   return vec4(color, 1.0);
 }`,
 };
 
 export const polygonShader: ShaderDefinition = {
   id: 'polygon',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_color', type: 'vec3' },
@@ -206,6 +220,7 @@ export const polygonShader: ShaderDefinition = {
     { name: 'u_centerY', type: 'float' },
     { name: 'u_bevelWidth', type: 'float' },
     { name: 'u_rotation', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 float polygonSDF(vec2 p, int n, float r) {
@@ -231,14 +246,17 @@ vec4 processPixel(vec2 uv) {
     shape = 1.0 - step(0.0, d);
   }
 
-  vec3 color = mix(u_background, u_color, shape);
+  // Use map inputs for colors if connected, otherwise use uniform colors
+  vec3 fg = (u_inputCount >= 1) ? texture(u_input0, uv).rgb : u_color;
+  vec3 bg = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_background;
+  vec3 color = mix(bg, fg, shape);
   return vec4(color, 1.0);
 }`,
 };
 
 export const rectangleShader: ShaderDefinition = {
   id: 'rectangle',
-  inputCount: 0,
+  inputCount: 2,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_color', type: 'vec3' },
@@ -250,6 +268,7 @@ export const rectangleShader: ShaderDefinition = {
     { name: 'u_corners', type: 'float' },
     { name: 'u_bevelWidth', type: 'float' },
     { name: 'u_rotation', type: 'float' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 float roundedRectSDF(vec2 p, vec2 size, float radius) {
@@ -275,7 +294,10 @@ vec4 processPixel(vec2 uv) {
     shape = 1.0 - step(0.0, d);
   }
 
-  vec3 color = mix(u_background, u_color, shape);
+  // Use map inputs for colors if connected, otherwise use uniform colors
+  vec3 fg = (u_inputCount >= 1) ? texture(u_input0, uv).rgb : u_color;
+  vec3 bg = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_background;
+  vec3 color = mix(bg, fg, shape);
   return vec4(color, 1.0);
 }`,
 };

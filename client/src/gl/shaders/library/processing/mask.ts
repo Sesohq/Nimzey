@@ -16,6 +16,12 @@ export const maskShader: ShaderDefinition = {
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec4 src = texture(u_input0, uv);
+
+  // Guard: pass through source if mask isn't connected yet
+  if (u_inputCount < 2) {
+    return src;
+  }
+
   vec4 maskSample = texture(u_input1, uv);
 
   // Extract the selected channel from the mask
@@ -37,10 +43,12 @@ vec4 processPixel(vec2 uv) {
   float hi = u_range_high / 100.0;
   m = clamp((m - lo) / max(hi - lo, 0.001), 0.0, 1.0);
 
-  // Apply threshold with softness via smoothstep
+  // Apply threshold with softness via smoothstep (skip when both are zero for raw mask passthrough)
   float thresh = u_threshold / 100.0;
-  float soft = u_softness / 100.0 * 0.5; // half-width for smoothstep
-  m = smoothstep(thresh - soft, thresh + soft, m);
+  float soft = max(u_softness / 100.0 * 0.5, 0.001); // half-width for smoothstep, clamped to avoid undefined
+  if (thresh > 0.001 || u_softness > 0.1) {
+    m = smoothstep(thresh - soft, thresh + soft, m);
+  }
 
   // Invert the mask if requested
   if (u_invert == 1) {

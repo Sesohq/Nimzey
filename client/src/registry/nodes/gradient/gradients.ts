@@ -5,11 +5,7 @@ export const threeColorGradientNode: NodeDefinition = {
   name: '3-Color Gradient',
   category: 'gradient',
   description: 'Linear gradient with 3 color stops.',
-  inputs: [
-    { id: 'color1', label: 'Color 1', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color2', label: 'Color 2', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color3', label: 'Color 3', dataType: DataType.Map, required: false, hdr: true },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
   ],
@@ -35,13 +31,7 @@ export const fiveColorGradientNode: NodeDefinition = {
   name: '5-Color Gradient',
   category: 'gradient',
   description: 'Linear gradient with 5 color stops for complex color ramps.',
-  inputs: [
-    { id: 'color1', label: 'Color 1', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color2', label: 'Color 2', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color3', label: 'Color 3', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color4', label: 'Color 4', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color5', label: 'Color 5', dataType: DataType.Map, required: false, hdr: true },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
   ],
@@ -71,10 +61,7 @@ export const profileGradientNode: NodeDefinition = {
   name: 'Profile Gradient',
   category: 'gradient',
   description: 'Two-color gradient with a profile curve controlling the transition.',
-  inputs: [
-    { id: 'color1', label: 'Color 1', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color2', label: 'Color 2', dataType: DataType.Map, required: false, hdr: true },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
   ],
@@ -98,10 +85,7 @@ export const freeGradientNode: NodeDefinition = {
   name: 'Free Gradient',
   category: 'gradient',
   description: 'Linear, radial, or angular gradient with free start/end positions.',
-  inputs: [
-    { id: 'color1', label: 'Color 1', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color2', label: 'Color 2', dataType: DataType.Map, required: false, hdr: true },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
   ],

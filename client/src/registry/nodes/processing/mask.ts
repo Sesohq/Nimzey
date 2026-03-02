@@ -21,7 +21,7 @@ export const maskNode: NodeDefinition = {
     ]},
     { id: 'invert', label: 'Invert', type: 'bool', defaultValue: false },
     { id: 'softness', label: 'Softness', type: 'float', defaultValue: 0, min: 0, max: 100, step: 1, unit: '%' },
-    { id: 'threshold', label: 'Threshold', type: 'float', defaultValue: 50, min: 0, max: 100, step: 1, unit: '%' },
+    { id: 'threshold', label: 'Threshold', type: 'float', defaultValue: 0, min: 0, max: 100, step: 1, unit: '%' },
     { id: 'range_low', label: 'Range Low', type: 'float', defaultValue: 0, min: 0, max: 100, step: 1, unit: '%' },
     { id: 'range_high', label: 'Range High', type: 'float', defaultValue: 100, min: 0, max: 100, step: 1, unit: '%' },
   ],

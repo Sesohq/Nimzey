@@ -11,6 +11,10 @@ export const blendShader: ShaderDefinition = {
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
+  // Guard: pass through single input if both aren't connected
+  if (u_inputCount < 2) {
+    return u_inputCount >= 1 ? texture(u_input0, uv) : vec4(0.0, 0.0, 0.0, 1.0);
+  }
   vec4 fg = texture(u_input0, uv); // foreground
   vec4 bg = texture(u_input1, uv); // background
   float baseOpacity = u_opacity / 100.0;

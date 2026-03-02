@@ -4,7 +4,7 @@
  * Collapse to a small icon button, expand for full preview + controls.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Download,
   Loader2,
@@ -23,6 +23,7 @@ interface PreviewPanelProps {
   initCanvas: (canvas: HTMLCanvasElement | null) => void;
   canvasWidth?: number;
   canvasHeight?: number;
+  onResolutionChange?: (width: number, height: number) => void;
 }
 
 const QUALITY_OPTIONS: { value: QualityLevel; label: string; short: string }[] = [
@@ -40,10 +41,35 @@ export default function PreviewPanel({
   initCanvas,
   canvasWidth = 512,
   canvasHeight = 512,
+  onResolutionChange,
 }: PreviewPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'png' | 'jpeg'>('png');
+  const [editingRes, setEditingRes] = useState(false);
+  const [editW, setEditW] = useState(String(canvasWidth));
+  const [editH, setEditH] = useState(String(canvasHeight));
+  const resWRef = useRef<HTMLInputElement>(null);
+
+  const startEditingRes = useCallback(() => {
+    if (!onResolutionChange) return;
+    setEditW(String(canvasWidth));
+    setEditH(String(canvasHeight));
+    setEditingRes(true);
+    setTimeout(() => resWRef.current?.focus(), 0);
+  }, [canvasWidth, canvasHeight, onResolutionChange]);
+
+  const commitRes = useCallback(() => {
+    const w = Math.max(64, Math.min(4096, parseInt(editW) || canvasWidth));
+    const h = Math.max(64, Math.min(4096, parseInt(editH) || canvasHeight));
+    onResolutionChange?.(w, h);
+    setEditingRes(false);
+  }, [editW, editH, canvasWidth, canvasHeight, onResolutionChange]);
+
+  const handleResKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commitRes();
+    if (e.key === 'Escape') setEditingRes(false);
+  }, [commitRes]);
 
   // Escape key exits fullscreen
   useEffect(() => {
@@ -140,7 +166,36 @@ export default function PreviewPanel({
         <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] cursor-default">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-[#d4d4d4] select-none">Preview</span>
-            <span className="text-[9px] text-[#666] tabular-nums select-none">{canvasWidth}×{canvasHeight}</span>
+            {editingRes ? (
+              <div className="flex items-center gap-0.5">
+                <input
+                  ref={resWRef}
+                  type="number"
+                  value={editW}
+                  onChange={e => setEditW(e.target.value)}
+                  onKeyDown={handleResKeyDown}
+                  onBlur={commitRes}
+                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#6b8aaf] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-[9px] text-[#555]">×</span>
+                <input
+                  type="number"
+                  value={editH}
+                  onChange={e => setEditH(e.target.value)}
+                  onKeyDown={handleResKeyDown}
+                  onBlur={commitRes}
+                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#6b8aaf] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            ) : (
+              <span
+                className={`text-[9px] tabular-nums select-none ${onResolutionChange ? 'text-[#888] cursor-pointer hover:text-[#6b8aaf] transition-colors' : 'text-[#666]'}`}
+                onClick={startEditingRes}
+                title={onResolutionChange ? 'Click to change resolution' : undefined}
+              >
+                {canvasWidth}×{canvasHeight}
+              </span>
+            )}
             {isRendering && (
               <Loader2 size={10} className="animate-spin text-[#6b8aaf]" />
             )}

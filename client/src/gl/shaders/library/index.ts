@@ -25,6 +25,7 @@ import {
   powerShader, moduloShader, ifShader, floorShader, ceilShader, roundShader,
   sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
 } from './math/math';
+import { curveGeneratorShader, levelsCurveShader } from './curve/curves';
 
 class ShaderLibraryImpl {
   private shaders = new Map<string, ShaderDefinition>();
@@ -79,4 +80,6 @@ ShaderLibrary.registerAll([
   lerpShader, ifShader, remapRangeShader,
   floorShader, ceilShader, roundShader,
   sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
+  // Curve generators
+  curveGeneratorShader, levelsCurveShader,
 ]);

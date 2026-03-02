@@ -66,7 +66,7 @@ export const checkboxControlNode: NodeDefinition = {
     { id: 'out', label: 'Output', dataType: DataType.Numeric, required: false },
   ],
   parameters: [
-    { id: 'checked', label: 'Checked', type: 'bool', defaultValue: false },
+    { id: 'value', label: 'Checked', type: 'bool', defaultValue: false },
   ],
   shaderId: 'numeric-output',
   isGenerator: true,
@@ -85,7 +85,7 @@ export const angleControlNode: NodeDefinition = {
     { id: 'out', label: 'Output', dataType: DataType.Numeric, required: false },
   ],
   parameters: [
-    { id: 'angle', label: 'Angle', type: 'angle', defaultValue: 0, min: 0, max: 360, step: 1, unit: '°' },
+    { id: 'value', label: 'Angle', type: 'angle', defaultValue: 0, min: 0, max: 360, step: 1, unit: '°' },
   ],
   shaderId: 'numeric-output',
   isGenerator: true,

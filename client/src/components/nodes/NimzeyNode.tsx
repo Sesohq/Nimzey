@@ -4,10 +4,11 @@
  */
 
 import { memo, useCallback, useState, useEffect, useRef, useContext, createContext } from 'react';
-import { NodeProps, Position, useEdges } from 'reactflow';
+import { NodeProps, Position } from 'reactflow';
 import {
   NimzeyNodeData,
   NodeColorTag,
+  DataType,
   NODE_COLOR_TAG_COLORS,
   NODE_CATEGORY_ICONS,
   NODE_CATEGORY_COLORS,
@@ -64,6 +65,9 @@ export interface NimzeyNodeActions {
   onToggleCollapsed: (nodeId: string) => void;
   onSetColorTag: (nodeId: string, tag: NodeColorTag) => void;
   onUploadImage?: (nodeId: string, file: File) => void;
+  onPortContextMenu?: (nodeId: string, portId: string, dataType: DataType, screenPos: { x: number; y: number }) => void;
+  onHeaderHover?: (nodeId: string, definitionId: string) => void;
+  onHeaderHoverEnd?: () => void;
 }
 
 export const NimzeyNodeContext = createContext<NimzeyNodeActions>({
@@ -100,7 +104,6 @@ function ColorTagPicker({ current, onChange }: { current: NodeColorTag; onChange
 export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeProps<NimzeyNodeData>) {
   const def = NodeRegistry.get(data.definitionId);
   const actions = useContext(NimzeyNodeContext);
-  const edges = useEdges();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,13 +112,9 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
     if (!selected) setShowColorPicker(false);
   }, [selected]);
 
-  // Connected port IDs for this node
-  const connectedInputs = new Set<string>();
-  const connectedOutputs = new Set<string>();
-  for (const edge of edges) {
-    if (edge.target === id) connectedInputs.add(edge.targetHandle || '');
-    if (edge.source === id) connectedOutputs.add(edge.sourceHandle || '');
-  }
+  // Connected port IDs - pre-computed in ReactFlowAdapter via edge index
+  const connectedInputs = data.connectedInputs || new Set<string>();
+  const connectedOutputs = data.connectedOutputs || new Set<string>();
 
   const handleParamChange = useCallback(
     (paramId: string, value: number | string | boolean | number[]) => {
@@ -179,6 +178,8 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
       <div
         className="group/header flex items-center gap-1.5 px-2.5 py-2 cursor-grab rounded-t-lg relative"
         style={headerStyle}
+        onMouseEnter={() => actions.onHeaderHover?.(id, data.definitionId)}
+        onMouseLeave={() => actions.onHeaderHoverEnd?.()}
       >
         {/* Icon with subtle circle background */}
         <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center flex-shrink-0">
@@ -223,18 +224,31 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
         {/* Input Ports */}
         {def.inputs.length > 0 && (
           <div className="flex flex-col border-b border-[#2a2a2a] pb-1 mb-1">
-            {def.inputs.map(port => (
-              <TypedHandle
-                key={port.id}
-                type="target"
-                position={Position.Left}
-                id={port.id}
-                dataType={port.dataType}
-                label={port.label}
-                required={port.required}
-                isConnected={connectedInputs.has(port.id)}
-              />
-            ))}
+            {def.inputs.map(port => {
+              const isConnected = connectedInputs.has(port.id);
+              return (
+                <div
+                  key={port.id}
+                  onClick={(e) => {
+                    if (!isConnected && actions.onPortContextMenu) {
+                      e.stopPropagation();
+                      actions.onPortContextMenu(id, port.id, port.dataType, { x: e.clientX, y: e.clientY });
+                    }
+                  }}
+                  className={!isConnected ? 'cursor-pointer' : ''}
+                >
+                  <TypedHandle
+                    type="target"
+                    position={Position.Left}
+                    id={port.id}
+                    dataType={port.dataType}
+                    label={port.label}
+                    required={port.required}
+                    isConnected={isConnected}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -285,15 +299,35 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
         {/* Parameters (when expanded) */}
         {!data.collapsed && def.parameters.length > 0 && (
           <div className="flex flex-col gap-1.5 py-1 px-2">
-            {def.parameters.map(param => (
-              <ParameterRenderer
-                key={param.id}
-                param={param}
-                value={data.parameters[param.id] ?? param.defaultValue}
-                onChange={handleParamChange}
-                definitionId={data.definitionId}
-              />
-            ))}
+            {def.parameters.map(param => {
+              const isMapConnected = param.mappable && connectedInputs.has(`map_${param.id}`);
+              return (
+                <div key={param.id} className="relative flex items-center">
+                  {/* Map input handle — absolutely positioned to sit on the node edge, vertically centered */}
+                  {param.mappable && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
+                      <TypedHandle
+                        type="target"
+                        position={Position.Left}
+                        id={`map_${param.id}`}
+                        dataType={DataType.Map}
+                        label=""
+                        required={false}
+                        isConnected={isMapConnected || false}
+                      />
+                    </div>
+                  )}
+                  <div className={cn('flex-1', isMapConnected && 'opacity-40 pointer-events-none')}>
+                    <ParameterRenderer
+                      param={param}
+                      value={data.parameters[param.id] ?? param.defaultValue}
+                      onChange={handleParamChange}
+                      definitionId={data.definitionId}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
