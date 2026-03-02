@@ -349,6 +349,114 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     graph.insertChain(steps);
   }, [graph]);
 
+  // "Bake to Image" — capture a node's output texture and create a new image node with it
+  const bakeToImage = useCallback((sourceNodeId: string) => {
+    const ctx = renderer.getContext();
+    if (!ctx) {
+      console.warn('bakeToImage: no GL context available');
+      return;
+    }
+
+    const sourceNode = graph.state.nodes.get(sourceNodeId);
+    if (!sourceNode) {
+      console.warn('bakeToImage: source node not found:', sourceNodeId);
+      return;
+    }
+
+    // Read the full-res pixels from the node's output texture
+    const texName = `node_${sourceNodeId}_out`;
+    const managed = ctx.getTexture(texName);
+    if (!managed) {
+      console.warn('bakeToImage: no output texture for node:', texName);
+      return;
+    }
+
+    const pixels = ctx.readPixels(texName);
+    if (pixels.length === 0) {
+      console.warn('bakeToImage: readPixels returned empty');
+      return;
+    }
+
+    const texW = managed.width;
+    const texH = managed.height;
+
+    // Create an offscreen canvas at the texture dimensions
+    const offscreen = document.createElement('canvas');
+    offscreen.width = texW;
+    offscreen.height = texH;
+    const ctx2d = offscreen.getContext('2d');
+    if (!ctx2d) return;
+
+    // Write pixel data, flipping Y (WebGL is bottom-up)
+    const imageData = ctx2d.createImageData(texW, texH);
+    for (let y = 0; y < texH; y++) {
+      const srcY = texH - 1 - y; // flip
+      for (let x = 0; x < texW; x++) {
+        const srcIdx = (srcY * texW + x) * 4;
+        const dstIdx = (y * texW + x) * 4;
+        imageData.data[dstIdx] = pixels[srcIdx];
+        imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+        imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+        imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
+      }
+    }
+    ctx2d.putImageData(imageData, 0, 0);
+
+    // Export as PNG data URL
+    const dataUrl = offscreen.toDataURL('image/png');
+
+    // Create a new image node positioned to the right of the source node
+    const newPos = {
+      x: sourceNode.position.x + NODE_GAP,
+      y: sourceNode.position.y,
+    };
+    const newNodeId = graph.addNode('image', newPos);
+    if (!newNodeId) return;
+
+    // Set the image data on the new node
+    graph.setNodeImage(newNodeId, dataUrl, texW, texH);
+
+    // Upload the image texture to GPU
+    const img = new window.Image();
+    img.onload = () => {
+      renderer.uploadImage(newNodeId, img);
+      // Re-render to show the new image node's preview
+      renderer.render();
+    };
+    img.src = dataUrl;
+
+    debugLog('INIT', `Baked node ${sourceNodeId} to new image node ${newNodeId}`, {
+      texSize: `${texW}x${texH}`,
+    });
+  }, [graph, renderer]);
+
+  // GPU-accelerated blit: renders a node's output texture onto a target <canvas> element.
+  // Uses blitTexture (passthrough shader → GL canvas) + drawImage (GPU copy → 2D canvas).
+  // No readPixels, no PNG encoding, no base64 — stays on the GPU the entire way.
+  const blitNodeToCanvas = useCallback((nodeId: string, targetCanvas: HTMLCanvasElement): boolean => {
+    const ctx = renderer.getContext();
+    if (!ctx) return false;
+
+    const texName = `node_${nodeId}_out`;
+    const managed = ctx.getTexture(texName);
+    if (!managed) return false;
+
+    // 1) Passthrough-blit the node texture to the GL canvas (GPU)
+    if (!ctx.blitTexture(texName)) return false;
+
+    // 2) GPU-accelerated copy: GL canvas → target 2D canvas (via drawImage)
+    const glCanvas = ctx.getCanvas();
+    if (targetCanvas.width !== glCanvas.width || targetCanvas.height !== glCanvas.height) {
+      targetCanvas.width = glCanvas.width;
+      targetCanvas.height = glCanvas.height;
+    }
+    const ctx2d = targetCanvas.getContext('2d');
+    if (!ctx2d) return false;
+    ctx2d.drawImage(glCanvas, 0, 0);
+
+    return true;
+  }, [renderer]);
+
   // Clear suggestion pills
   const clearSuggestion = useCallback(() => {
     setLastAddedNodeId(null);
@@ -375,6 +483,8 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     spliceIntoEdge,
     spliceExistingIntoEdge,
     addAndConnect,
+    bakeToImage,
+    blitNodeToCanvas,
     onParameterChange,
     onToggleEnabled,
     onToggleCollapsed,

@@ -1,4 +1,4 @@
-import { NodeRegistry } from '../NodeRegistry';
+import { NodeRegistry, getEffectiveInputs } from '../NodeRegistry';
 
 // Noise generators
 import { perlinNoiseNode } from './noise/perlin';
@@ -57,6 +57,9 @@ import {
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
 } from './external/external';
 
+// Curve generators
+import { curveGeneratorNode, levelsCurveNode } from './curve/curves';
+
 // Special
 import { resultNode, resultPBRNode } from './special/result';
 
@@ -98,13 +101,16 @@ const allNodes = [
   // External & Controls
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
 
+  // Curve generators
+  curveGeneratorNode, levelsCurveNode,
+
   // Special
   resultNode, resultPBRNode,
 ];
 
 NodeRegistry.registerAll(allNodes);
 
-export { NodeRegistry };
+export { NodeRegistry, getEffectiveInputs };
 
 // Re-export all node definitions for direct access
 export {
@@ -135,6 +141,8 @@ export {
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
   // External & Controls
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
+  // Curve generators
+  curveGeneratorNode, levelsCurveNode,
   // Special
   resultNode, resultPBRNode,
 };

@@ -5,9 +5,9 @@
  */
 
 import { GLContext, TexturePool } from '../core/GLContext';
-import { ShaderDefinition, compileFragmentShader } from '../shaders/ShaderDefinition';
+import { ShaderDefinition, compileFragmentShader, MappableParamInfo } from '../shaders/ShaderDefinition';
 import { GraphNode, GraphEdge, DataType, ExecutionStep, ExecutionPlan, ParameterDefinition, QualityLevel } from '@/types';
-import { NodeRegistry } from '@/registry/NodeRegistry';
+import { NodeRegistry, getEffectiveInputs } from '@/registry/NodeRegistry';
 import { ShaderLibrary } from '../shaders/library';
 
 // Default texture IDs for unconnected inputs
@@ -197,21 +197,26 @@ export class RenderPipeline {
       if (!shaderDef) continue;
 
       // Determine input textures from incoming edges.
+      // Use getEffectiveInputs() which includes auto-generated map_ ports for mappable params.
       // ALWAYS fill every slot so u_input{i} indices match port indices.
       // Unconnected ports get a sensible default texture (black for Map, identity ramp for Curve).
       // When an input comes from a disabled node, use the bypass texture instead.
+      const effectiveInputs = getEffectiveInputs(def);
       const allInputTextures: string[] = [];   // All slots (connected + defaults)
-      let connectedCount = 0;                   // Only truly connected inputs
+      let regularConnectedCount = 0;            // Only regular (non-map) connected inputs
       const incoming = incomingByNode.get(nodeId);
 
-      for (let i = 0; i < def.inputs.length; i++) {
-        const port = def.inputs[i];
+      for (let i = 0; i < effectiveInputs.length; i++) {
+        const port = effectiveInputs[i];
         const edge = incoming?.get(port.id);
         if (edge) {
           // Check if the source node is disabled — use its bypass texture instead
           const bypass = bypassMap.get(edge.sourceNodeId);
           allInputTextures.push(bypass || `node_${edge.sourceNodeId}_out`);
-          connectedCount++;
+          // Only count regular inputs (not map_ ports) for u_inputCount
+          if (!port.id.startsWith('map_')) {
+            regularConnectedCount++;
+          }
         } else {
           // Bind a default texture so the shader uniform is never undefined
           allInputTextures.push(this.getDefaultTextureId(port.dataType));
@@ -221,24 +226,68 @@ export class RenderPipeline {
       // Build uniforms from node parameters using pre-built parameter map
       const uniforms: Record<string, number | number[] | boolean | string> = {};
       const paramMap = this.getParameterMap(node.definitionId);
+
+      // Collect mappable param info for shader compilation
+      const mappableParams: MappableParamInfo[] = [];
+
       if (paramMap) {
+        // Determine which params are mappable and their input indices
+        let mapInputIdx = def.inputs.length; // Map inputs start after regular inputs
         for (const [paramId, paramDef] of paramMap) {
           const value = node.parameters[paramId] ?? paramDef.defaultValue;
-          if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
-            uniforms[`u_${paramId}`] = hexToVec3(value);
+          const isMappable = paramDef.mappable === true;
+          const isMapConnected = isMappable && incoming?.has(`map_${paramId}`);
+
+          if (isMappable) {
+            // Track mappable param info for shader compilation
+            const glslType = (paramDef.type === 'int' || paramDef.type === 'option') ? 'int' as const : 'float' as const;
+            mappableParams.push({
+              paramId,
+              inputIndex: mapInputIdx,
+              min: paramDef.min ?? 0,
+              max: paramDef.max ?? 1,
+              glslType,
+            });
+
+            // Set flag uniform: 1 if map input is connected, 0 if not
+            uniforms[`u_has_map_${paramId}`] = isMapConnected ? 1 : 0;
+
+            // Use underscore-prefixed uniform name for mappable params
+            // (shader #define resolves u_paramId from _u_paramId or texture)
+            if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
+              uniforms[`_u_${paramId}`] = hexToVec3(value);
+            } else {
+              uniforms[`_u_${paramId}`] = value as number | number[] | boolean;
+            }
+
+            mapInputIdx++;
           } else {
-            uniforms[`u_${paramId}`] = value as number | number[] | boolean;
+            // Non-mappable: use standard uniform name
+            if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
+              uniforms[`u_${paramId}`] = hexToVec3(value);
+            } else {
+              uniforms[`u_${paramId}`] = value as number | number[] | boolean;
+            }
           }
         }
       }
 
-      // Tell shaders how many inputs are truly connected (for optional input detection)
-      uniforms['u_inputCount'] = connectedCount;
+      // Tell shaders how many regular inputs are truly connected (for optional input detection)
+      uniforms['u_inputCount'] = regularConnectedCount;
 
       // Compile shader program if needed
-      const programId = `shader_${def.shaderId}`;
+      // Use a program ID that includes mappable param count so recompilation happens
+      // when the node definition changes (e.g., new mappable params added)
+      const programId = mappableParams.length > 0
+        ? `shader_${def.shaderId}_m${mappableParams.length}`
+        : `shader_${def.shaderId}`;
       if (!this.compiledPrograms.has(programId)) {
-        const fragSource = compileFragmentShader(shaderDef, Math.max(shaderDef.inputCount, def.inputs.length));
+        const effectiveInputCount = Math.max(shaderDef.inputCount, effectiveInputs.length);
+        const fragSource = compileFragmentShader(
+          shaderDef,
+          effectiveInputCount,
+          mappableParams.length > 0 ? mappableParams : undefined,
+        );
         const prog = this.ctx.createProgram(programId, fragSource);
         if (prog) {
           this.compiledPrograms.set(programId, true);
@@ -323,7 +372,8 @@ export class RenderPipeline {
     const step = this.stepByNodeId.get(nodeId);
     if (!step) return false;
 
-    const definitionId = step.programId.replace('shader_', '');
+    // Extract the base shaderId from programId (remove _mN suffix if present)
+    const definitionId = step.programId.replace('shader_', '').replace(/_m\d+$/, '');
 
     // Use pre-built parameter map for O(1) lookup per parameter
     const paramMap = this.getParameterMap(definitionId);
@@ -331,10 +381,12 @@ export class RenderPipeline {
 
     for (const [paramId, paramDef] of paramMap) {
       const value = parameters[paramId] ?? paramDef.defaultValue;
+      // Mappable params use underscore-prefixed uniform names
+      const uniformKey = paramDef.mappable ? `_u_${paramId}` : `u_${paramId}`;
       if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
-        step.uniforms[`u_${paramId}`] = hexToVec3(value);
+        step.uniforms[uniformKey] = hexToVec3(value);
       } else {
-        step.uniforms[`u_${paramId}`] = value as number | number[] | boolean;
+        step.uniforms[uniformKey] = value as number | number[] | boolean;
       }
     }
     return true;

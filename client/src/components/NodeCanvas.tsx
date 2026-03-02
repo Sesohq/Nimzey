@@ -24,6 +24,7 @@ import { NimzeyNode, NimzeyNodeContext, NimzeyNodeActions } from './nodes/Nimzey
 import EmptyStateOverlay from './EmptyStateOverlay';
 import QuickAddPalette from './QuickAddPalette';
 import PortContextMenu from './PortContextMenu';
+import NodeContextMenu from './NodeContextMenu';
 import { SuggestedNextPill } from './SuggestedNextPill';
 import { NimzeyNodeData, NodeColorTag, DataType } from '@/types';
 import { getIsValidConnection } from '@/adapters/ReactFlowAdapter';
@@ -57,9 +58,8 @@ interface NodeCanvasProps {
   onGenerateTexture?: () => void;
   onApplyTemplate?: (templateId: string) => void;
   onCommitPositionChange?: () => void;
-  lastAddedNodeId?: string | null;
-  lastAddedDefinitionId?: string | null;
-  onClearSuggestion?: () => void;
+  onBakeToImage?: (nodeId: string) => void;
+  onNodeFocus?: (nodeId: string) => void;
 }
 
 export default function NodeCanvas({
@@ -83,9 +83,8 @@ export default function NodeCanvas({
   onGenerateTexture,
   onApplyTemplate,
   onCommitPositionChange,
-  lastAddedNodeId,
-  lastAddedDefinitionId,
-  onClearSuggestion,
+  onBakeToImage,
+  onNodeFocus,
 }: NodeCanvasProps) {
   const [emptyStateDismissed, setEmptyStateDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -97,6 +96,16 @@ export default function NodeCanvas({
     targetNodeId: string;
     targetPortId: string;
   } | null>(null);
+  const [nodeMenu, setNodeMenu] = useState<{
+    position: { x: number; y: number };
+    nodeId: string;
+    definitionId: string;
+  } | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<{
+    nodeId: string;
+    definitionId: string;
+  } | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const edgeUpdateSuccessful = useRef(true);
@@ -170,6 +179,25 @@ export default function NodeCanvas({
     setPortMenu({ position: screenPos, dataType, targetNodeId: nodeId, targetPortId: portId });
   }, []);
 
+  // Node header hover handlers — show suggestion pills after short delay
+  const handleHeaderHover = useCallback((nodeId: string, definitionId: string) => {
+    // Don't show on result nodes
+    if (definitionId === 'result' || definitionId === 'result-pbr') return;
+    // Small delay (300ms) to avoid flickering on quick mouse passes
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = window.setTimeout(() => {
+      setHoveredNode({ nodeId, definitionId });
+    }, 300);
+  }, []);
+
+  const handleHeaderHoverEnd = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoveredNode(null);
+  }, []);
+
   // Build the context actions for NimzeyNode
   const nodeActions: NimzeyNodeActions = useMemo(() => ({
     onParameterChange,
@@ -178,7 +206,9 @@ export default function NodeCanvas({
     onSetColorTag,
     onUploadImage,
     onPortContextMenu: handlePortContextMenu,
-  }), [onParameterChange, onToggleEnabled, onToggleCollapsed, onSetColorTag, onUploadImage, handlePortContextMenu]);
+    onHeaderHover: handleHeaderHover,
+    onHeaderHoverEnd: handleHeaderHoverEnd,
+  }), [onParameterChange, onToggleEnabled, onToggleCollapsed, onSetColorTag, onUploadImage, handlePortContextMenu, handleHeaderHover, handleHeaderHoverEnd]);
 
   // Connection validation using typed ports
   const isValidConnection = useMemo(
@@ -228,12 +258,34 @@ export default function NodeCanvas({
     }
   }, []);
 
+  // Node context menu handler — opens on right-click on any node
+  const handleNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
+    e.preventDefault();
+    setNodeMenu({
+      position: { x: e.clientX, y: e.clientY },
+      nodeId: node.id,
+      definitionId: (node.data as NimzeyNodeData)?.definitionId || '',
+    });
+  }, []);
+
+  // Double-click on node → focus mode (skip result nodes)
+  const handleNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const defId = (node.data as NimzeyNodeData)?.definitionId || '';
+    if (defId === 'result' || defId === 'result-pbr') return;
+    onNodeFocus?.(node.id);
+  }, [onNodeFocus]);
+
+  const handleNodeMenuDelete = useCallback((nodeId: string) => {
+    onNodesChange([{ id: nodeId, type: 'remove' }]);
+  }, [onNodesChange]);
+
   const handlePaneClick = useCallback((e: React.MouseEvent) => {
     onNodeClick('');
     handlePaneClickForQuickAdd(e);
-    onClearSuggestion?.();
     setPortMenu(null);
-  }, [onNodeClick, handlePaneClickForQuickAdd, onClearSuggestion]);
+    setNodeMenu(null);
+    setHoveredNode(null);
+  }, [onNodeClick, handlePaneClickForQuickAdd]);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     onNodeClick(node.id);
@@ -427,6 +479,8 @@ export default function NodeCanvas({
           onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
+          onNodeContextMenu={handleNodeContextMenu}
+          onNodeDoubleClick={handleNodeDoubleClick}
           onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
           onEdgeUpdateStart={handleEdgeUpdateStart}
@@ -492,16 +546,29 @@ export default function NodeCanvas({
           />
         )}
 
-        {/* Suggested next node pills */}
-        {lastAddedNodeId && lastAddedDefinitionId && onClearSuggestion && (() => {
-          const node = graphState.nodes.get(lastAddedNodeId);
+        {/* Node context menu (right-click on any node) */}
+        {nodeMenu && (
+          <NodeContextMenu
+            position={nodeMenu.position}
+            nodeId={nodeMenu.nodeId}
+            definitionId={nodeMenu.definitionId}
+            onBakeToImage={onBakeToImage || (() => {})}
+            onFocus={onNodeFocus}
+            onDelete={handleNodeMenuDelete}
+            onClose={() => setNodeMenu(null)}
+          />
+        )}
+
+        {/* Suggested next node pills (shown on title bar hover) */}
+        {hoveredNode && (() => {
+          const node = graphState.nodes.get(hoveredNode.nodeId);
           if (!node) return null;
 
           // Convert flow coordinates → screen-relative position for the overlay
           const containerRect = containerRef.current?.getBoundingClientRect();
           const screenPos = reactFlowInstance.flowToScreenPosition({
             x: node.position.x,
-            y: node.position.y + 120,
+            y: node.position.y - 28,
           });
           const relativePos = {
             x: screenPos.x - (containerRect?.left || 0),
@@ -510,8 +577,7 @@ export default function NodeCanvas({
 
           return (
             <SuggestedNextPill
-              nodeId={lastAddedNodeId}
-              definitionId={lastAddedDefinitionId}
+              definitionId={hoveredNode.definitionId}
               nodePosition={relativePos}
               onSelect={(defId) => {
                 if (onDrop) {
@@ -521,8 +587,8 @@ export default function NodeCanvas({
                   };
                   onDrop(defId, pos);
                 }
+                setHoveredNode(null);
               }}
-              onDismiss={onClearSuggestion}
             />
           );
         })()}

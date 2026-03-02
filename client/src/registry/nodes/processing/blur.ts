@@ -201,7 +201,7 @@ export const maximumNode: NodeDefinition = {
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
   parameters: [
-    { id: 'radius', label: 'Radius', type: 'int', defaultValue: 2, min: 1, max: 20 },
+    { id: 'radius', label: 'Radius', type: 'int', defaultValue: 2, min: 1, max: 10 },
   ],
   shaderId: 'maximum',
   isGenerator: false,
@@ -222,7 +222,7 @@ export const minimumNode: NodeDefinition = {
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
   parameters: [
-    { id: 'radius', label: 'Radius', type: 'int', defaultValue: 2, min: 1, max: 20 },
+    { id: 'radius', label: 'Radius', type: 'int', defaultValue: 2, min: 1, max: 10 },
   ],
   shaderId: 'minimum',
   isGenerator: false,

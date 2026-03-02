@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { DataType, GraphEdge, GraphNode, NodeColorTag, NodeDefinition } from '@/types';
-import { NodeRegistry } from '@/registry/nodes';
+import { NodeRegistry, getEffectiveInputs } from '@/registry/nodes';
 import { TemplateBuildResult } from '@/templates/graphTemplates';
 import { SerializedGraph, serializeGraph, deserializeGraph } from '@/utils/graphSerializer';
 import { debugLog } from './debugLog';
@@ -302,7 +302,9 @@ export function useGraphStore() {
     if (!sourceDef || !targetDef) return false;
 
     const sourcePort = sourceDef.outputs.find(p => p.id === sourcePortId);
-    const targetPort = targetDef.inputs.find(p => p.id === targetPortId);
+    // Use effective inputs (includes auto-generated map_ ports for mappable params)
+    const effectiveTargetInputs = getEffectiveInputs(targetDef);
+    const targetPort = effectiveTargetInputs.find(p => p.id === targetPortId);
     if (!sourcePort || !targetPort) return false;
 
     // Type check
@@ -715,7 +717,8 @@ export function useGraphStore() {
     if (def.outputs.length === 0) return '';
     const sourcePortId = def.outputs[0].id;
     const sourcePort = def.outputs[0];
-    const targetPort = targetDef.inputs.find(p => p.id === targetPortId);
+    const effectiveTargetInputs = getEffectiveInputs(targetDef);
+    const targetPort = effectiveTargetInputs.find(p => p.id === targetPortId);
     if (!targetPort) return '';
     if (!NodeRegistry.canConnect(sourcePort, targetPort)) return '';
 

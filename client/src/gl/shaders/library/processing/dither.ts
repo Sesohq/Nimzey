@@ -254,8 +254,12 @@ float getDitherThreshold(ivec2 pixelCoord, int algo) {
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec4 src = texture(u_input0, uv);
-  float levels = float(u_levels);
   float intensity = u_intensity / 100.0;
+
+  // Bypass: no dithering at 0% intensity
+  if (intensity < 0.001) return src;
+
+  float levels = float(u_levels);
   vec2 texel = 1.0 / u_resolution;
 
   // Compute scaled pixel coordinate for pattern tiling

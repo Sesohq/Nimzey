@@ -93,6 +93,10 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'math-arccosine': { name: 'Arc Cosine', description: 'Inverse cosine curve' },
   'math-arctangent': { name: 'Arc Tangent', description: 'Inverse tangent curve' },
 
+  // Curve generators
+  'curve-generator': { name: 'Curve Presets', description: 'Generate preset curve shapes for tone mapping' },
+  'levels-curve': { name: 'Levels Curve', description: 'Remap input range to output range with gamma' },
+
   // Transforms
   'flip': { name: 'Mirror', description: 'Flips the image horizontally or vertically' },
   'rotate': { name: 'Spin', description: 'Rotates the image' },

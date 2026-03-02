@@ -24,12 +24,12 @@ export const assembleRGBShader: ShaderDefinition = {
   id: 'assemble-rgb',
   inputCount: 3,
   isNeighborhood: false,
-  uniforms: [],
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
-  float r = luminance(texture(u_input0, uv).rgb);
-  float g = luminance(texture(u_input1, uv).rgb);
-  float b = luminance(texture(u_input2, uv).rgb);
+  float r = u_inputCount >= 1 ? luminance(texture(u_input0, uv).rgb) : 0.0;
+  float g = u_inputCount >= 2 ? luminance(texture(u_input1, uv).rgb) : 0.0;
+  float b = u_inputCount >= 3 ? luminance(texture(u_input2, uv).rgb) : 0.0;
   return vec4(r, g, b, 1.0);
 }`,
 };
@@ -59,12 +59,12 @@ export const assembleHSBShader: ShaderDefinition = {
   id: 'assemble-hsb',
   inputCount: 3,
   isNeighborhood: false,
-  uniforms: [],
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
-  float h = luminance(texture(u_input0, uv).rgb);
-  float s = luminance(texture(u_input1, uv).rgb);
-  float b = luminance(texture(u_input2, uv).rgb);
+  float h = u_inputCount >= 1 ? luminance(texture(u_input0, uv).rgb) : 0.0;
+  float s = u_inputCount >= 2 ? luminance(texture(u_input1, uv).rgb) : 0.0;
+  float b = u_inputCount >= 3 ? luminance(texture(u_input2, uv).rgb) : 0.5;
   return vec4(hsb2rgb(vec3(h, s, b)), 1.0);
 }`,
 };
@@ -85,10 +85,14 @@ export const setAlphaShader: ShaderDefinition = {
   id: 'set-alpha',
   inputCount: 2,
   isNeighborhood: false,
-  uniforms: [],
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec4 source = texture(u_input0, uv);
+  // Guard: pass through source with full alpha if alpha map isn't connected
+  if (u_inputCount < 2) {
+    return source;
+  }
   float alpha = luminance(texture(u_input1, uv).rgb);
   return vec4(source.rgb, alpha);
 }`,
@@ -119,12 +123,12 @@ export const assembleHLSShader: ShaderDefinition = {
   id: 'assemble-hls',
   inputCount: 3,
   isNeighborhood: false,
-  uniforms: [],
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
-  float h = luminance(texture(u_input0, uv).rgb);
-  float l = luminance(texture(u_input1, uv).rgb);
-  float s = luminance(texture(u_input2, uv).rgb);
+  float h = u_inputCount >= 1 ? luminance(texture(u_input0, uv).rgb) : 0.0;
+  float l = u_inputCount >= 2 ? luminance(texture(u_input1, uv).rgb) : 0.5;
+  float s = u_inputCount >= 3 ? luminance(texture(u_input2, uv).rgb) : 0.0;
   return vec4(hsl2rgb(vec3(h, s, l)), 1.0);
 }`,
 };

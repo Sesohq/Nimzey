@@ -34,9 +34,13 @@ function getPreviewCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingCo
 }
 
 /** Max number of node previews to capture per animation frame */
-const PREVIEWS_PER_FRAME = 3;
+const PREVIEWS_PER_FRAME = 6;
 
-/** Capture a single node preview thumbnail from an intermediate texture */
+/**
+ * GPU-accelerated node preview capture.
+ * Old path: readPixels(full texture) → CPU pixel loop downsample → toDataURL (slow!)
+ * New path: blitTexture(GPU passthrough) → drawImage with scaling (GPU) → toDataURL(64×64 = fast)
+ */
 function captureSinglePreview(
   step: ExecutionStep,
   ctx: GLContext,
@@ -48,33 +52,15 @@ function captureSinglePreview(
   if (!preview) return;
 
   try {
-    const pixels = ctx.readPixels(step.outputTexture);
-    if (pixels.length === 0) return;
+    // 1) Blit the node texture to the GL canvas via GPU passthrough shader
+    if (!ctx.blitTexture(step.outputTexture)) return;
 
-    // Use actual texture dimensions (may differ from viewport during quality transitions)
-    const managed = ctx.getTexture(step.outputTexture);
-    const texW = managed ? managed.width : step.viewport.width;
-    const texH = managed ? managed.height : step.viewport.height;
+    // 2) GPU-accelerated downscale: drawImage from GL canvas → 64×64 preview canvas
+    const glCanvas = ctx.getCanvas();
+    preview.ctx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
+    preview.ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
 
-    // Downsample to preview size, flipping Y (WebGL is bottom-up)
-    const imageData = new ImageData(PREVIEW_SIZE, PREVIEW_SIZE);
-    const scaleX = texW / PREVIEW_SIZE;
-    const scaleY = texH / PREVIEW_SIZE;
-
-    for (let y = 0; y < PREVIEW_SIZE; y++) {
-      const srcY = Math.min(texH - 1, Math.floor((PREVIEW_SIZE - 1 - y) * scaleY));
-      for (let x = 0; x < PREVIEW_SIZE; x++) {
-        const srcX = Math.min(texW - 1, Math.floor(x * scaleX));
-        const srcIdx = (srcY * texW + srcX) * 4;
-        const dstIdx = (y * PREVIEW_SIZE + x) * 4;
-        imageData.data[dstIdx] = pixels[srcIdx];
-        imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
-        imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
-        imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
-      }
-    }
-
-    preview.ctx.putImageData(imageData, 0, 0);
+    // 3) Encode the tiny 64×64 canvas (4096 pixels — near-instant JPEG encode)
     const dataUrl = preview.canvas.toDataURL('image/jpeg', 0.6);
     callback(step.sourceNodeId, dataUrl);
   } catch (err) {
@@ -203,6 +189,7 @@ export function useRenderController(graphState: GraphState, structuralVersion: n
 
     // Start processing on the next frame
     if (previewQueueRef.current.length > 0) {
+      debugLog('RENDER', `Queued ${previewQueueRef.current.length} GPU-accelerated thumbnail captures`);
       previewRafRef.current = requestAnimationFrame(processPreviewQueue);
     }
   }, [processPreviewQueue]);
@@ -402,6 +389,9 @@ export function useRenderController(graphState: GraphState, structuralVersion: n
     };
   }, []);
 
+  // Expose GL context for reading node textures (used by bakeToImage)
+  const getContext = useCallback(() => ctxRef.current, []);
+
   return {
     canvasRef,
     initCanvas,
@@ -412,5 +402,6 @@ export function useRenderController(graphState: GraphState, structuralVersion: n
     render: renderNow,
     uploadImage,
     exportImage,
+    getContext,
   };
 }

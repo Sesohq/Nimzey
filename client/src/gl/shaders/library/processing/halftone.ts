@@ -40,8 +40,8 @@ float halftoneGrid(vec2 uv, float angleDeg, float value, float scale, float soft
   vec2 cellId = floor(cell);
   vec2 cellUv = fract(cell) - 0.5;
   float dist = length(cellUv);
-  float radius = sqrt(1.0 - value) * 0.5;
-  float edge = softness * 0.01 * 0.1;
+  float radius = sqrt(max(1.0 - value, 0.0)) * 0.5;
+  float edge = max(softness * 0.01 * 0.1, 0.001);
   return smoothstep(radius - edge, radius + edge, dist);
 }
 
@@ -143,8 +143,8 @@ vec4 processPixel(vec2 uv) {
     vec2 cell = ruv * s;
     vec2 cellUv = fract(cell) - 0.5;
     float dist = max(abs(cellUv.x), abs(cellUv.y)); // Chebyshev distance
-    float radius = sqrt(1.0 - lumGained) * 0.5;
-    float edge = softness * 0.01 * 0.1;
+    float radius = sqrt(max(1.0 - lumGained, 0.0)) * 0.5;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(radius - edge, radius + edge, dist);
   }
 
@@ -155,8 +155,8 @@ vec4 processPixel(vec2 uv) {
     vec2 cell = ruv * s;
     vec2 cellUv = fract(cell) - 0.5;
     float dist = abs(cellUv.x) + abs(cellUv.y); // Manhattan distance
-    float radius = sqrt(1.0 - lumGained) * 0.7;
-    float edge = softness * 0.01 * 0.1;
+    float radius = sqrt(max(1.0 - lumGained, 0.0)) * 0.7;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(radius - edge, radius + edge, dist);
   }
 
@@ -169,8 +169,8 @@ vec4 processPixel(vec2 uv) {
     // Scale one axis to create elliptical shape
     vec2 scaled = cellUv * vec2(1.0, 1.6);
     float dist = length(scaled);
-    float radius = sqrt(1.0 - lumGained) * 0.5;
-    float edge = softness * 0.01 * 0.1;
+    float radius = sqrt(max(1.0 - lumGained, 0.0)) * 0.5;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(radius - edge, radius + edge, dist);
   }
 
@@ -181,7 +181,7 @@ vec4 processPixel(vec2 uv) {
     float line = fract(ruv.x * s);
     float dist = abs(line - 0.5);
     float width = (1.0 - lumGained) * 0.5;
-    float edge = softness * 0.01 * 0.1;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(width - edge, width + edge, dist);
   }
 
@@ -218,7 +218,7 @@ vec4 processPixel(vec2 uv) {
   // ---- Algorithm 6: Crosshatch ----
   else if (algo == 6) {
     float s = scale / u_resolution.x * 50.0;
-    float edge = softness * 0.01 * 0.15;
+    float edge = max(softness * 0.01 * 0.15, 0.001);
     int levels = u_crosshatchLevels;
     float val = 1.0;
 
@@ -256,7 +256,7 @@ vec4 processPixel(vec2 uv) {
   else if (algo == 7) {
     float s = scale * 2.0;
     float noise = hash21(floor(pixUv / s) * s);
-    float edge = softness * 0.01 * 0.3;
+    float edge = max(softness * 0.01 * 0.3, 0.001);
     result = smoothstep(lumGained - edge, lumGained + edge, noise);
   }
 
@@ -273,7 +273,7 @@ vec4 processPixel(vec2 uv) {
     centerLum = applyDotGain(centerLum, dotGain);
 
     float radius = (1.0 - centerLum) * 0.45;
-    float edge = softness * 0.01 * 0.1;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(radius - edge, radius + edge, dist);
   }
 
@@ -321,8 +321,8 @@ vec4 processPixel(vec2 uv) {
     float noiseVal = htNoise(pixUv * 0.1) * 2.0 - 1.0;
     float perturbation = noiseVal * 0.08;
 
-    float radius = sqrt(1.0 - lumGained) * 0.5 + perturbation;
-    float edge = softness * 0.01 * 0.1;
+    float radius = sqrt(max(1.0 - lumGained, 0.0)) * 0.5 + perturbation;
+    float edge = max(softness * 0.01 * 0.1, 0.001);
     result = smoothstep(radius - edge, radius + edge, dist);
   }
 

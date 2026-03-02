@@ -24,6 +24,7 @@ import { useAuth } from '@/stores/authStore';
 import { usePublishChain } from '@/stores/communityStore';
 import { Button } from '@/components/ui/button';
 import { Share2, Loader2, X } from 'lucide-react';
+import { NodeFocusOverlay } from '@/components/NodeFocusOverlay';
 
 function EditorContent({ docId }: { docId: string }) {
   const [, setLocation] = useLocation();
@@ -43,6 +44,7 @@ function EditorContent({ docId }: { docId: string }) {
 
   const graph = useNimzeyGraph({ quality: 'draft', width: canvasWidth, height: canvasHeight });
   const [leftPanelWidth] = useState(260);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 
   // Auto-save timer ref
   const autoSaveTimer = useRef<number | null>(null);
@@ -414,9 +416,8 @@ function EditorContent({ docId }: { docId: string }) {
           onGenerateTexture={graph.generateTexture}
           onApplyTemplate={graph.applyTemplate}
           onCommitPositionChange={graph.commitPositionChange}
-          lastAddedNodeId={graph.lastAddedNodeId}
-          lastAddedDefinitionId={graph.lastAddedDefinitionId}
-          onClearSuggestion={graph.clearSuggestion}
+          onBakeToImage={graph.bakeToImage}
+          onNodeFocus={setFocusedNodeId}
         />
       </div>
 
@@ -432,6 +433,19 @@ function EditorContent({ docId }: { docId: string }) {
         canvasHeight={canvasHeight}
         onResolutionChange={handleResolutionChange}
       />
+
+      {/* Node focus overlay (double-click or right-click → Focus Node) */}
+      {focusedNodeId && (
+        <NodeFocusOverlay
+          nodeId={focusedNodeId}
+          graphState={graph.graphState}
+          onParameterChange={graph.onParameterChange}
+          onToggleEnabled={graph.onToggleEnabled}
+          blitNodeToCanvas={graph.blitNodeToCanvas}
+          structuralVersion={graph.structuralVersion}
+          onClose={() => setFocusedNodeId(null)}
+        />
+      )}
 
       <NewDocumentDialog
         open={showNewDialog}

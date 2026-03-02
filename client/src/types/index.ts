@@ -455,6 +455,10 @@ export interface NimzeyNodeData {
   /** Image dimensions if applicable */
   width?: number;
   height?: number;
+  /** Set of input port IDs that have an edge connected (pre-computed from edge index) */
+  connectedInputs?: Set<string>;
+  /** Set of output port IDs that have an edge connected (pre-computed from edge index) */
+  connectedOutputs?: Set<string>;
 }
 
 // Global declarations

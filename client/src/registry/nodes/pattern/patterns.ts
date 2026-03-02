@@ -5,10 +5,7 @@ export const checkerNode: NodeDefinition = {
   name: 'Checker',
   category: 'pattern',
   description: 'Checkerboard pattern with configurable colors and repeat.',
-  inputs: [
-    { id: 'color1', label: 'Color 1', dataType: DataType.Map, required: false, hdr: true },
-    { id: 'color2', label: 'Color 2', dataType: DataType.Map, required: false, hdr: true },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
   ],
@@ -31,10 +28,7 @@ export const bricksNode: NodeDefinition = {
   name: 'Bricks',
   category: 'pattern',
   description: 'Brick wall pattern with configurable bond, mortar, and bevel.',
-  inputs: [
-    { id: 'bricks', label: 'Bricks', dataType: DataType.Map, required: false },
-    { id: 'mortar', label: 'Mortar', dataType: DataType.Map, required: false },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
@@ -66,10 +60,7 @@ export const tilesNode: NodeDefinition = {
   name: 'Tiles',
   category: 'pattern',
   description: 'Square tile grid with mortar and bevel. Great for bathroom tiles, grids, halftone.',
-  inputs: [
-    { id: 'tiles', label: 'Tiles', dataType: DataType.Map, required: false },
-    { id: 'mortar', label: 'Mortar', dataType: DataType.Map, required: false },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
@@ -97,10 +88,7 @@ export const ellipseNode: NodeDefinition = {
   name: 'Ellipse',
   category: 'pattern',
   description: 'Generates an ellipse or circle shape with optional bevel.',
-  inputs: [
-    { id: 'color', label: 'Color', dataType: DataType.Map, required: false },
-    { id: 'background', label: 'Background', dataType: DataType.Map, required: false },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
@@ -126,10 +114,7 @@ export const polygonNode: NodeDefinition = {
   name: 'Polygon',
   category: 'pattern',
   description: 'Regular polygon (triangle, pentagon, hexagon, etc.) with bevel.',
-  inputs: [
-    { id: 'color', label: 'Color', dataType: DataType.Map, required: false },
-    { id: 'background', label: 'Background', dataType: DataType.Map, required: false },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],
@@ -155,10 +140,7 @@ export const rectangleNode: NodeDefinition = {
   name: 'Rectangle',
   category: 'pattern',
   description: 'Rectangle or rounded rectangle shape.',
-  inputs: [
-    { id: 'color', label: 'Color', dataType: DataType.Map, required: false },
-    { id: 'background', label: 'Background', dataType: DataType.Map, required: false },
-  ],
+  inputs: [],
   outputs: [
     { id: 'out', label: 'Output', dataType: DataType.Map, required: false },
   ],

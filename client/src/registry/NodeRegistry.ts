@@ -103,3 +103,35 @@ class NodeRegistryImpl {
 
 // Singleton instance
 export const NodeRegistry = new NodeRegistryImpl();
+
+/**
+ * Get the effective input ports for a node, including auto-generated
+ * map input ports for mappable parameters.
+ *
+ * Regular inputs come first, then map inputs appended in parameter order.
+ * This determines u_input{i} indexing in the shader.
+ *
+ * Cache keyed by definitionId for performance (definitions are immutable).
+ */
+const effectiveInputsCache = new Map<string, PortDefinition[]>();
+
+export function getEffectiveInputs(def: NodeDefinition): PortDefinition[] {
+  const cached = effectiveInputsCache.get(def.id);
+  if (cached) return cached;
+
+  const mapInputs: PortDefinition[] = def.parameters
+    .filter(p => p.mappable)
+    .map(p => ({
+      id: `map_${p.id}`,
+      label: p.label,
+      dataType: DataType.Map,
+      required: false,
+    }));
+
+  const result = mapInputs.length > 0
+    ? [...def.inputs, ...mapInputs]
+    : def.inputs;
+
+  effectiveInputsCache.set(def.id, result);
+  return result;
+}

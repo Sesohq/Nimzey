@@ -28,27 +28,35 @@ function distToSegment(p: Point, a: Point, b: Point): number {
 }
 
 // Approximate node dimensions for handle position calculation
-const NODE_WIDTH = 220;
-const NODE_HEADER_HEIGHT = 32;
+const NODE_WIDTH_MIN = 220;
+const NODE_WIDTH_MAX = 280;
 
 /**
- * Approximate the path of a smoothstep edge as 3-segment polyline.
+ * Approximate the path of a smoothstep edge as a multi-segment polyline.
  * Source handle is on the right side, target handle is on the left side.
+ * Uses a wider band to account for different node sizes and handle positions.
  */
 function getEdgePolyline(
   sourceNode: Node,
   targetNode: Node,
   _edge: Edge,
 ): Point[] {
-  // Source handle: right side of node, vertically centered on first port area
-  const srcX = sourceNode.position.x + NODE_WIDTH;
-  const srcY = sourceNode.position.y + NODE_HEADER_HEIGHT + 12;
+  // Source handle: right side of node
+  // Use average of min/max width for better approximation
+  const srcNodeWidth = (sourceNode as any).width || ((NODE_WIDTH_MIN + NODE_WIDTH_MAX) / 2);
+  const srcX = sourceNode.position.x + srcNodeWidth;
+
+  // Estimate handle Y from port position in the node
+  // Header (~36px) + first port area offset (~12px)
+  const srcPortOffset = getPortYOffset(sourceNode, _edge.sourceHandle || 'out', 'source');
+  const srcY = sourceNode.position.y + srcPortOffset;
 
   // Target handle: left side of node
+  const tgtPortOffset = getPortYOffset(targetNode, _edge.targetHandle || 'source', 'target');
   const tgtX = targetNode.position.x;
-  const tgtY = targetNode.position.y + NODE_HEADER_HEIGHT + 12;
+  const tgtY = targetNode.position.y + tgtPortOffset;
 
-  // Smoothstep goes: source → right → midX → turn → midX → left → target
+  // Smoothstep: source → right → midX → turn → midX → left → target
   const midX = (srcX + tgtX) / 2;
 
   return [
@@ -60,6 +68,21 @@ function getEdgePolyline(
 }
 
 /**
+ * Estimate the Y offset of a port handle within a node.
+ * This is approximate — header height + port index offset.
+ */
+function getPortYOffset(
+  _node: Node,
+  _handleId: string,
+  _type: 'source' | 'target',
+): number {
+  // Header is ~36px (py-2 = 8px + icon = 20px + gaps)
+  // Port rows start after header, each port row is ~20px
+  // For simplicity, use a fixed offset that covers most cases
+  return 48;
+}
+
+/**
  * Find the nearest edge to a given flow-coordinate point.
  * Returns the edge ID and distance, or null if nothing is within threshold.
  */
@@ -67,7 +90,7 @@ export function findNearestEdge(
   point: Point,
   edges: Edge[],
   nodes: Node[],
-  threshold = 30,
+  threshold = 60,
 ): { edgeId: string; distance: number } | null {
   const nodeMap = new Map<string, Node>();
   for (const n of nodes) nodeMap.set(n.id, n);
@@ -81,14 +104,20 @@ export function findNearestEdge(
 
     const polyline = getEdgePolyline(src, tgt, edge);
 
-    // Min distance to any segment
+    // Min distance to any segment of the polyline
     let minDist = Infinity;
     for (let i = 0; i < polyline.length - 1; i++) {
       const d = distToSegment(point, polyline[i], polyline[i + 1]);
       if (d < minDist) minDist = d;
     }
 
-    if (minDist < threshold && (!best || minDist < best.distance)) {
+    // Also check: is the point horizontally between source and target?
+    // This helps avoid false positives for edges above/below the drop point
+    const leftX = Math.min(polyline[0].x, polyline[polyline.length - 1].x);
+    const rightX = Math.max(polyline[0].x, polyline[polyline.length - 1].x);
+    const inHorizontalBand = point.x >= leftX - threshold && point.x <= rightX + threshold;
+
+    if (minDist < threshold && inHorizontalBand && (!best || minDist < best.distance)) {
       best = { edgeId: edge.id, distance: minDist };
     }
   }

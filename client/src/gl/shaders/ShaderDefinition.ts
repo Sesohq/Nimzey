@@ -289,18 +289,73 @@ float smoothEdge(float edge, float x, float width) {
 `;
 
 /**
+ * Info about a mappable parameter for shader auto-generation.
+ */
+export interface MappableParamInfo {
+  /** Parameter ID (e.g. 'brightness') */
+  paramId: string;
+  /** The u_input{i} index this map occupies */
+  inputIndex: number;
+  /** Parameter min value (for mapping 0→1 texture to parameter range) */
+  min: number;
+  /** Parameter max value */
+  max: number;
+  /** The GLSL type of the original uniform ('float' or 'int') */
+  glslType: 'float' | 'int';
+}
+
+/**
  * Wraps a ShaderDefinition's GLSL into a complete fragment shader.
  * This is the main compilation step.
+ *
+ * When `mappableParams` is provided, auto-generates:
+ * - Renamed uniforms (_u_paramId instead of u_paramId) for mappable params
+ * - u_has_map_{paramId} flag uniforms
+ * - #define macros that resolve u_paramId to either the texture sample or the uniform
  */
-export function compileFragmentShader(def: ShaderDefinition, inputCount: number): string {
-  const uniformDecls = def.uniforms.map(u => {
-    const glslType = u.type === 'bool' ? 'int' : u.type;
-    return `uniform ${glslType} ${u.name};`;
-  }).join('\n');
+export function compileFragmentShader(
+  def: ShaderDefinition,
+  inputCount: number,
+  mappableParams?: MappableParamInfo[],
+): string {
+  // Build a set of mappable param uniform names for renaming
+  const mappableNames = new Set(
+    (mappableParams || []).map(mp => `u_${mp.paramId}`)
+  );
+
+  const uniformDecls = def.uniforms
+    .filter(u => u.name !== 'u_inputCount' && u.name !== 'u_resolution')
+    .map(u => {
+      const glslType = u.type === 'bool' ? 'int' : u.type;
+      // Rename mappable parameter uniforms with underscore prefix
+      const name = mappableNames.has(u.name) ? `_${u.name}` : u.name;
+      return `uniform ${glslType} ${name};`;
+    }).join('\n');
 
   const samplerDecls = Array.from({ length: inputCount }, (_, i) =>
     `uniform sampler2D u_input${i};`
   ).join('\n');
+
+  // Generate map flag uniforms and resolver #defines for mappable parameters
+  let mapDecls = '';
+  let mapDefines = '';
+  if (mappableParams && mappableParams.length > 0) {
+    const flagDecls = mappableParams.map(
+      mp => `uniform int u_has_map_${mp.paramId};`
+    ).join('\n');
+
+    const defines = mappableParams.map(mp => {
+      const range = mp.max - mp.min;
+      const offset = mp.min;
+      // Map 0→1 texture luminance to [min, max] parameter range
+      const castPrefix = mp.glslType === 'int' ? 'int(' : '';
+      const castSuffix = mp.glslType === 'int' ? ')' : '';
+      return `#define u_${mp.paramId} (u_has_map_${mp.paramId} > 0 ? ${castPrefix}luminance(texture(u_input${mp.inputIndex}, v_texCoord).rgb) * ${range.toFixed(4)} + (${offset.toFixed(4)})${castSuffix} : _u_${mp.paramId})`;
+    }).join('\n');
+
+    mapDecls = `\n// Map input flags\n${flagDecls}`;
+    mapDefines = `\n// Auto-resolved mappable parameters\n${defines}\n`;
+  }
 
   return `#version 300 es
 precision highp float;
@@ -309,12 +364,13 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 uniform vec2 u_resolution;
+uniform int u_inputCount;
 
 ${samplerDecls}
-${uniformDecls}
+${uniformDecls}${mapDecls}
 
 ${COMMON_GLSL_HELPERS}
-
+${mapDefines}
 ${def.helpers || ''}
 
 ${def.glsl}

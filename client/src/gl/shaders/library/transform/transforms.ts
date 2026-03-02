@@ -142,11 +142,12 @@ export const lookupShader: ShaderDefinition = {
   id: 'lookup',
   inputCount: 3,
   isNeighborhood: false,
-  uniforms: [],
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
   glsl: `
 vec4 processPixel(vec2 uv) {
-  float x = luminance(texture(u_input1, uv).rgb);
-  float y = luminance(texture(u_input2, uv).rgb);
+  // Fall back to identity coordinates when lookup maps aren't connected
+  float x = u_inputCount >= 2 ? luminance(texture(u_input1, uv).rgb) : uv.x;
+  float y = u_inputCount >= 3 ? luminance(texture(u_input2, uv).rgb) : uv.y;
   return texture(u_input0, vec2(x, y));
 }`,
 };

@@ -354,6 +354,33 @@ export class GLContext {
   }
 
   /**
+   * Blit a managed texture to the screen canvas using a passthrough shader.
+   * GPU-only path — no readPixels, no CPU encoding.
+   * Used by focus-mode preview to avoid the slow readPixels→toDataURL roundtrip.
+   */
+  blitTexture(textureId: string): boolean {
+    const managed = this.textures.get(textureId);
+    if (!managed) return false;
+
+    // Lazily compile a minimal passthrough program
+    if (!this.programs.has('_blit')) {
+      const frag = `#version 300 es
+precision highp float;
+uniform sampler2D u_input0;
+in vec2 v_texCoord;
+out vec4 fragColor;
+void main() { fragColor = texture(u_input0, v_texCoord); }`;
+      this.createProgram('_blit', frag);
+    }
+
+    this.renderPass('_blit', null, [{ name: 'u_input0', textureId }], {}, {
+      width: this.canvas.width,
+      height: this.canvas.height,
+    });
+    return true;
+  }
+
+  /**
    * Read pixels from a managed texture.
    * Handles float16/float32 textures by reading as FLOAT and converting to uint8.
    */

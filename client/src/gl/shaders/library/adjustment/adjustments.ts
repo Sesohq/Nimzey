@@ -147,13 +147,14 @@ vec4 processPixel(vec2 uv) {
 
 export const thresholdShader: ShaderDefinition = {
   id: 'threshold',
-  inputCount: 1,
+  inputCount: 3,
   isNeighborhood: false,
   uniforms: [
     { name: 'u_threshold', type: 'float' },
     { name: 'u_smooth', type: 'float' },
     { name: 'u_lowColor', type: 'vec3' },
     { name: 'u_highColor', type: 'vec3' },
+    { name: 'u_inputCount', type: 'int' },
   ],
   glsl: `
 vec4 processPixel(vec2 uv) {
@@ -169,7 +170,10 @@ vec4 processPixel(vec2 uv) {
     t = step(thresh, lum);
   }
 
-  vec3 result = mix(u_lowColor, u_highColor, t);
+  // Use map inputs for low/high colors if connected, otherwise use uniform colors
+  vec3 lowCol = (u_inputCount >= 2) ? texture(u_input1, uv).rgb : u_lowColor;
+  vec3 highCol = (u_inputCount >= 3) ? texture(u_input2, uv).rgb : u_highColor;
+  vec3 result = mix(lowCol, highCol, t);
   return vec4(result, color.a);
 }`,
 };
@@ -184,6 +188,10 @@ export const toneCurveShader: ShaderDefinition = {
   glsl: `
 vec4 processPixel(vec2 uv) {
   vec4 color = texture(u_input0, uv);
+
+  // Pass through source unchanged when no curve is connected
+  if (u_inputCount < 2) return color;
+
   // The curve input is a 1D LUT texture: x = input luminance, output = remapped value
   vec3 result;
   result.r = texture(u_input1, vec2(color.r, 0.5)).r;

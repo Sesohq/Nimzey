@@ -1,20 +1,23 @@
 /**
  * DocumentsPage - Home page showing all saved documents with create/open/delete.
+ * Shows cloud documents when authenticated, localStorage documents when not.
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import nimzeyLogo from '@/assets/nimzey-logo.png';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, FileImage, Clock } from 'lucide-react';
+import { Plus, Trash2, FileImage, Clock, Cloud, HardDrive, LogIn, Users } from 'lucide-react';
 import { listDocuments, deleteDocument, NimzeyDocument } from '@/stores/documentStore';
+import { listCloudDocuments, deleteCloudDocument, saveCloudDocument, CloudDocumentListItem } from '@/stores/cloudDocumentStore';
 import NewDocumentDialog, { NewDocumentResult } from '@/components/NewDocumentDialog';
 import { saveDocument } from '@/stores/documentStore';
 import { serializeGraph } from '@/utils/graphSerializer';
 import { NodeRegistry } from '@/registry/nodes';
+import { useAuth } from '@/stores/authStore';
 
-function formatDate(ts: number): string {
-  const d = new Date(ts);
+function formatDate(ts: number | string): string {
+  const d = typeof ts === 'string' ? new Date(ts) : new Date(ts);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
@@ -25,6 +28,16 @@ function formatDate(ts: number): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
   return d.toLocaleDateString();
+}
+
+interface UnifiedDocument {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  thumbnail?: string | null;
+  updatedAt: number | string;
+  source: 'cloud' | 'local';
 }
 
 function createBlankDocument(name: string, width: number, height: number): NimzeyDocument {
@@ -62,30 +75,112 @@ function createBlankDocument(name: string, width: number, height: number): Nimze
 
 export default function DocumentsPage() {
   const [, setLocation] = useLocation();
-  const [docs, setDocs] = useState<NimzeyDocument[]>([]);
+  const { isAuthenticated, loading: authLoading, profile, user } = useAuth();
+  const [docs, setDocs] = useState<UnifiedDocument[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Load documents based on auth state
   useEffect(() => {
-    setDocs(listDocuments());
-  }, []);
+    if (authLoading) return;
+
+    const loadDocs = async () => {
+      setLoadingDocs(true);
+
+      if (isAuthenticated) {
+        // Load cloud documents
+        const cloudDocs = await listCloudDocuments();
+        const unified: UnifiedDocument[] = cloudDocs.map(d => ({
+          id: d.id,
+          name: d.name,
+          width: d.width,
+          height: d.height,
+          thumbnail: d.thumbnail_url,
+          updatedAt: d.updated_at,
+          source: 'cloud' as const,
+        }));
+
+        // Also check for local-only documents that aren't in the cloud
+        const localDocs = listDocuments();
+        const cloudIds = new Set(cloudDocs.map(d => d.id));
+        const localOnly = localDocs.filter(d => !cloudIds.has(d.id));
+        for (const ld of localOnly) {
+          unified.push({
+            id: ld.id,
+            name: ld.name,
+            width: ld.width,
+            height: ld.height,
+            thumbnail: ld.thumbnail,
+            updatedAt: ld.updatedAt,
+            source: 'local' as const,
+          });
+        }
+
+        // Sort by updated descending
+        unified.sort((a, b) => {
+          const ta = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : a.updatedAt;
+          const tb = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : b.updatedAt;
+          return tb - ta;
+        });
+
+        setDocs(unified);
+      } else {
+        // Load local documents only
+        const localDocs = listDocuments();
+        setDocs(localDocs.map(d => ({
+          id: d.id,
+          name: d.name,
+          width: d.width,
+          height: d.height,
+          thumbnail: d.thumbnail,
+          updatedAt: d.updatedAt,
+          source: 'local' as const,
+        })));
+      }
+      setLoadingDocs(false);
+    };
+
+    loadDocs();
+  }, [isAuthenticated, authLoading]);
 
   const handleCreate = useCallback((result: NewDocumentResult) => {
     const doc = createBlankDocument(result.name, result.width, result.height);
     saveDocument(doc);
+
+    // Also save to cloud if authenticated
+    if (isAuthenticated) {
+      saveCloudDocument({
+        id: doc.id,
+        name: doc.name,
+        graphData: doc.graphData,
+        width: doc.width,
+        height: doc.height,
+      }).catch(err => console.warn('Cloud save failed:', err));
+    }
+
     setShowNewDialog(false);
     setLocation(`/edit/${doc.id}`);
-  }, [setLocation]);
+  }, [setLocation, isAuthenticated]);
 
   const handleOpen = useCallback((id: string) => {
     setLocation(`/edit/${id}`);
   }, [setLocation]);
 
-  const handleDelete = useCallback((id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
+    const docToDelete = docs.find(d => d.id === id);
+
+    // Delete from localStorage
     deleteDocument(id);
-    setDocs(listDocuments());
+
+    // Delete from cloud if it's a cloud doc
+    if (docToDelete?.source === 'cloud') {
+      await deleteCloudDocument(id);
+    }
+
+    setDocs(prev => prev.filter(d => d.id !== id));
     setDeleteConfirmId(null);
-  }, []);
+  }, [docs]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -99,19 +194,52 @@ export default function DocumentsPage() {
               <span className="text-xs text-zinc-500">Texture & Filter Editor</span>
             </div>
           </div>
-          <Button
-            onClick={() => setShowNewDialog(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
-          >
-            <Plus size={16} />
-            New Document
-          </Button>
+          <div className="flex items-center gap-2">
+            {!authLoading && !isAuthenticated && (
+              <button
+                onClick={() => setLocation('/login')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-md border border-zinc-700 transition-colors"
+              >
+                <LogIn size={13} />
+                Sign In
+              </button>
+            )}
+            {!authLoading && isAuthenticated && (
+              <span className="text-xs text-zinc-500 flex items-center gap-1">
+                <Cloud size={12} />
+                Synced
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              onClick={() => setLocation('/community')}
+              className="text-zinc-400 hover:text-white gap-1.5"
+            >
+              <Users size={16} />
+              Community
+            </Button>
+            <Button
+              onClick={() => setShowNewDialog(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
+            >
+              <Plus size={16} />
+              New Document
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-5xl mx-auto px-6 py-8">
-        {docs.length === 0 ? (
+        {loadingDocs || authLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <svg className="animate-spin h-6 w-6 text-zinc-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <p className="text-sm text-zinc-500">Loading documents...</p>
+          </div>
+        ) : docs.length === 0 ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-16 h-16 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
@@ -167,6 +295,10 @@ export default function DocumentsPage() {
                         <span className="text-[10px] text-zinc-600 flex items-center gap-0.5">
                           <Clock size={9} />
                           {formatDate(doc.updatedAt)}
+                        </span>
+                        {/* Cloud/Local indicator */}
+                        <span className="text-[10px] text-zinc-600 flex items-center gap-0.5" title={doc.source === 'cloud' ? 'Stored in cloud' : 'Stored locally'}>
+                          {doc.source === 'cloud' ? <Cloud size={9} /> : <HardDrive size={9} />}
                         </span>
                       </div>
                     </div>
