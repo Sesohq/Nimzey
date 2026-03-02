@@ -85,7 +85,7 @@ export const maxNode = mathNode('math-max', 'Max', 'Maximum of two images per-ch
 export const lerpNode: NodeDefinition = {
   id: 'math-lerp',
   name: 'Lerp',
-  category: 'math',
+  category: 'blender',
   description: 'Linear interpolation between A and B: mix(A, B, factor).',
   inputs: [
     { id: 'a', label: 'Source A', dataType: DataType.Map, required: true, hdr: true },
