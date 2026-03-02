@@ -1,5 +1,6 @@
 /**
  * EditorPage - Main editor with document loading, auto-save, and multi-tab support.
+ * Supports both localStorage and cloud (Supabase) persistence based on auth state.
  * Also exported as default "Home" for backwards compatibility.
  */
 
@@ -16,14 +17,21 @@ import DocumentTabs, { DocumentTab } from '@/components/DocumentTabs';
 import NewDocumentDialog, { NewDocumentResult } from '@/components/NewDocumentDialog';
 import { useNimzeyGraph } from '@/hooks/useNimzeyGraph';
 import { loadDocument, saveDocument, NimzeyDocument } from '@/stores/documentStore';
+import { loadCloudDocument, saveCloudDocument } from '@/stores/cloudDocumentStore';
 import { serializeGraph } from '@/utils/graphSerializer';
 import { NodeRegistry } from '@/registry/nodes';
+import { useAuth } from '@/stores/authStore';
+import { usePublishChain } from '@/stores/communityStore';
+import { Button } from '@/components/ui/button';
+import { Share2, Loader2, X } from 'lucide-react';
 
 function EditorContent({ docId }: { docId: string }) {
   const [, setLocation] = useLocation();
+  const { isAuthenticated, user } = useAuth();
   const [doc, setDoc] = useState<NimzeyDocument | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [isCloudDoc, setIsCloudDoc] = useState(false);
 
   // Tab state
   const [openTabs, setOpenTabs] = useState<DocumentTab[]>([]);
@@ -42,31 +50,100 @@ function EditorContent({ docId }: { docId: string }) {
   docRef.current = doc;
   const graphRef = useRef(graph);
   graphRef.current = graph;
+  const isCloudDocRef = useRef(isCloudDoc);
+  isCloudDocRef.current = isCloudDoc;
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
+
+  // Helper to save document (local + cloud)
+  const persistDocument = useCallback((docToSave: NimzeyDocument) => {
+    // Always save to localStorage as a cache
+    saveDocument(docToSave);
+
+    // Also save to cloud if authenticated
+    if (isAuthenticatedRef.current) {
+      saveCloudDocument({
+        id: docToSave.id,
+        name: docToSave.name,
+        graphData: docToSave.graphData,
+        width: docToSave.width,
+        height: docToSave.height,
+        thumbnail: docToSave.thumbnail,
+      }).catch(err => console.warn('Cloud save failed:', err));
+    }
+  }, []);
 
   // Load document on mount / when docId changes
   useEffect(() => {
-    const loadedDoc = loadDocument(docId);
-    if (loadedDoc) {
-      setDoc(loadedDoc);
-      graph.loadFromSerialized(loadedDoc.graphData);
-      setLoaded(true);
+    let cancelled = false;
 
-      // Set up tabs
-      setOpenTabs(prev => {
-        const exists = prev.some(t => t.id === loadedDoc.id);
-        if (exists) return prev;
-        return [...prev, {
-          id: loadedDoc.id,
-          name: loadedDoc.name,
-          width: loadedDoc.width,
-          height: loadedDoc.height,
-        }];
-      });
-      setActiveTabId(loadedDoc.id);
-    } else {
-      // Document not found - redirect to home
-      setLocation('/');
-    }
+    const load = async () => {
+      // Try cloud first if authenticated
+      if (isAuthenticated) {
+        const cloudDoc = await loadCloudDocument(docId);
+        if (cloudDoc && !cancelled) {
+          const nimzeyDoc: NimzeyDocument = {
+            id: cloudDoc.id,
+            name: cloudDoc.name,
+            width: cloudDoc.data.width || 512,
+            height: cloudDoc.data.height || 512,
+            createdAt: new Date(cloudDoc.created_at).getTime(),
+            updatedAt: new Date(cloudDoc.updated_at).getTime(),
+            graphData: cloudDoc.data.graphData,
+            thumbnail: cloudDoc.thumbnail_url || undefined,
+          };
+          setDoc(nimzeyDoc);
+          setIsCloudDoc(true);
+          graph.loadFromSerialized(nimzeyDoc.graphData);
+          setLoaded(true);
+
+          // Also cache locally
+          saveDocument(nimzeyDoc);
+
+          // Set up tabs
+          setOpenTabs(prev => {
+            const exists = prev.some(t => t.id === nimzeyDoc.id);
+            if (exists) return prev;
+            return [...prev, {
+              id: nimzeyDoc.id,
+              name: nimzeyDoc.name,
+              width: nimzeyDoc.width,
+              height: nimzeyDoc.height,
+            }];
+          });
+          setActiveTabId(nimzeyDoc.id);
+          return;
+        }
+      }
+
+      // Fall back to localStorage
+      const loadedDoc = loadDocument(docId);
+      if (loadedDoc && !cancelled) {
+        setDoc(loadedDoc);
+        setIsCloudDoc(false);
+        graph.loadFromSerialized(loadedDoc.graphData);
+        setLoaded(true);
+
+        // Set up tabs
+        setOpenTabs(prev => {
+          const exists = prev.some(t => t.id === loadedDoc.id);
+          if (exists) return prev;
+          return [...prev, {
+            id: loadedDoc.id,
+            name: loadedDoc.name,
+            width: loadedDoc.width,
+            height: loadedDoc.height,
+          }];
+        });
+        setActiveTabId(loadedDoc.id);
+      } else if (!cancelled) {
+        // Document not found - redirect to home
+        setLocation('/');
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
   }, [docId]);
 
   // Undo/Redo keyboard shortcuts (Cmd+Z / Cmd+Shift+Z)
@@ -110,7 +187,7 @@ function EditorContent({ docId }: { docId: string }) {
       const graphData = g.getSerializedState();
       const thumbnail = g.processedImage || undefined;
 
-      saveDocument({
+      persistDocument({
         ...currentDoc,
         graphData,
         thumbnail,
@@ -121,7 +198,7 @@ function EditorContent({ docId }: { docId: string }) {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [graph.structuralVersion, loaded]);
+  }, [graph.structuralVersion, loaded, persistDocument]);
 
   const handleNewProject = useCallback(() => {
     setShowNewDialog(true);
@@ -132,7 +209,7 @@ function EditorContent({ docId }: { docId: string }) {
     if (docRef.current) {
       const g = graphRef.current;
       const graphData = g.getSerializedState();
-      saveDocument({ ...docRef.current, graphData, updatedAt: Date.now() });
+      persistDocument({ ...docRef.current, graphData, updatedAt: Date.now() });
     }
 
     // Create new document
@@ -163,10 +240,10 @@ function EditorContent({ docId }: { docId: string }) {
       updatedAt: now,
       graphData: serializeGraph(nodes as any, edges as any, 'result-node'),
     };
-    saveDocument(newDoc);
+    persistDocument(newDoc);
     setShowNewDialog(false);
     setLocation(`/edit/${id}`);
-  }, [setLocation]);
+  }, [setLocation, persistDocument]);
 
   const handleBack = useCallback(() => {
     // Save before leaving
@@ -174,26 +251,26 @@ function EditorContent({ docId }: { docId: string }) {
       const g = graphRef.current;
       const graphData = g.getSerializedState();
       const thumbnail = g.processedImage || undefined;
-      saveDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
+      persistDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
     }
     setLocation('/');
-  }, [setLocation]);
+  }, [setLocation, persistDocument]);
 
   const handleResolutionChange = useCallback((width: number, height: number) => {
     if (!doc) return;
     const updated = { ...doc, width, height, updatedAt: Date.now() };
     setDoc(updated);
-    saveDocument(updated);
+    persistDocument(updated);
     setOpenTabs(prev => prev.map(t => t.id === doc.id ? { ...t, width, height } : t));
-  }, [doc]);
+  }, [doc, persistDocument]);
 
   const handleRename = useCallback((newName: string) => {
     if (!doc) return;
     const updated = { ...doc, name: newName, updatedAt: Date.now() };
     setDoc(updated);
-    saveDocument(updated);
+    persistDocument(updated);
     setOpenTabs(prev => prev.map(t => t.id === doc.id ? { ...t, name: newName } : t));
-  }, [doc]);
+  }, [doc, persistDocument]);
 
   // Tab handlers
   const handleSelectTab = useCallback((id: string) => {
@@ -203,10 +280,10 @@ function EditorContent({ docId }: { docId: string }) {
       const g = graphRef.current;
       const graphData = g.getSerializedState();
       const thumbnail = g.processedImage || undefined;
-      saveDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
+      persistDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
     }
     setLocation(`/edit/${id}`);
-  }, [activeTabId, setLocation]);
+  }, [activeTabId, setLocation, persistDocument]);
 
   const handleCloseTab = useCallback((id: string) => {
     // Save the tab being closed
@@ -214,7 +291,7 @@ function EditorContent({ docId }: { docId: string }) {
       const g = graphRef.current;
       const graphData = g.getSerializedState();
       const thumbnail = g.processedImage || undefined;
-      saveDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
+      persistDocument({ ...docRef.current, graphData, thumbnail, updatedAt: Date.now() });
     }
 
     setOpenTabs(prev => {
@@ -232,11 +309,47 @@ function EditorContent({ docId }: { docId: string }) {
       }
       return next;
     });
-  }, [activeTabId, setLocation]);
+  }, [activeTabId, setLocation, persistDocument]);
 
   const handleNewTab = useCallback(() => {
     setShowNewDialog(true);
   }, []);
+
+  // Publish flow
+  const { publish, isPublishing } = usePublishChain();
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  const handlePublishClick = useCallback(() => {
+    setPublishError(null);
+    setShowPublishDialog(true);
+  }, []);
+
+  const handlePublishConfirm = useCallback(async () => {
+    if (!user || !doc) return;
+
+    // Find the result canvas in the DOM
+    const canvasEl = document.querySelector('canvas') as HTMLCanvasElement | null;
+    if (!canvasEl) {
+      setPublishError('No canvas found. Make sure the preview is rendering.');
+      return;
+    }
+
+    try {
+      await publish({
+        docId: doc.id,
+        userId: user.id,
+        canvasElement: canvasEl,
+      });
+      setShowPublishDialog(false);
+      setPublishSuccess(true);
+      // Reset success state after 3 seconds
+      setTimeout(() => setPublishSuccess(false), 3000);
+    } catch (err: any) {
+      setPublishError(err?.message || 'Failed to publish. Please try again.');
+    }
+  }, [user, doc, publish]);
 
   if (!doc) {
     return (
@@ -257,6 +370,9 @@ function EditorContent({ docId }: { docId: string }) {
         onRedo={graph.redo}
         canUndo={graph.canUndo}
         canRedo={graph.canRedo}
+        onPublish={handlePublishClick}
+        isPublishing={isPublishing}
+        isPublished={publishSuccess}
       />
 
       <DocumentTabs
@@ -271,7 +387,7 @@ function EditorContent({ docId }: { docId: string }) {
         {/* Left - Node palette */}
         <FilterPanel
           width={leftPanelWidth}
-          onAddNode={graph.addNode}
+          onAddNode={graph.autoConnectNode}
           onUploadImage={graph.uploadSourceImage}
           onApplyPreset={graph.applyPreset}
         />
@@ -292,9 +408,12 @@ function EditorContent({ docId }: { docId: string }) {
           onUploadImage={graph.uploadNodeImage}
           onDrop={graph.onDrop}
           onSpliceIntoEdge={graph.spliceIntoEdge}
+          onSpliceExistingIntoEdge={graph.spliceExistingIntoEdge}
+          onAddAndConnect={graph.addAndConnect}
           onUploadSourceImage={graph.uploadSourceImage}
           onGenerateTexture={graph.generateTexture}
           onApplyTemplate={graph.applyTemplate}
+          onCommitPositionChange={graph.commitPositionChange}
           lastAddedNodeId={graph.lastAddedNodeId}
           lastAddedDefinitionId={graph.lastAddedDefinitionId}
           onClearSuggestion={graph.clearSuggestion}
@@ -319,6 +438,74 @@ function EditorContent({ docId }: { docId: string }) {
         onClose={() => setShowNewDialog(false)}
         onCreate={handleCreateNew}
       />
+
+      {/* Publish confirmation dialog */}
+      {showPublishDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          onClick={() => !isPublishing && setShowPublishDialog(false)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Share2 size={16} className="text-blue-400" />
+                <h3 className="text-sm font-medium text-white">Share to Community</h3>
+              </div>
+              <button
+                onClick={() => !isPublishing && setShowPublishDialog(false)}
+                className="p-1 text-zinc-500 hover:text-white transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400 mb-1">
+              This will make <strong className="text-zinc-300">"{doc.name}"</strong> publicly visible in the community gallery.
+            </p>
+            <p className="text-xs text-zinc-500 mb-4">
+              A thumbnail of your current output will be captured and displayed.
+            </p>
+
+            {publishError && (
+              <p className="text-xs text-red-400 mb-3 p-2 bg-red-400/10 rounded">
+                {publishError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPublishDialog(false)}
+                className="text-zinc-400"
+                disabled={isPublishing}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublishConfirm}
+                className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
+                disabled={isPublishing}
+              >
+                {isPublishing ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={12} />
+                    Publish
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

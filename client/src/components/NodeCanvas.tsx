@@ -23,11 +23,13 @@ import ReactFlow, {
 import { NimzeyNode, NimzeyNodeContext, NimzeyNodeActions } from './nodes/NimzeyNode';
 import EmptyStateOverlay from './EmptyStateOverlay';
 import QuickAddPalette from './QuickAddPalette';
+import PortContextMenu from './PortContextMenu';
 import { SuggestedNextPill } from './SuggestedNextPill';
-import { NimzeyNodeData, NodeColorTag } from '@/types';
+import { NimzeyNodeData, NodeColorTag, DataType } from '@/types';
 import { getIsValidConnection } from '@/adapters/ReactFlowAdapter';
 import { GraphState } from '@/stores/graphStore';
 import { findNearestEdge } from '@/utils/edgeProximity';
+import { debugLog } from '@/stores/debugLog';
 
 // Single node type for all nodes
 const nodeTypes: NodeTypes = {
@@ -48,10 +50,13 @@ interface NodeCanvasProps {
   onSetColorTag: (nodeId: string, tag: NodeColorTag) => void;
   onUploadImage?: (nodeId: string, file: File) => void;
   onDrop?: (definitionId: string, position: { x: number; y: number }) => void;
-  onSpliceIntoEdge?: (definitionId: string, edgeId: string, position: { x: number; y: number }) => void;
+  onSpliceIntoEdge?: (definitionId: string, edgeId: string, position: { x: number; y: number }) => string;
+  onSpliceExistingIntoEdge?: (nodeId: string, edgeId: string) => boolean;
+  onAddAndConnect?: (definitionId: string, targetNodeId: string, targetPortId: string) => void;
   onUploadSourceImage?: (file: File) => void;
   onGenerateTexture?: () => void;
   onApplyTemplate?: (templateId: string) => void;
+  onCommitPositionChange?: () => void;
   lastAddedNodeId?: string | null;
   lastAddedDefinitionId?: string | null;
   onClearSuggestion?: () => void;
@@ -72,9 +77,12 @@ export default function NodeCanvas({
   onUploadImage,
   onDrop,
   onSpliceIntoEdge,
+  onSpliceExistingIntoEdge,
+  onAddAndConnect,
   onUploadSourceImage,
   onGenerateTexture,
   onApplyTemplate,
+  onCommitPositionChange,
   lastAddedNodeId,
   lastAddedDefinitionId,
   onClearSuggestion,
@@ -83,6 +91,12 @@ export default function NodeCanvas({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddScreenPos, setQuickAddScreenPos] = useState({ x: 0, y: 0 });
   const [dragOverEdgeId, setDragOverEdgeId] = useState<string | null>(null);
+  const [portMenu, setPortMenu] = useState<{
+    position: { x: number; y: number };
+    dataType: DataType;
+    targetNodeId: string;
+    targetPortId: string;
+  } | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const edgeUpdateSuccessful = useRef(true);
@@ -121,21 +135,40 @@ export default function NodeCanvas({
         setQuickAddOpen(true);
       }
 
-      // Delete/Backspace: remove selected edges
+      // Delete/Backspace: remove selected edges and nodes
       if (e.code === 'Delete' || e.code === 'Backspace') {
         const selectedEdgeIds = graphState.selectedEdgeIds;
+        const selectedNodeIds = graphState.selectedNodeIds;
         if (selectedEdgeIds.size > 0) {
+          debugLog('EDGE', `Keyboard ${e.code}: deleting ${selectedEdgeIds.size} selected edge(s)`, {
+            edgeIds: Array.from(selectedEdgeIds).join(', '),
+          });
           const removeChanges: EdgeChange[] = Array.from(selectedEdgeIds).map(id => ({
             id,
             type: 'remove' as const,
           }));
           onEdgesChange(removeChanges);
         }
+        if (selectedNodeIds.size > 0) {
+          debugLog('EDGE', `Keyboard ${e.code}: deleting ${selectedNodeIds.size} selected node(s)`, {
+            nodeIds: Array.from(selectedNodeIds).join(', '),
+          });
+          const removeChanges: NodeChange[] = Array.from(selectedNodeIds).map(id => ({
+            id,
+            type: 'remove' as const,
+          }));
+          onNodesChange(removeChanges);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [quickAddOpen, graphState.selectedEdgeIds, onEdgesChange]);
+  }, [quickAddOpen, graphState.selectedEdgeIds, graphState.selectedNodeIds, onEdgesChange, onNodesChange]);
+
+  // Port context menu handler — opens suggestion menu on unconnected inputs
+  const handlePortContextMenu = useCallback((nodeId: string, portId: string, dataType: DataType, screenPos: { x: number; y: number }) => {
+    setPortMenu({ position: screenPos, dataType, targetNodeId: nodeId, targetPortId: portId });
+  }, []);
 
   // Build the context actions for NimzeyNode
   const nodeActions: NimzeyNodeActions = useMemo(() => ({
@@ -144,7 +177,8 @@ export default function NodeCanvas({
     onToggleCollapsed,
     onSetColorTag,
     onUploadImage,
-  }), [onParameterChange, onToggleEnabled, onToggleCollapsed, onSetColorTag, onUploadImage]);
+    onPortContextMenu: handlePortContextMenu,
+  }), [onParameterChange, onToggleEnabled, onToggleCollapsed, onSetColorTag, onUploadImage, handlePortContextMenu]);
 
   // Connection validation using typed ports
   const isValidConnection = useMemo(
@@ -198,6 +232,7 @@ export default function NodeCanvas({
     onNodeClick('');
     handlePaneClickForQuickAdd(e);
     onClearSuggestion?.();
+    setPortMenu(null);
   }, [onNodeClick, handlePaneClickForQuickAdd, onClearSuggestion]);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -221,16 +256,23 @@ export default function NodeCanvas({
   }, []);
 
   const handleEdgeDoubleClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    debugLog('EDGE', `Double-click disconnect edge ${edge.id}`);
     onEdgesChange([{ id: edge.id, type: 'remove' }]);
   }, [onEdgesChange]);
 
   // Edge re-wire: drag an edge endpoint to a new handle, or drop on empty space to disconnect
-  const handleEdgeUpdateStart = useCallback(() => {
+  // Track the start position so we can distinguish intentional drags from accidental clicks
+  const edgeUpdateStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  const handleEdgeUpdateStart = useCallback((_: React.MouseEvent, edge: Edge) => {
     edgeUpdateSuccessful.current = false;
+    edgeUpdateStartPos.current = { x: mousePosRef.current.x, y: mousePosRef.current.y };
+    debugLog('EDGE', `Edge update started: ${edge.id}`);
   }, []);
 
   const handleEdgeUpdate = useCallback((oldEdge: Edge, newConnection: Connection) => {
     edgeUpdateSuccessful.current = true;
+    debugLog('EDGE', `Edge re-wired: ${oldEdge.id} → new connection`);
     // Remove old edge, create new connection
     onEdgesChange([{ id: oldEdge.id, type: 'remove' }]);
     onConnect(newConnection);
@@ -238,11 +280,92 @@ export default function NodeCanvas({
 
   const handleEdgeUpdateEnd = useCallback((_: MouseEvent | TouchEvent, edge: Edge) => {
     if (!edgeUpdateSuccessful.current) {
-      // Edge was dragged to empty space — disconnect it
-      onEdgesChange([{ id: edge.id, type: 'remove' }]);
+      // Only disconnect if the user actually dragged the edge endpoint a meaningful distance.
+      // This prevents accidental disconnections from clicking near edge handles.
+      const startPos = edgeUpdateStartPos.current;
+      const endPos = mousePosRef.current;
+      const dragDist = startPos
+        ? Math.hypot(endPos.x - startPos.x, endPos.y - startPos.y)
+        : 0;
+
+      if (dragDist > 15) {
+        debugLog('EDGE', `Edge drag-to-empty disconnect: ${edge.id} (drag distance: ${dragDist.toFixed(0)}px)`);
+        onEdgesChange([{ id: edge.id, type: 'remove' }]);
+      } else {
+        debugLog('EDGE', `Edge update end IGNORED (drag distance ${dragDist.toFixed(0)}px < 15px threshold) — preventing accidental disconnect of ${edge.id}`);
+      }
     }
     edgeUpdateSuccessful.current = true;
+    edgeUpdateStartPos.current = null;
   }, [onEdgesChange]);
+
+  // Canvas node drag: detect edge proximity for smart linking existing nodes
+  const draggingNodeRef = useRef<string | null>(null);
+
+  // Track the node's initial position when drag starts so we can require minimum drag distance
+  const nodeDragStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleNodeDragStart = useCallback((_: React.MouseEvent, node: Node) => {
+    nodeDragStartRef.current = { x: node.position.x, y: node.position.y };
+  }, []);
+
+  const handleNodeDrag = useCallback((_: React.MouseEvent, node: Node) => {
+    if (!onSpliceExistingIntoEdge) return;
+    draggingNodeRef.current = node.id;
+
+    // Use node center for edge detection
+    const nodeWidth = (node as any).width || 250;
+    const nodeHeight = (node as any).height || 100;
+    const center = {
+      x: node.position.x + nodeWidth / 2,
+      y: node.position.y + nodeHeight / 2,
+    };
+
+    // Exclude edges already connected to this node
+    const otherEdges = edges.filter(
+      e => e.source !== node.id && e.target !== node.id,
+    );
+    // Use tighter threshold (40px) for existing node drag to prevent accidental splices
+    const nearest = findNearestEdge(center, otherEdges, nodes, 40);
+    setDragOverEdgeId(nearest ? nearest.edgeId : null);
+  }, [onSpliceExistingIntoEdge, edges, nodes]);
+
+  const handleNodeDragStop = useCallback((_: React.MouseEvent, node: Node) => {
+    // Commit position change to trigger history snapshot + auto-save
+    // (updateNodePosition during drag does NOT bump version to avoid undo pollution)
+    onCommitPositionChange?.();
+
+    if (!onSpliceExistingIntoEdge || !dragOverEdgeId) {
+      draggingNodeRef.current = null;
+      nodeDragStartRef.current = null;
+      setDragOverEdgeId(null);
+      return;
+    }
+
+    // Require the node to have moved at least 30px from its start position
+    // to prevent accidental splicing from small adjustments
+    const startPos = nodeDragStartRef.current;
+    const dragDist = startPos
+      ? Math.hypot(node.position.x - startPos.x, node.position.y - startPos.y)
+      : 0;
+
+    if (dragDist < 30) {
+      debugLog('EDGE', `Node drag splice IGNORED for ${node.id} — drag distance ${dragDist.toFixed(0)}px < 30px threshold`);
+      draggingNodeRef.current = null;
+      nodeDragStartRef.current = null;
+      setDragOverEdgeId(null);
+      return;
+    }
+
+    debugLog('EDGE', `Node drag splice: ${node.id} onto edge ${dragOverEdgeId} (drag distance: ${dragDist.toFixed(0)}px)`);
+    const success = onSpliceExistingIntoEdge(node.id, dragOverEdgeId);
+    if (!success) {
+      debugLog('EDGE', `Node drag splice FAILED for ${node.id} onto edge ${dragOverEdgeId}`);
+    }
+    draggingNodeRef.current = null;
+    nodeDragStartRef.current = null;
+    setDragOverEdgeId(null);
+  }, [onSpliceExistingIntoEdge, dragOverEdgeId, onCommitPositionChange]);
 
   // Drag-and-drop from filter panel with edge proximity detection
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -273,12 +396,13 @@ export default function NodeCanvas({
       y: e.clientY,
     });
 
-    // Check for drop-on-edge
+    // Check for drop-on-edge (smart linking)
     const nearest = findNearestEdge(position, edges, nodes);
     if (nearest && onSpliceIntoEdge) {
       setDragOverEdgeId(null);
-      onSpliceIntoEdge(definitionId, nearest.edgeId, position);
-      return;
+      const spliceResult = onSpliceIntoEdge(definitionId, nearest.edgeId, position);
+      if (spliceResult) return; // Splice succeeded
+      // Splice failed (incompatible node type) — fall through to normal drop
     }
 
     setDragOverEdgeId(null);
@@ -300,6 +424,9 @@ export default function NodeCanvas({
           onConnect={onConnect}
           onPaneClick={handlePaneClick}
           onNodeClick={handleNodeClick}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
           onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
           onEdgeUpdateStart={handleEdgeUpdateStart}
@@ -317,7 +444,7 @@ export default function NodeCanvas({
           maxZoom={1}
           snapToGrid
           snapGrid={[15, 15]}
-          deleteKeyCode={['Delete', 'Backspace']}
+          deleteKeyCode={null}
           className="bg-[#0d0d0d]"
           onMoveStart={() => { if (quickAddOpen) setQuickAddOpen(false); }}
         >
@@ -350,6 +477,18 @@ export default function NodeCanvas({
             position={quickAddScreenPos}
             onSelect={handleQuickAddSelect}
             onClose={() => setQuickAddOpen(false)}
+          />
+        )}
+
+        {/* Port context menu (right-click on unconnected input) */}
+        {portMenu && onAddAndConnect && (
+          <PortContextMenu
+            position={portMenu.position}
+            dataType={portMenu.dataType}
+            targetNodeId={portMenu.targetNodeId}
+            targetPortId={portMenu.targetPortId}
+            onSelect={onAddAndConnect}
+            onClose={() => setPortMenu(null)}
           />
         )}
 

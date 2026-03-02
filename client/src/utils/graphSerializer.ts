@@ -14,6 +14,8 @@ export interface SerializedNode {
   collapsed: boolean;
   colorTag: string;
   imageUrl?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface SerializedEdge {
@@ -47,6 +49,8 @@ export function serializeGraph(
       collapsed: node.collapsed,
       colorTag: node.colorTag,
       imageUrl: node.imageUrl,
+      width: node.width,
+      height: node.height,
     });
   }
 
@@ -81,6 +85,8 @@ export function deserializeGraph(data: SerializedGraph): {
       collapsed: sn.collapsed,
       colorTag: sn.colorTag as GraphNode['colorTag'],
       imageUrl: sn.imageUrl,
+      width: sn.width,
+      height: sn.height,
     });
   }
 

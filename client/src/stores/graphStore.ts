@@ -8,13 +8,50 @@ import { DataType, GraphEdge, GraphNode, NodeColorTag, NodeDefinition } from '@/
 import { NodeRegistry } from '@/registry/nodes';
 import { TemplateBuildResult } from '@/templates/graphTemplates';
 import { SerializedGraph, serializeGraph, deserializeGraph } from '@/utils/graphSerializer';
+import { debugLog } from './debugLog';
 
 export interface GraphState {
   nodes: Map<string, GraphNode>;
   edges: Map<string, GraphEdge>;
+  edgesBySource: Map<string, Set<string>>;  // nodeId -> set of edgeIds where node is source
+  edgesByTarget: Map<string, Set<string>>;  // nodeId -> set of edgeIds where node is target
   selectedNodeIds: Set<string>;
   selectedEdgeIds: Set<string>;
   resultNodeId: string;
+}
+
+/** Build edge indexes from a flat edge map */
+function buildEdgeIndexes(edges: Map<string, GraphEdge>): {
+  edgesBySource: Map<string, Set<string>>;
+  edgesByTarget: Map<string, Set<string>>;
+} {
+  const edgesBySource = new Map<string, Set<string>>();
+  const edgesByTarget = new Map<string, Set<string>>();
+  for (const [edgeId, edge] of edges) {
+    let srcSet = edgesBySource.get(edge.sourceNodeId);
+    if (!srcSet) { srcSet = new Set(); edgesBySource.set(edge.sourceNodeId, srcSet); }
+    srcSet.add(edgeId);
+
+    let tgtSet = edgesByTarget.get(edge.targetNodeId);
+    if (!tgtSet) { tgtSet = new Set(); edgesByTarget.set(edge.targetNodeId, tgtSet); }
+    tgtSet.add(edgeId);
+  }
+  return { edgesBySource, edgesByTarget };
+}
+
+/** Get all edges connected to a node, split into inputs (where node is target) and outputs (where node is source) */
+export function getNodeEdges(nodeId: string, state: GraphState): { inputs: GraphEdge[], outputs: GraphEdge[] } {
+  const inputs: GraphEdge[] = [];
+  const outputs: GraphEdge[] = [];
+  for (const edgeId of (state.edgesByTarget.get(nodeId) || [])) {
+    const edge = state.edges.get(edgeId);
+    if (edge) inputs.push(edge);
+  }
+  for (const edgeId of (state.edgesBySource.get(nodeId) || [])) {
+    const edge = state.edges.get(edgeId);
+    if (edge) outputs.push(edge);
+  }
+  return { inputs, outputs };
 }
 
 let edgeCounter = 0;
@@ -42,6 +79,8 @@ export function useGraphStore() {
     return initial;
   });
   const [edges, setEdges] = useState<Map<string, GraphEdge>>(new Map());
+  const [edgesBySource, setEdgesBySource] = useState<Map<string, Set<string>>>(new Map());
+  const [edgesByTarget, setEdgesByTarget] = useState<Map<string, Set<string>>>(new Map());
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<Set<string>>(new Set());
   // Structural version counter - increments on node/edge/parameter changes, NOT preview updates.
@@ -50,6 +89,14 @@ export function useGraphStore() {
   const bumpVersion = useCallback(() => setStructuralVersion(v => v + 1), []);
 
   const resultNodeId = 'result-node';
+
+  /** Set edges and rebuild indexes atomically */
+  const setEdgesWithIndex = useCallback((nextEdges: Map<string, GraphEdge>) => {
+    setEdges(nextEdges);
+    const { edgesBySource: newSrc, edgesByTarget: newTgt } = buildEdgeIndexes(nextEdges);
+    setEdgesBySource(newSrc);
+    setEdgesByTarget(newTgt);
+  }, []);
 
   // ---- Node Operations ----
 
@@ -86,19 +133,32 @@ export function useGraphStore() {
   const removeNode = useCallback((nodeId: string) => {
     if (nodeId === resultNodeId) return; // Cannot delete result node
 
+    debugLog('EDGE', `removeNode() deleting node ${nodeId} and its edges`);
+
     setNodes(prev => {
       const next = new Map(prev);
       next.delete(nodeId);
       return next;
     });
 
-    // Remove all edges connected to this node
+    // Remove all edges connected to this node and rebuild indexes
     setEdges(prev => {
       const next = new Map(prev);
+      let changed = false;
       for (const [id, edge] of next) {
         if (edge.sourceNodeId === nodeId || edge.targetNodeId === nodeId) {
+          debugLog('EDGE', `removeNode() cleaning edge ${id}`, {
+            source: `${edge.sourceNodeId}:${edge.sourcePortId}`,
+            target: `${edge.targetNodeId}:${edge.targetPortId}`,
+          });
           next.delete(id);
+          changed = true;
         }
+      }
+      if (changed) {
+        const { edgesBySource: newSrc, edgesByTarget: newTgt } = buildEdgeIndexes(next);
+        setEdgesBySource(newSrc);
+        setEdgesByTarget(newTgt);
       }
       return next;
     });
@@ -113,6 +173,12 @@ export function useGraphStore() {
       next.set(nodeId, { ...node, position });
       return next;
     });
+    // NOTE: No bumpVersion() here — position changes during drag should NOT
+    // trigger history snapshots (Bug 9). Call commitPositionChange() on dragStop instead.
+  }, []);
+
+  /** Bump structural version after a node drag completes, triggering history + auto-save. */
+  const commitPositionChange = useCallback(() => {
     bumpVersion();
   }, [bumpVersion]);
 
@@ -173,6 +239,18 @@ export function useGraphStore() {
     });
   }, []);
 
+  /** Set image data directly on a node (for image/external nodes) */
+  const setNodeImage = useCallback((nodeId: string, imageUrl: string, width?: number, height?: number) => {
+    setNodes(prev => {
+      const node = prev.get(nodeId);
+      if (!node) return prev;
+      const next = new Map(prev);
+      next.set(nodeId, { ...node, imageUrl, width: width ?? node.width, height: height ?? node.height });
+      return next;
+    });
+    bumpVersion();
+  }, [bumpVersion]);
+
   // ---- Selection ----
 
   const selectNode = useCallback((nodeId: string, multi?: boolean) => {
@@ -214,6 +292,7 @@ export function useGraphStore() {
     sourceNodeId: string, sourcePortId: string,
     targetNodeId: string, targetPortId: string
   ): boolean => {
+    // Validate nodes (reads closure, but staleness here is harmless — just validation)
     const sourceNode = nodes.get(sourceNodeId);
     const targetNode = nodes.get(targetNodeId);
     if (!sourceNode || !targetNode) return false;
@@ -229,14 +308,22 @@ export function useGraphStore() {
     // Type check
     if (!NodeRegistry.canConnect(sourcePort, targetPort)) return false;
 
-    // Cycle check
-    if (wouldCreateCycle(sourceNodeId, targetNodeId, edges)) return false;
-
-    // Remove existing connection to same target port
+    // Use functional updater to avoid stale edge closure.
+    // The updater runs synchronously, so the `success` flag is set before we return.
+    let success = false;
     setEdges(prev => {
+      // Cycle check using current edges (not stale closure)
+      const { edgesByTarget: currentTargetIdx } = buildEdgeIndexes(prev);
+      if (wouldCreateCycle(sourceNodeId, targetNodeId, prev, currentTargetIdx)) return prev;
+
+      // Build new edge map: remove existing connection to same target port, add new edge
       const next = new Map(prev);
       for (const [id, edge] of next) {
         if (edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId) {
+          debugLog('EDGE', `connect() replacing existing edge ${id} to ${targetNodeId}:${targetPortId}`, {
+            oldSource: edge.sourceNodeId, oldSourcePort: edge.sourcePortId,
+            newSource: sourceNodeId, newSourcePort: sourcePortId,
+          });
           next.delete(id);
         }
       }
@@ -247,22 +334,57 @@ export function useGraphStore() {
         sourcePortId,
         targetNodeId,
         targetPortId,
-        dataType: targetPort.dataType,
+        dataType: targetPort!.dataType,
       });
+
+      debugLog('EDGE', `connect() created edge ${edgeId}`, {
+        source: `${sourceNodeId}:${sourcePortId}`,
+        target: `${targetNodeId}:${targetPortId}`,
+        totalEdges: next.size,
+      });
+
+      // Rebuild indexes to match the new edge map
+      const { edgesBySource: newSrc, edgesByTarget: newTgt } = buildEdgeIndexes(next);
+      setEdgesBySource(newSrc);
+      setEdgesByTarget(newTgt);
+
+      success = true;
       return next;
     });
 
-    bumpVersion();
-    return true;
-  }, [nodes, edges, bumpVersion]);
+    if (success) bumpVersion();
+    return success;
+  }, [nodes, bumpVersion]);
 
   const disconnect = useCallback((edgeId: string) => {
+    // Use functional updater to avoid stale closure when deleting multiple edges
+    // in a single synchronous loop (e.g., selecting multiple edges + pressing Delete).
+    // Without this, each call would clone the same stale `edges` map and only the
+    // last deletion would survive React's batched setState.
+    let didRemove = false;
     setEdges(prev => {
+      const edge = prev.get(edgeId);
+      if (edge) {
+        debugLog('EDGE', `disconnect() removing edge ${edgeId}`, {
+          source: `${edge.sourceNodeId}:${edge.sourcePortId}`,
+          target: `${edge.targetNodeId}:${edge.targetPortId}`,
+          remainingEdges: prev.size - 1,
+        });
+      } else {
+        debugLog('EDGE', `disconnect() called for non-existent edge ${edgeId} (no-op)`);
+        return prev; // No change needed
+      }
       const next = new Map(prev);
       next.delete(edgeId);
+      // Rebuild indexes inside the updater so they match the actual edge map
+      const { edgesBySource: newSrc, edgesByTarget: newTgt } = buildEdgeIndexes(next);
+      setEdgesBySource(newSrc);
+      setEdgesByTarget(newTgt);
+      didRemove = true;
       return next;
     });
-    bumpVersion();
+    // Only bump version when an edge was actually removed — avoids spurious undo entries
+    if (didRemove) bumpVersion();
   }, [bumpVersion]);
 
   // ---- Graph Queries ----
@@ -272,26 +394,30 @@ export function useGraphStore() {
     const queue = [nodeId];
     while (queue.length > 0) {
       const current = queue.shift()!;
-      for (const edge of edges.values()) {
-        if (edge.targetNodeId === current && !visited.has(edge.sourceNodeId)) {
+      // Use edge index: look up edges where current node is target
+      for (const edgeId of (edgesByTarget.get(current) || [])) {
+        const edge = edges.get(edgeId);
+        if (edge && !visited.has(edge.sourceNodeId)) {
           visited.add(edge.sourceNodeId);
           queue.push(edge.sourceNodeId);
         }
       }
     }
     return Array.from(visited);
-  }, [edges]);
+  }, [edges, edgesByTarget]);
 
   // ---- Edge Queries ----
 
   const getEdgeToPort = useCallback((targetNodeId: string, targetPortId: string): GraphEdge | undefined => {
-    for (const edge of edges.values()) {
-      if (edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId) {
+    // Use edge index: only iterate edges targeting this node
+    for (const edgeId of (edgesByTarget.get(targetNodeId) || [])) {
+      const edge = edges.get(edgeId);
+      if (edge && edge.targetPortId === targetPortId) {
         return edge;
       }
     }
     return undefined;
-  }, [edges]);
+  }, [edges, edgesByTarget]);
 
   const getEdge = useCallback((edgeId: string): GraphEdge | undefined => {
     return edges.get(edgeId);
@@ -356,77 +482,75 @@ export function useGraphStore() {
       return next;
     });
 
-    setEdges(prev => {
-      const next = new Map(prev);
+    // Build new edge map
+    const nextEdges = new Map(edges);
 
-      // Find existing edge feeding Result's source
-      let existingEdge: GraphEdge | undefined;
-      for (const edge of next.values()) {
-        if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
-          existingEdge = edge;
-          break;
-        }
+    // Find existing edge feeding Result's source
+    let existingEdge: GraphEdge | undefined;
+    for (const edge of nextEdges.values()) {
+      if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
+        existingEdge = edge;
+        break;
       }
+    }
 
-      if (def.isGenerator) {
-        if (!existingEdge && hasMapOutput) {
-          const edgeId = `edge_${edgeCounter++}`;
-          next.set(edgeId, {
-            id: edgeId,
-            sourceNodeId: id,
-            sourcePortId: 'out',
-            targetNodeId: resultNodeId,
-            targetPortId: 'source',
-            dataType: DataType.Map,
-          });
-        }
-      } else if (primaryInput && hasMapOutput) {
-        if (!existingEdge) {
-          const edgeId = `edge_${edgeCounter++}`;
-          next.set(edgeId, {
-            id: edgeId,
-            sourceNodeId: id,
-            sourcePortId: 'out',
-            targetNodeId: resultNodeId,
-            targetPortId: 'source',
-            dataType: DataType.Map,
-          });
-        } else {
-          // Splice: oldSource → newNode → Result
-          next.delete(existingEdge.id);
-
-          const edgeId1 = `edge_${edgeCounter++}`;
-          next.set(edgeId1, {
-            id: edgeId1,
-            sourceNodeId: existingEdge.sourceNodeId,
-            sourcePortId: existingEdge.sourcePortId,
-            targetNodeId: id,
-            targetPortId: primaryInput.id,
-            dataType: DataType.Map,
-          });
-
-          const edgeId2 = `edge_${edgeCounter++}`;
-          next.set(edgeId2, {
-            id: edgeId2,
-            sourceNodeId: id,
-            sourcePortId: 'out',
-            targetNodeId: resultNodeId,
-            targetPortId: 'source',
-            dataType: DataType.Map,
-          });
-        }
+    if (def.isGenerator) {
+      if (!existingEdge && hasMapOutput) {
+        const edgeId = `edge_${edgeCounter++}`;
+        nextEdges.set(edgeId, {
+          id: edgeId,
+          sourceNodeId: id,
+          sourcePortId: 'out',
+          targetNodeId: resultNodeId,
+          targetPortId: 'source',
+          dataType: DataType.Map,
+        });
       }
+    } else if (primaryInput && hasMapOutput) {
+      if (!existingEdge) {
+        const edgeId = `edge_${edgeCounter++}`;
+        nextEdges.set(edgeId, {
+          id: edgeId,
+          sourceNodeId: id,
+          sourcePortId: 'out',
+          targetNodeId: resultNodeId,
+          targetPortId: 'source',
+          dataType: DataType.Map,
+        });
+      } else {
+        // Splice: oldSource -> newNode -> Result
+        nextEdges.delete(existingEdge.id);
 
-      return next;
-    });
+        const edgeId1 = `edge_${edgeCounter++}`;
+        nextEdges.set(edgeId1, {
+          id: edgeId1,
+          sourceNodeId: existingEdge.sourceNodeId,
+          sourcePortId: existingEdge.sourcePortId,
+          targetNodeId: id,
+          targetPortId: primaryInput.id,
+          dataType: DataType.Map,
+        });
 
+        const edgeId2 = `edge_${edgeCounter++}`;
+        nextEdges.set(edgeId2, {
+          id: edgeId2,
+          sourceNodeId: id,
+          sourcePortId: 'out',
+          targetNodeId: resultNodeId,
+          targetPortId: 'source',
+          dataType: DataType.Map,
+        });
+      }
+    }
+
+    setEdgesWithIndex(nextEdges);
     bumpVersion();
     return id;
-  }, [resultNodeId, bumpVersion]);
+  }, [edges, resultNodeId, bumpVersion, setEdgesWithIndex]);
 
   /**
    * Atomically splice a new node into an existing edge.
-   * Removes the edge and creates: source → newNode → target.
+   * Removes the edge and creates: source -> newNode -> target.
    */
   const spliceNodeIntoEdge = useCallback((
     definitionId: string,
@@ -439,6 +563,9 @@ export function useGraphStore() {
     const primaryInput = findPrimaryMapInput(def);
     const hasMapOutput = def.outputs.some(p => p.dataType === DataType.Map);
     if (!primaryInput || !hasMapOutput) return '';
+
+    const targetEdge = edges.get(edgeId);
+    if (!targetEdge) return '';
 
     const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const params = NodeRegistry.getDefaultParameters(definitionId);
@@ -458,39 +585,300 @@ export function useGraphStore() {
       return next;
     });
 
-    setEdges(prev => {
+    debugLog('EDGE', `spliceNodeIntoEdge() splicing new node ${id} into edge ${edgeId}`, {
+      removedEdge: `${targetEdge.sourceNodeId}→${targetEdge.targetNodeId}`,
+      newNode: definitionId,
+    });
+
+    const nextEdges = new Map(edges);
+    nextEdges.delete(edgeId);
+
+    const edgeId1 = `edge_${edgeCounter++}`;
+    nextEdges.set(edgeId1, {
+      id: edgeId1,
+      sourceNodeId: targetEdge.sourceNodeId,
+      sourcePortId: targetEdge.sourcePortId,
+      targetNodeId: id,
+      targetPortId: primaryInput.id,
+      dataType: DataType.Map,
+    });
+
+    const edgeId2 = `edge_${edgeCounter++}`;
+    nextEdges.set(edgeId2, {
+      id: edgeId2,
+      sourceNodeId: id,
+      sourcePortId: 'out',
+      targetNodeId: targetEdge.targetNodeId,
+      targetPortId: targetEdge.targetPortId,
+      dataType: DataType.Map,
+    });
+
+    debugLog('EDGE', `spliceNodeIntoEdge() created edges ${edgeId1}, ${edgeId2}`);
+
+    setEdgesWithIndex(nextEdges);
+    bumpVersion();
+    return id;
+  }, [edges, bumpVersion, setEdgesWithIndex]);
+
+  /**
+   * Splice an EXISTING node into an edge.
+   * Removes the edge and wires: source -> existingNode -> target.
+   * Also removes any existing edges to the node's primary Map input (to avoid double-connections).
+   */
+  const spliceExistingNodeIntoEdge = useCallback((
+    nodeId: string,
+    edgeId: string,
+  ): boolean => {
+    const node = nodes.get(nodeId);
+    if (!node) return false;
+
+    const def = NodeRegistry.get(node.definitionId);
+    if (!def || def.isGenerator) return false;
+
+    const primaryInput = findPrimaryMapInput(def);
+    const hasMapOutput = def.outputs.some(p => p.dataType === DataType.Map);
+    if (!primaryInput || !hasMapOutput) return false;
+
+    const targetEdge = edges.get(edgeId);
+    if (!targetEdge) return false;
+
+    // Don't splice into an edge that already connects to/from this node
+    if (targetEdge.sourceNodeId === nodeId || targetEdge.targetNodeId === nodeId) return false;
+
+    debugLog('EDGE', `spliceExistingNodeIntoEdge() splicing node ${nodeId} into edge ${edgeId}`, {
+      removedEdge: `${targetEdge.sourceNodeId}→${targetEdge.targetNodeId}`,
+      nodeDefinition: node.definitionId,
+    });
+
+    const nextEdges = new Map(edges);
+    nextEdges.delete(edgeId);
+
+    // Remove any existing edge to this node's primary input
+    for (const [eid, e] of nextEdges) {
+      if (e.targetNodeId === nodeId && e.targetPortId === primaryInput.id) {
+        nextEdges.delete(eid);
+      }
+    }
+
+    // Remove any existing edge from this node's output to the same target
+    for (const [eid, e] of nextEdges) {
+      if (e.sourceNodeId === nodeId && e.sourcePortId === 'out'
+          && e.targetNodeId === targetEdge.targetNodeId && e.targetPortId === targetEdge.targetPortId) {
+        nextEdges.delete(eid);
+      }
+    }
+
+    const edgeId1 = `edge_${edgeCounter++}`;
+    nextEdges.set(edgeId1, {
+      id: edgeId1,
+      sourceNodeId: targetEdge.sourceNodeId,
+      sourcePortId: targetEdge.sourcePortId,
+      targetNodeId: nodeId,
+      targetPortId: primaryInput.id,
+      dataType: DataType.Map,
+    });
+
+    const edgeId2 = `edge_${edgeCounter++}`;
+    nextEdges.set(edgeId2, {
+      id: edgeId2,
+      sourceNodeId: nodeId,
+      sourcePortId: 'out',
+      targetNodeId: targetEdge.targetNodeId,
+      targetPortId: targetEdge.targetPortId,
+      dataType: DataType.Map,
+    });
+
+    setEdgesWithIndex(nextEdges);
+    bumpVersion();
+    return true;
+  }, [nodes, edges, bumpVersion, setEdgesWithIndex]);
+
+  /**
+   * Atomically add a new node and connect its output to a specific port.
+   * Avoids the stale-closure problem of calling addNode() then connect() separately.
+   */
+  const addNodeAndConnect = useCallback((
+    definitionId: string,
+    position: { x: number; y: number },
+    targetNodeId: string,
+    targetPortId: string,
+  ): string => {
+    const def = NodeRegistry.get(definitionId);
+    if (!def) return '';
+
+    const targetNode = nodes.get(targetNodeId);
+    if (!targetNode) return '';
+
+    const targetDef = NodeRegistry.get(targetNode.definitionId);
+    if (!targetDef) return '';
+
+    if (def.outputs.length === 0) return '';
+    const sourcePortId = def.outputs[0].id;
+    const sourcePort = def.outputs[0];
+    const targetPort = targetDef.inputs.find(p => p.id === targetPortId);
+    if (!targetPort) return '';
+    if (!NodeRegistry.canConnect(sourcePort, targetPort)) return '';
+
+    const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const params = NodeRegistry.getDefaultParameters(definitionId);
+    const newNode: GraphNode = {
+      id,
+      definitionId,
+      position,
+      parameters: params,
+      enabled: true,
+      collapsed: false,
+      colorTag: 'default',
+    };
+
+    setNodes(prev => {
       const next = new Map(prev);
-      const targetEdge = next.get(edgeId);
-      if (!targetEdge) return prev;
-
-      next.delete(edgeId);
-
-      const edgeId1 = `edge_${edgeCounter++}`;
-      next.set(edgeId1, {
-        id: edgeId1,
-        sourceNodeId: targetEdge.sourceNodeId,
-        sourcePortId: targetEdge.sourcePortId,
-        targetNodeId: id,
-        targetPortId: primaryInput.id,
-        dataType: DataType.Map,
-      });
-
-      const edgeId2 = `edge_${edgeCounter++}`;
-      next.set(edgeId2, {
-        id: edgeId2,
-        sourceNodeId: id,
-        sourcePortId: 'out',
-        targetNodeId: targetEdge.targetNodeId,
-        targetPortId: targetEdge.targetPortId,
-        dataType: DataType.Map,
-      });
-
+      next.set(id, newNode);
       return next;
     });
 
+    // Build new edge map: remove existing connection to same target port, add new edge
+    const nextEdges = new Map(edges);
+    for (const [eid, edge] of nextEdges) {
+      if (edge.targetNodeId === targetNodeId && edge.targetPortId === targetPortId) {
+        debugLog('EDGE', `addNodeAndConnect() replacing existing edge ${eid} to ${targetNodeId}:${targetPortId}`);
+        nextEdges.delete(eid);
+      }
+    }
+
+    const edgeId = `edge_${edgeCounter++}`;
+    nextEdges.set(edgeId, {
+      id: edgeId,
+      sourceNodeId: id,
+      sourcePortId,
+      targetNodeId,
+      targetPortId,
+      dataType: targetPort.dataType,
+    });
+
+    debugLog('EDGE', `addNodeAndConnect() created node ${id} and edge ${edgeId}`, {
+      source: `${id}:${sourcePortId}`,
+      target: `${targetNodeId}:${targetPortId}`,
+    });
+
+    setEdgesWithIndex(nextEdges);
     bumpVersion();
     return id;
-  }, [bumpVersion]);
+  }, [nodes, edges, bumpVersion, setEdgesWithIndex]);
+
+  /**
+   * Atomically insert a chain of processor nodes before the Result node.
+   * Each step provides a definitionId, position, and optional parameter overrides.
+   * Builds all nodes and edges in one pass to avoid stale-closure issues.
+   */
+  const insertChain = useCallback((
+    steps: { definitionId: string; position: { x: number; y: number }; parameters?: Record<string, number | string | boolean> }[],
+  ): string[] => {
+    if (steps.length === 0) return [];
+
+    const nodeIds: string[] = [];
+    const newNodes: GraphNode[] = [];
+
+    for (const step of steps) {
+      const def = NodeRegistry.get(step.definitionId);
+      if (!def) continue;
+      const id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_${nodeIds.length}`;
+      nodeIds.push(id);
+      const params = NodeRegistry.getDefaultParameters(step.definitionId);
+      if (step.parameters) {
+        for (const [k, v] of Object.entries(step.parameters)) {
+          params[k] = v;
+        }
+      }
+      newNodes.push({
+        id,
+        definitionId: step.definitionId,
+        position: step.position,
+        parameters: params,
+        enabled: true,
+        collapsed: false,
+        colorTag: 'default',
+      });
+    }
+
+    if (newNodes.length === 0) return [];
+
+    // Add all new nodes
+    setNodes(prev => {
+      const next = new Map(prev);
+      for (const node of newNodes) {
+        next.set(node.id, node);
+      }
+      return next;
+    });
+
+    // Build new edge map: splice the chain before Result
+    const nextEdges = new Map(edges);
+
+    // Find existing edge feeding Result's source
+    let existingEdge: GraphEdge | undefined;
+    for (const edge of nextEdges.values()) {
+      if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
+        existingEdge = edge;
+        break;
+      }
+    }
+
+    // Wire the chain: previous -> chain[0] -> chain[1] -> ... -> Result
+    // First, determine what feeds into chain[0]
+    let previousSourceNodeId: string | undefined;
+    let previousSourcePortId: string | undefined;
+    if (existingEdge) {
+      previousSourceNodeId = existingEdge.sourceNodeId;
+      previousSourcePortId = existingEdge.sourcePortId;
+      nextEdges.delete(existingEdge.id);
+    }
+
+    for (let i = 0; i < newNodes.length; i++) {
+      const node = newNodes[i];
+      const def = NodeRegistry.get(node.definitionId)!;
+      const primaryInput = findPrimaryMapInput(def);
+
+      // Wire input from previous node (or existing upstream)
+      if (primaryInput && previousSourceNodeId && previousSourcePortId) {
+        const eid = `edge_${edgeCounter++}`;
+        nextEdges.set(eid, {
+          id: eid,
+          sourceNodeId: previousSourceNodeId,
+          sourcePortId: previousSourcePortId,
+          targetNodeId: node.id,
+          targetPortId: primaryInput.id,
+          dataType: DataType.Map,
+        });
+      }
+
+      // This node's output becomes the next input
+      previousSourceNodeId = node.id;
+      previousSourcePortId = 'out';
+    }
+
+    // Wire last chain node to Result
+    if (previousSourceNodeId && previousSourcePortId) {
+      const eid = `edge_${edgeCounter++}`;
+      nextEdges.set(eid, {
+        id: eid,
+        sourceNodeId: previousSourceNodeId,
+        sourcePortId: previousSourcePortId,
+        targetNodeId: resultNodeId,
+        targetPortId: 'source',
+        dataType: DataType.Map,
+      });
+    }
+
+    debugLog('EDGE', `insertChain() created ${newNodes.length} nodes with edges`, {
+      nodeIds,
+      totalEdges: nextEdges.size,
+    });
+
+    setEdgesWithIndex(nextEdges);
+    bumpVersion();
+    return nodeIds;
+  }, [edges, resultNodeId, bumpVersion, setEdgesWithIndex]);
 
   /**
    * Atomically apply a template: clear all non-result nodes/edges, add template nodes and edges.
@@ -533,9 +921,9 @@ export function useGraphStore() {
       const targetId = tEdge.targetIdx >= 0 ? nodeIds[tEdge.targetIdx] : resultNodeId;
       if (!sourceId || !targetId) continue;
 
-      const edgeId = `edge_${edgeCounter++}`;
-      newEdges.set(edgeId, {
-        id: edgeId,
+      const eid = `edge_${edgeCounter++}`;
+      newEdges.set(eid, {
+        id: eid,
         sourceNodeId: sourceId,
         sourcePortId: tEdge.sourcePort,
         targetNodeId: targetId,
@@ -545,11 +933,11 @@ export function useGraphStore() {
     }
 
     setNodes(newNodes);
-    setEdges(newEdges);
+    setEdgesWithIndex(newEdges);
     setSelectedNodeIds(new Set());
     setSelectedEdgeIds(new Set());
     bumpVersion();
-  }, [nodes, resultNodeId, bumpVersion]);
+  }, [nodes, resultNodeId, bumpVersion, setEdgesWithIndex]);
 
   // ---- Serialization / Persistence ----
 
@@ -559,42 +947,63 @@ export function useGraphStore() {
 
   const loadFromSerialized = useCallback((data: SerializedGraph) => {
     const deserialized = deserializeGraph(data);
+    debugLog('EDGE', `loadFromSerialized() restoring graph`, {
+      nodes: deserialized.nodes.size,
+      edges: deserialized.edges.size,
+      edgeIds: Array.from(deserialized.edges.keys()).join(', '),
+    });
+
+    // Sync edgeCounter to avoid ID collisions with deserialized edge IDs.
+    // Without this, new edges could reuse IDs like "edge_5" that already exist
+    // in the loaded graph, silently overwriting connections.
+    for (const edgeId of deserialized.edges.keys()) {
+      const match = edgeId.match(/^edge_(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10) + 1;
+        if (num > edgeCounter) edgeCounter = num;
+      }
+    }
+
     setNodes(deserialized.nodes);
-    setEdges(deserialized.edges);
+    setEdgesWithIndex(deserialized.edges);
     setSelectedNodeIds(new Set());
     setSelectedEdgeIds(new Set());
     bumpVersion();
-  }, [bumpVersion]);
+  }, [bumpVersion, setEdgesWithIndex]);
 
   const resetGraph = useCallback(() => {
     const initial = new Map<string, GraphNode>();
     const result = createResultNode();
     initial.set(result.id, result);
     setNodes(initial);
-    setEdges(new Map());
+    setEdgesWithIndex(new Map());
     setSelectedNodeIds(new Set());
     setSelectedEdgeIds(new Set());
     bumpVersion();
-  }, [bumpVersion]);
+  }, [bumpVersion, setEdgesWithIndex]);
 
   const state: GraphState = useMemo(() => ({
     nodes,
     edges,
+    edgesBySource,
+    edgesByTarget,
     selectedNodeIds,
     selectedEdgeIds,
     resultNodeId,
-  }), [nodes, edges, selectedNodeIds, selectedEdgeIds, resultNodeId]);
+  }), [nodes, edges, edgesBySource, edgesByTarget, selectedNodeIds, selectedEdgeIds, resultNodeId]);
 
   return {
     state,
     addNode,
     removeNode,
     updateNodePosition,
+    commitPositionChange,
     setParameter,
     toggleEnabled,
     toggleCollapsed,
     setColorTag,
     setNodePreview,
+    setNodeImage,
     selectNode,
     selectEdge,
     clearSelection,
@@ -605,6 +1014,9 @@ export function useGraphStore() {
     getEdge,
     autoInsertNode,
     spliceNodeIntoEdge,
+    spliceExistingNodeIntoEdge,
+    addNodeAndConnect,
+    insertChain,
     applyTemplate,
     getSerializedState,
     loadFromSerialized,
@@ -623,40 +1035,32 @@ function findPrimaryMapInput(def: NodeDefinition) {
     || null;
 }
 
+/**
+ * Cycle detection using edge index for O(V+E) BFS instead of O(V*E).
+ * Checks if adding an edge from sourceNodeId -> targetNodeId would create a cycle.
+ * Uses edgesByTarget index for fast upstream traversal.
+ */
 function wouldCreateCycle(
   sourceNodeId: string,
   targetNodeId: string,
-  edges: Map<string, GraphEdge>
+  edges: Map<string, GraphEdge>,
+  edgesByTarget: Map<string, Set<string>>,
 ): boolean {
   if (sourceNodeId === targetNodeId) return true;
 
-  // BFS from target to see if we reach source
+  // BFS upstream from targetNodeId: can we reach sourceNodeId?
   const visited = new Set<string>();
-  const queue = [sourceNodeId];
-
+  const queue = [targetNodeId];
   while (queue.length > 0) {
     const current = queue.shift()!;
-    if (current === targetNodeId) continue; // Skip the new edge
-    for (const edge of edges.values()) {
-      if (edge.sourceNodeId === current && !visited.has(edge.targetNodeId)) {
-        if (edge.targetNodeId === sourceNodeId) continue;
-        visited.add(edge.targetNodeId);
-        // If we can reach the sourceNodeId from targetNodeId, it's a cycle
-        // Wait - we need to check if targetNodeId can reach sourceNodeId through existing edges
-      }
-    }
-  }
-
-  // Proper cycle check: can targetNodeId reach sourceNodeId?
-  const visited2 = new Set<string>();
-  const queue2 = [targetNodeId];
-  while (queue2.length > 0) {
-    const current = queue2.shift()!;
-    for (const edge of edges.values()) {
-      if (edge.targetNodeId === current && !visited2.has(edge.sourceNodeId)) {
-        if (edge.sourceNodeId === sourceNodeId) return true; // Cycle!
-        visited2.add(edge.sourceNodeId);
-        queue2.push(edge.sourceNodeId);
+    // Use edge index for O(1) lookup of incoming edges
+    for (const edgeId of (edgesByTarget.get(current) || [])) {
+      const edge = edges.get(edgeId);
+      if (!edge) continue;
+      if (edge.sourceNodeId === sourceNodeId) return true; // Cycle!
+      if (!visited.has(edge.sourceNodeId)) {
+        visited.add(edge.sourceNodeId);
+        queue.push(edge.sourceNodeId);
       }
     }
   }

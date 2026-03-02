@@ -31,9 +31,27 @@ function setDocIndex(ids: string[]) {
   localStorage.setItem(DOC_INDEX_KEY, JSON.stringify(ids));
 }
 
-export function saveDocument(doc: NimzeyDocument): void {
+export function saveDocument(doc: NimzeyDocument): boolean {
   doc.updatedAt = Date.now();
-  localStorage.setItem(STORAGE_PREFIX + doc.id, JSON.stringify(doc));
+  try {
+    localStorage.setItem(STORAGE_PREFIX + doc.id, JSON.stringify(doc));
+  } catch (err) {
+    // QuotaExceededError — localStorage is full (typically 5-10 MB).
+    // Try to save without the thumbnail (which can be large PNG base64).
+    if (doc.thumbnail) {
+      console.warn('localStorage quota exceeded — retrying without thumbnail');
+      try {
+        const slimDoc = { ...doc, thumbnail: undefined };
+        localStorage.setItem(STORAGE_PREFIX + doc.id, JSON.stringify(slimDoc));
+      } catch {
+        console.error('localStorage save failed even without thumbnail:', err);
+        return false;
+      }
+    } else {
+      console.error('localStorage save failed:', err);
+      return false;
+    }
+  }
 
   // Ensure the ID is in the index
   const index = getDocIndex();
@@ -41,6 +59,7 @@ export function saveDocument(doc: NimzeyDocument): void {
     index.push(doc.id);
     setDocIndex(index);
   }
+  return true;
 }
 
 export function loadDocument(id: string): NimzeyDocument | null {
