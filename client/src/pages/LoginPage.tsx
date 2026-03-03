@@ -97,7 +97,7 @@ export default function LoginPage() {
                   type="text"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#E0FF29] transition-colors"
                   placeholder="Your name"
                   required
                   autoComplete="name"
@@ -114,7 +114,7 @@ export default function LoginPage() {
                 type={mode === 'signup' ? 'email' : 'text'}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#E0FF29] transition-colors"
                 placeholder={mode === 'signin' ? 'username or you@example.com' : 'you@example.com'}
                 required
                 autoComplete={mode === 'signup' ? 'email' : 'username'}
@@ -130,7 +130,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#E0FF29] transition-colors"
                 placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
                 required
                 minLength={mode === 'signup' ? 6 : 1}
@@ -148,7 +148,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -169,7 +169,7 @@ export default function LoginPage() {
             {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
             <button
               onClick={toggleMode}
-              className="text-blue-400 hover:text-blue-300 transition-colors"
+              className="text-[#E0FF29] hover:text-[#f0ff80] transition-colors"
             >
               {mode === 'signin' ? 'Sign up' : 'Sign in'}
             </button>

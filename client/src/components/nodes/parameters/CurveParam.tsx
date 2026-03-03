@@ -87,13 +87,13 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange, hin
         <path
           d={`M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`}
           fill="none"
-          stroke="#6b8aaf"
+          stroke="#E0FF29"
           strokeWidth="1.5"
         />
         {/* Control points */}
         <circle
           cx={p1.x} cy={p1.y} r={3}
-          fill={dragging === 0 ? '#8aa8c8' : '#6b8aaf'}
+          fill={dragging === 0 ? '#f0ff80' : '#E0FF29'}
           stroke="#3a4a5a"
           strokeWidth="1"
           className="cursor-grab"
@@ -101,7 +101,7 @@ export const CurveParam = memo(function CurveParam({ param, value, onChange, hin
         />
         <circle
           cx={p2.x} cy={p2.y} r={3}
-          fill={dragging === 1 ? '#8aa8c8' : '#6b8aaf'}
+          fill={dragging === 1 ? '#f0ff80' : '#E0FF29'}
           stroke="#3a4a5a"
           strokeWidth="1"
           className="cursor-grab"

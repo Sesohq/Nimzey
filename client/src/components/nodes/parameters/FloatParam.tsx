@@ -102,7 +102,7 @@ export const FloatParam = memo(function FloatParam({ param, value, onChange, hin
             onChange={e => setEditValue(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={handleKeyDown}
-            className="w-14 h-4 text-[10px] text-right bg-[#252525] text-[#d4d4d4] border border-[#444] rounded px-1 outline-none focus:border-[#6b8aaf] pointer-events-auto"
+            className="w-14 h-4 text-[10px] text-right bg-[#252525] text-[#d4d4d4] border border-[#444] rounded px-1 outline-none focus:border-[#E0FF29] pointer-events-auto"
           />
         ) : (
           <span className="text-[10px] text-[#d4d4d4] select-none tabular-nums">

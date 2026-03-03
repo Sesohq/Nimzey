@@ -101,7 +101,7 @@ export default function NodeContextMenu({
             onClose();
           }}
         >
-          <Maximize2 size={13} className="text-blue-400/70" />
+          <Maximize2 size={13} className="text-[#E0FF29]/70" />
           Focus Node
         </button>
       )}

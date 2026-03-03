@@ -130,7 +130,7 @@ export default function CommunityPage() {
         {/* Title + Search */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-2">
-            <Users size={20} className="text-blue-400" />
+            <Users size={20} className="text-[#E0FF29]" />
             <h2 className="text-xl font-semibold text-white">Community Chains</h2>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -141,7 +141,7 @@ export default function CommunityPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search textures..."
-                className="w-full sm:w-64 h-9 pl-9 pr-3 text-sm bg-zinc-900 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 outline-none focus:border-blue-500 transition-colors"
+                className="w-full sm:w-64 h-9 pl-9 pr-3 text-sm bg-zinc-900 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 outline-none focus:border-[#E0FF29] transition-colors"
               />
               <Search
                 size={14}
@@ -151,7 +151,7 @@ export default function CommunityPage() {
             <Button
               size="sm"
               onClick={handleSearch}
-              className="bg-blue-600 hover:bg-blue-500 text-white h-9"
+              className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] h-9"
             >
               Search
             </Button>
@@ -308,7 +308,7 @@ export default function CommunityPage() {
               </div>
 
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white gap-2"
+                className="w-full bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] gap-2"
                 onClick={() => handleClone(selectedChain)}
                 disabled={isCloning}
               >
@@ -356,7 +356,7 @@ export default function CommunityPage() {
               </Button>
               <Button
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-500 text-white"
+                className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312]"
                 onClick={() => {
                   setShowLoginPrompt(false);
                   // Could navigate to a login page or trigger auth flow

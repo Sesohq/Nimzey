@@ -37,7 +37,7 @@ export default function EmptyStateOverlay({
 
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-      <div className="pointer-events-auto flex flex-col items-center gap-5 p-8 rounded-2xl bg-zinc-900/90 backdrop-blur-sm border border-zinc-800 shadow-2xl max-w-md w-full mx-4">
+      <div className="pointer-events-auto flex flex-col items-center gap-5 p-8 rounded-2xl bg-[#131312]/95 backdrop-blur-sm border border-[#333] shadow-2xl max-w-md w-full mx-4">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-zinc-100 mb-1">Start Creating</h2>
           <p className="text-xs text-zinc-500">Choose how to begin your filter</p>
@@ -106,8 +106,8 @@ export default function EmptyStateOverlay({
                     onClick={() => onApplyTemplate(template.id)}
                     className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/40 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-600 transition-all text-left group"
                   >
-                    <div className="w-7 h-7 rounded-md bg-blue-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-colors">
-                      <Icon size={14} className="text-blue-400" />
+                    <div className="w-7 h-7 rounded-md bg-[#E0FF29]/10 flex items-center justify-center flex-shrink-0 group-hover:bg-[#E0FF29]/20 transition-colors">
+                      <Icon size={14} className="text-[#E0FF29]" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-[11px] font-medium truncate">{template.name}</div>

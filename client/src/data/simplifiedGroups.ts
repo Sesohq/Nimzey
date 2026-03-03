@@ -21,6 +21,7 @@ export interface SimplifiedGroup {
   label: string;
   icon: React.ComponentType<any>;
   categories: NodeCategory[];
+  abbreviation: string;
 }
 
 export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
@@ -29,54 +30,63 @@ export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
     label: 'Generators',
     icon: Sparkles,
     categories: ['generator'],
+    abbreviation: 'GEN',
   },
   {
     id: 'utility',
     label: 'Utility',
     icon: Settings,
     categories: ['utility'],
+    abbreviation: 'UTL',
   },
   {
     id: 'blenders',
     label: 'Blenders',
     icon: Blend,
     categories: ['blender'],
+    abbreviation: 'BLN',
   },
   {
     id: 'filters',
     label: 'Filters',
     icon: Layers,
     categories: ['filter'],
+    abbreviation: 'FLT',
   },
   {
     id: 'adjustments',
     label: 'Adjustments',
     icon: SlidersHorizontal,
     categories: ['adjustment'],
+    abbreviation: 'ADJ',
   },
   {
     id: 'effects',
     label: 'Effects',
     icon: Wand2,
     categories: ['effect'],
+    abbreviation: 'FX',
   },
   {
     id: 'transforms',
     label: 'Transforms',
     icon: Move,
     categories: ['transform'],
+    abbreviation: 'TR',
   },
   {
     id: 'colors',
     label: 'Colors',
     icon: Palette,
     categories: ['channel'],
+    abbreviation: 'CLR',
   },
   {
     id: 'math',
     label: 'Math',
     icon: Calculator,
     categories: ['math', 'curve'],
+    abbreviation: 'MTH',
   },
 ];
 

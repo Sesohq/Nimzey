@@ -121,17 +121,17 @@ export const NODE_CATEGORY_ICONS: Record<NodeCategory, string> = {
 
 /** Vibrant accent color per node category — used for header gradient tinting */
 export const NODE_CATEGORY_COLORS: Record<NodeCategory, string> = {
-  generator: '#e89030',   // vivid orange — noise, gradients, patterns
-  filter: '#40a0f0',      // bright blue — blur, sharpen, edge detect
-  adjustment: '#e0c040',  // vivid yellow — brightness, levels, hue
-  effect: '#c060e0',      // vivid purple — halftone, dither, distortion
-  blender: '#50d060',     // neon green — blend, mask, composite
-  transform: '#f07050',   // neon coral — flip, rotate, scale
-  channel: '#30c8c8',     // neon teal — extract/assemble channels
-  math: '#8090e0',        // bright periwinkle — math operations
-  curve: '#7070f0',       // neon indigo — curve generators
-  utility: '#60e080',     // neon mint — image, controls
-  special: '#50b0f0',     // neon blue — result nodes
+  generator: '#ABDF40',   // lime green — noise, gradients, patterns
+  filter: '#FF5A12',      // vivid orange — blur, sharpen, edge detect
+  adjustment: '#E0C040',  // vivid yellow — brightness, levels, hue
+  effect: '#C060E0',      // vivid purple — halftone, dither, distortion
+  blender: '#3EC4E2',     // cyan/teal — blend, mask, composite
+  transform: '#7A3EE2',   // vivid purple — flip, rotate, scale
+  channel: '#30C8C8',     // neon teal — extract/assemble channels
+  math: '#8090E0',        // bright periwinkle — math operations
+  curve: '#7070F0',       // neon indigo — curve generators
+  utility: '#A6A6A6',     // muted gray — image, controls
+  special: '#E0FF29',     // neon yellow-green — result nodes
 };
 
 export interface NodeDefinition {

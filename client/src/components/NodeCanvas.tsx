@@ -499,18 +499,18 @@ export default function NodeCanvas({
           snapToGrid
           snapGrid={[15, 15]}
           deleteKeyCode={null}
-          className="bg-[#0d0d0d]"
+          className="bg-[#0C0C0C]"
           onMoveStart={() => { if (quickAddOpen) setQuickAddOpen(false); }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1a1a1a" />
-          <Controls showInteractive={false} className="!bg-[#1e1e1e] !border-[#2e2e2e] !shadow-lg [&>button]:!bg-[#1e1e1e] [&>button]:!border-[#2e2e2e] [&>button]:!text-[#888] [&>button:hover]:!bg-[#252525]" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1A1A19" />
+          <Controls showInteractive={false} className="!bg-[#1A1A19] !border-[#333] !shadow-lg [&>button]:!bg-[#1A1A19] [&>button]:!border-[#333] [&>button]:!text-[#A6A6A6] [&>button:hover]:!bg-[#252524]" />
           <MiniMap
             nodeColor={(n) => {
-              if (n.data?.definitionId === 'result') return '#6b8aaf';
-              if (n.data?.definitionId === 'image') return '#5a8a5a';
+              if (n.data?.definitionId === 'result') return '#E0FF29';
+              if (n.data?.definitionId === 'image') return '#ABDF40';
               return '#3a3a3a';
             }}
-            className="!bg-[#141414] !border-[#2a2a2a]"
+            className="!bg-[#131312] !border-[#333]"
             maskColor="rgba(0,0,0,0.65)"
           />
         </ReactFlow>

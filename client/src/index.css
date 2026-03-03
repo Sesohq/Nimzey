@@ -8,16 +8,16 @@
 }
 
 .overflow-y-auto::-webkit-scrollbar-track {
-  background: #000;
+  background: #131312;
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #2a2a2a;
   border-radius: 4px;
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: #3a3a3a;
 }
 
 :root {
@@ -31,8 +31,8 @@
 --card-foreground: 20 14.3% 4.1%;
 --border: 20 5.9% 90%;
 --input: 20 5.9% 90%;
---primary: 207 90% 54%;
---primary-foreground: 211 100% 99%;
+--primary: 75 100% 58%;
+--primary-foreground: 60 3% 7%;
 --secondary: 60 4.8% 95.9%;
 --secondary-foreground: 24 9.8% 10%;
 --accent: 60 4.8% 95.9%;
@@ -43,25 +43,25 @@
 --radius: 0.5rem;
   }
   .dark {
-      --background: 240 10% 3.9%;
+      --background: 60 8% 4%;
 --foreground: 0 0% 98%;
---muted: 240 3.7% 15.9%;
---muted-foreground: 240 5% 64.9%;
---popover: 240 10% 3.9%;
+--muted: 60 3% 14%;
+--muted-foreground: 60 2% 55%;
+--popover: 60 8% 4%;
 --popover-foreground: 0 0% 98%;
---card: 240 10% 3.9%;
+--card: 60 4% 7%;
 --card-foreground: 0 0% 98%;
---border: 240 3.7% 15.9%;
---input: 240 3.7% 15.9%;
---primary: 207 90% 54%;
---primary-foreground: 211 100% 99%;
---secondary: 240 3.7% 15.9%;
+--border: 60 2% 16%;
+--input: 60 2% 16%;
+--primary: 75 100% 58%;
+--primary-foreground: 60 3% 7%;
+--secondary: 60 3% 14%;
 --secondary-foreground: 0 0% 98%;
---accent: 240 3.7% 15.9%;
+--accent: 60 3% 14%;
 --accent-foreground: 0 0% 98%;
 --destructive: 0 62.8% 30.6%;
 --destructive-foreground: 0 0% 98%;
---ring: 240 4.9% 83.9%;
+--ring: 75 100% 58%;
 --radius: 0.5rem;
   }
 
@@ -79,7 +79,7 @@
 .react-flow__edge.selected path,
 .react-flow__edge:focus path {
   stroke-width: 2.5 !important;
-  filter: drop-shadow(0 0 3px rgba(107, 138, 175, 0.4));
+  filter: drop-shadow(0 0 3px rgba(224, 255, 41, 0.4));
 }
 
 /* Make edge interaction area wider for easier clicking */
@@ -89,8 +89,8 @@
 
 /* Edge update handle (re-wiring grab point) */
 .react-flow__edgeupdater {
-  fill: #6b8aaf;
-  stroke: #3a4a5a;
+  fill: #E0FF29;
+  stroke: #4a4a2a;
   stroke-width: 1;
   r: 6;
   cursor: move;

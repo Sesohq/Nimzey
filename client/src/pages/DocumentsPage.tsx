@@ -220,7 +220,7 @@ export default function DocumentsPage() {
             </Button>
             <Button
               onClick={() => setShowNewDialog(true)}
-              className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
+              className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] gap-1.5"
             >
               <Plus size={16} />
               New Document
@@ -251,7 +251,7 @@ export default function DocumentsPage() {
             </p>
             <Button
               onClick={() => setShowNewDialog(true)}
-              className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5 mt-2"
+              className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] gap-1.5 mt-2"
             >
               <Plus size={16} />
               Create Your First Texture

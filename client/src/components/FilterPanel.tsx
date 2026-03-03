@@ -1,6 +1,6 @@
 /**
- * FilterPanel - Simplified node palette with 6 groups, friendly names, and effect presets.
- * Uses simplified category groups instead of 13 raw categories.
+ * FilterPanel - Node palette sidebar matching the Nimzey Figma design.
+ * Compact list style with colored category dots, abbreviations, and ALL CAPS headers.
  */
 
 import { useState, useMemo, useCallback, useRef } from 'react';
@@ -14,14 +14,13 @@ import { NodeRegistry } from '@/registry/nodes';
 import {
   NodeDefinition,
   DATA_TYPE_COLORS,
+  NODE_CATEGORY_COLORS,
 } from '@/types';
 import {
   Search,
   Plus,
+  Minus,
   Upload,
-  ChevronDown,
-  ChevronRight,
-  Zap,
 } from 'lucide-react';
 import { SIMPLIFIED_GROUPS } from '@/data/simplifiedGroups';
 import { getFriendlyName, getFriendlyDescription } from '@/data/friendlyNames';
@@ -101,10 +100,8 @@ function NodeInfoCard({ def }: { def: NodeDefinition }) {
 
 export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPreset }: FilterPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(['generators', 'filters', 'adjustments'])
-  );
-  const [presetsExpanded, setPresetsExpanded] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [presetsExpanded, setPresetsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allCategories = useMemo(() => NodeRegistry.getAllCategories(), []);
@@ -172,23 +169,22 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
   }, [onUploadImage]);
 
   return (
-    <div className="flex flex-col h-full bg-black border-r border-neutral-800 flex-shrink-0" style={{ width }}>
+    <div className="flex flex-col h-full bg-[#131312] border-r border-[#333] flex-shrink-0" style={{ width }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-800">
-        <Zap size={16} className="text-amber-400" />
-        <span className="text-sm font-medium text-white">Nodes</span>
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#333]">
+        <span className="text-[13px] font-medium text-[#DBDBDC] tracking-wide">Nodes</span>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2 border-b border-neutral-800">
+      <div className="px-3 py-2 border-b border-[#333]">
         <div className="relative">
-          <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252]" />
           <input
             type="text"
-            placeholder="Search nodes..."
+            placeholder="Search.."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full h-7 pl-7 pr-2 text-xs bg-neutral-900 text-white border border-neutral-700 rounded outline-none focus:border-blue-500 placeholder:text-neutral-500"
+            className="w-full h-7 pl-7 pr-2 text-[11px] bg-[#0E0E0E] text-white border border-[#2a2a2a] rounded outline-none focus:border-[#E0FF29] placeholder:text-[#525252]"
           />
         </div>
       </div>
@@ -200,12 +196,16 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
             <div>
               <button
                 onClick={() => setPresetsExpanded(!presetsExpanded)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-amber-300 hover:bg-neutral-800/50 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] hover:bg-[#1A1A19] transition-colors"
               >
-                {presetsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                <Zap size={13} className="text-amber-400" />
-                <span className="flex-1 text-left font-medium">Quick Effects</span>
-                <span className="text-[10px] text-neutral-500">{effectPresets.length}</span>
+                {presetsExpanded ? (
+                  <Minus size={13} className="text-[#E0FF29] flex-shrink-0" />
+                ) : (
+                  <Plus size={13} className="text-[#E0FF29] flex-shrink-0" />
+                )}
+                <span className="flex-1 text-left text-[#E0FF29] font-semibold tracking-wider uppercase">Quick Effects</span>
+                <span className="text-[10px] text-[#525252] flex-shrink-0">——</span>
+                <span className="text-[10px] text-[#A6A6A6] tabular-nums flex-shrink-0">{String(effectPresets.length).padStart(3, '0')}</span>
               </button>
               {presetsExpanded && (
                 <div className="pb-1">
@@ -215,14 +215,14 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
                       <div
                         key={preset.id}
                         onClick={() => onApplyPreset(preset.id)}
-                        className="flex items-center gap-2 px-5 py-1.5 mx-1 rounded text-[11px] text-neutral-300 hover:bg-amber-500/10 hover:text-amber-200 cursor-pointer transition-colors group"
+                        className="flex items-center gap-2 px-5 py-1.5 mx-1 rounded text-[11px] text-[#A6A6A6] hover:bg-[#1A1A19] hover:text-[#E0FF29] cursor-pointer transition-colors group"
                       >
-                        <Icon size={12} className="text-amber-500/60 flex-shrink-0" />
+                        <Icon size={12} className="text-[#E0FF29]/40 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="truncate">{preset.name}</div>
-                          <div className="text-[9px] text-neutral-500 truncate">{preset.description}</div>
+                          <div className="text-[9px] text-[#525252] truncate">{preset.description}</div>
                         </div>
-                        <Plus size={11} className="text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        <Plus size={11} className="text-[#525252] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </div>
                     );
                   })}
@@ -231,48 +231,61 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
             </div>
           )}
 
-          {/* Simplified node groups */}
+          {/* Node groups */}
           {SIMPLIFIED_GROUPS.map(group => {
             const defs = groupedNodes.get(group.id);
             if (!defs || defs.length === 0) return null;
 
             const isExpanded = expandedGroups.has(group.id);
-            const Icon = group.icon;
+            const categoryColor = NODE_CATEGORY_COLORS[group.categories[0]];
 
             return (
               <div key={group.id}>
+                {/* Category header — colored +/− toggle, ALL CAPS */}
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white hover:bg-neutral-800/50 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] hover:bg-[#1A1A19] transition-colors"
                 >
-                  {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  <Icon size={13} className="text-neutral-400" />
-                  <span className="flex-1 text-left">{group.label}</span>
-                  <span className="text-[10px] text-neutral-500">{defs.length}</span>
+                  {isExpanded ? (
+                    <Minus size={13} style={{ color: categoryColor }} className="flex-shrink-0" />
+                  ) : (
+                    <Plus size={13} style={{ color: categoryColor }} className="flex-shrink-0" />
+                  )}
+                  <span className="flex-1 text-left text-[#DBDBDC] tracking-wider font-semibold uppercase">{group.label}</span>
+                  <span className="text-[10px] text-[#525252] flex-shrink-0">——</span>
+                  <span className="text-[10px] text-[#A6A6A6] tabular-nums flex-shrink-0">{String(defs.length).padStart(3, '0')}</span>
                 </button>
 
                 {isExpanded && (
                   <div className="pb-1">
-                    {defs.map(def => (
+                    {defs.map((def) => (
                       <HoverCard key={def.id} openDelay={300} closeDelay={100}>
                         <HoverCardTrigger asChild>
                           <div
                             draggable
                             onDragStart={e => handleDragStart(e, def.id)}
                             onClick={() => onAddNode(def.id)}
-                            className="flex items-center gap-2 px-5 py-1 mx-1 rounded text-[11px] text-neutral-300 hover:bg-neutral-800 hover:text-white cursor-pointer transition-colors group"
+                            className="flex items-center gap-2.5 mx-2 px-2 py-[6px] rounded text-[11px] bg-[#1A1A19] hover:bg-[#222221] cursor-pointer transition-colors group mb-[3px]"
                           >
-                            <div className="flex-1 min-w-0">
-                              <div className="truncate">{getFriendlyName(def.id, def.name)}</div>
-                              <div className="text-[9px] text-neutral-600 truncate">{def.name}</div>
-                            </div>
-                            <Plus size={11} className="text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            {/* Thin colored bar */}
+                            <div
+                              className="w-[3px] self-stretch rounded-[1px] flex-shrink-0"
+                              style={{ backgroundColor: categoryColor }}
+                            />
+                            {/* Node name */}
+                            <span className="flex-1 min-w-0 truncate text-white text-[12px]">
+                              {getFriendlyName(def.id, def.name)}
+                            </span>
+                            {/* Category abbreviation */}
+                            <span className="text-[9px] text-[#666] tracking-wider flex-shrink-0 uppercase">
+                              {group.abbreviation}
+                            </span>
                           </div>
                         </HoverCardTrigger>
                         <HoverCardContent
                           side="right"
                           align="start"
-                          className="p-3 bg-zinc-900 border-zinc-700 shadow-xl"
+                          className="p-3 bg-[#1A1A19] border-[#333] shadow-xl"
                         >
                           <NodeInfoCard def={def} />
                         </HoverCardContent>
@@ -287,12 +300,12 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
       </ScrollArea>
 
       {/* Upload button */}
-      <div className="p-2 border-t border-neutral-800">
+      <div className="p-2 border-t border-[#333]">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-white bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-[11px] text-[#A6A6A6] bg-[#1A1A19] hover:bg-[#252524] hover:text-white rounded transition-colors"
         >
-          <Upload size={13} />
+          <Upload size={12} />
           <span>Upload Image</span>
         </button>
         <input

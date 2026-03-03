@@ -1,6 +1,6 @@
 /**
  * DocumentTabs - Horizontal tab bar for multiple open documents.
- * Similar to Photoshop/Figma document tabs.
+ * Warm dark theme matching Nimzey Figma design.
  */
 
 import { memo, useCallback, useRef, useEffect } from 'react';
@@ -43,7 +43,7 @@ export default memo(function DocumentTabs({
   if (tabs.length <= 1) return null;
 
   return (
-    <div className="flex items-center bg-zinc-900 border-b border-zinc-800 h-8 flex-shrink-0">
+    <div className="flex items-center bg-[#131312] border-b border-[#333] h-8 flex-shrink-0">
       <div
         ref={scrollRef}
         className="flex-1 flex items-center overflow-x-auto scrollbar-none"
@@ -53,14 +53,14 @@ export default memo(function DocumentTabs({
             key={tab.id}
             data-tab-id={tab.id}
             onClick={() => onSelectTab(tab.id)}
-            className={`group flex items-center gap-1.5 px-3 h-8 text-[11px] border-r border-zinc-800 cursor-pointer select-none whitespace-nowrap transition-colors ${
+            className={`group flex items-center gap-1.5 px-3 h-8 text-[11px] border-r border-[#333] cursor-pointer select-none whitespace-nowrap transition-colors ${
               tab.id === activeTabId
-                ? 'bg-zinc-950 text-white border-b-2 border-b-blue-500'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                ? 'bg-[#3A3A38] text-white border-b-2 border-b-[#E0FF29]'
+                : 'bg-[#1A1A19] text-[#A6A6A6] hover:text-[#D6D1CB] hover:bg-[#252524]'
             }`}
           >
             <span className="truncate max-w-[120px]">{tab.name}</span>
-            <span className="text-[9px] text-zinc-600 tabular-nums">
+            <span className="text-[9px] text-[#525252] tabular-nums">
               {tab.width}x{tab.height}
             </span>
             <button
@@ -68,7 +68,7 @@ export default memo(function DocumentTabs({
                 e.stopPropagation();
                 onCloseTab(tab.id);
               }}
-              className="ml-0.5 p-0.5 rounded hover:bg-zinc-700 text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="ml-0.5 p-0.5 rounded hover:bg-[#525252] text-[#525252] hover:text-[#D6D1CB] opacity-0 group-hover:opacity-100 transition-opacity"
               title="Close tab"
             >
               <X size={10} />
@@ -78,7 +78,7 @@ export default memo(function DocumentTabs({
       </div>
       <button
         onClick={onNewTab}
-        className="flex items-center justify-center w-8 h-8 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors border-l border-zinc-800 flex-shrink-0"
+        className="flex items-center justify-center w-8 h-8 text-[#525252] hover:text-[#D6D1CB] hover:bg-[#1A1A19] transition-colors border-l border-[#333] flex-shrink-0"
         title="New document"
       >
         <Plus size={14} />

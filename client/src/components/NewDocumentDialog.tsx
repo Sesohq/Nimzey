@@ -81,10 +81,10 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-w-md">
+      <DialogContent className="bg-[#1A1A19] border-[#333] text-[#DBDBDC] max-w-md">
         <DialogHeader>
           <DialogTitle className="text-white">New Document</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-[#A6A6A6]">
             Set your canvas dimensions and name.
           </DialogDescription>
         </DialogHeader>
@@ -92,13 +92,13 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
         <div className="flex flex-col gap-4 py-2">
           {/* Document Name */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Name</label>
+            <label className="text-xs text-[#A6A6A6]">Name</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               onFocus={e => e.target.select()}
-              className="h-8 px-3 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-white outline-none focus:border-blue-500"
+              className="h-8 px-3 text-sm bg-[#131312] border border-[#333] rounded-md text-white outline-none focus:border-[#E0FF29]"
               placeholder="Untitled"
             />
           </div>
@@ -106,12 +106,12 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
           {/* Dimensions */}
           <div className="flex items-end gap-2">
             <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Width</label>
+              <label className="text-xs text-[#A6A6A6]">Width</label>
               <input
                 type="number"
                 value={width}
                 onChange={e => handleWidthChange(parseInt(e.target.value) || 64)}
-                className="h-8 px-3 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-white outline-none focus:border-blue-500 tabular-nums"
+                className="h-8 px-3 text-sm bg-[#131312] border border-[#333] rounded-md text-white outline-none focus:border-[#E0FF29] tabular-nums"
                 min={64}
                 max={4096}
               />
@@ -120,20 +120,20 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
               onClick={toggleLock}
               className={`h-8 w-8 flex items-center justify-center rounded-md border transition-colors ${
                 lockAspect
-                  ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-[#E0FF29]/20 border-[#E0FF29]/40 text-[#E0FF29]'
+                  : 'bg-[#131312] border-[#333] text-[#525252] hover:text-[#D6D1CB]'
               }`}
               title={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
             >
               {lockAspect ? <Link2 size={14} /> : <Link2Off size={14} />}
             </button>
             <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Height</label>
+              <label className="text-xs text-[#A6A6A6]">Height</label>
               <input
                 type="number"
                 value={height}
                 onChange={e => handleHeightChange(parseInt(e.target.value) || 64)}
-                className="h-8 px-3 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-white outline-none focus:border-blue-500 tabular-nums"
+                className="h-8 px-3 text-sm bg-[#131312] border border-[#333] rounded-md text-white outline-none focus:border-[#E0FF29] tabular-nums"
                 min={64}
                 max={4096}
               />
@@ -142,7 +142,7 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
 
           {/* Presets */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Presets</label>
+            <label className="text-xs text-[#A6A6A6]">Presets</label>
             <div className="grid grid-cols-3 gap-1.5">
               {PRESETS.map(p => (
                 <button
@@ -150,8 +150,8 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
                   onClick={() => handlePreset(p.w, p.h)}
                   className={`h-7 text-[11px] rounded border transition-colors ${
                     width === p.w && height === p.h
-                      ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
-                      : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'
+                      ? 'bg-[#E0FF29]/20 border-[#E0FF29]/40 text-[#E0FF29]'
+                      : 'bg-[#131312] border-[#333] text-[#A6A6A6] hover:text-[#D6D1CB] hover:border-[#525252]'
                   }`}
                 >
                   {p.label}
@@ -162,10 +162,10 @@ export default function NewDocumentDialog({ open, onClose, onCreate }: NewDocume
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} className="text-zinc-400 hover:text-white">
+          <Button variant="ghost" onClick={onClose} className="text-[#A6A6A6] hover:text-white">
             Cancel
           </Button>
-          <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-500 text-white">
+          <Button onClick={handleCreate} className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312]">
             Create
           </Button>
         </DialogFooter>

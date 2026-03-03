@@ -23,7 +23,7 @@ export const BoolParam = memo(function BoolParam({ param, value, onChange, hint 
         onClick={toggle}
         className={`
           w-7 h-3.5 rounded-full transition-colors relative cursor-pointer
-          ${value ? 'bg-[#6b8aaf]' : 'bg-[#333]'}
+          ${value ? 'bg-[#E0FF29]' : 'bg-[#333]'}
         `}
       >
         <div

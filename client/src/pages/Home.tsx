@@ -355,14 +355,14 @@ function EditorContent({ docId }: { docId: string }) {
 
   if (!doc) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="h-screen w-full flex items-center justify-center bg-[#0C0C0C] text-[#525252]">
         Loading...
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-full flex flex-col bg-zinc-950 text-zinc-100">
+    <div className="h-screen w-full flex flex-col bg-[#0C0C0C] text-[#DBDBDC]">
       <Header
         onNewProject={handleNewProject}
         documentName={doc.name}
@@ -460,25 +460,25 @@ function EditorContent({ docId }: { docId: string }) {
           onClick={() => !isPublishing && setShowPublishDialog(false)}
         >
           <div
-            className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl"
+            className="bg-[#1A1A19] border border-[#333] rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Share2 size={16} className="text-blue-400" />
+                <Share2 size={16} className="text-[#E0FF29]" />
                 <h3 className="text-sm font-medium text-white">Share to Community</h3>
               </div>
               <button
                 onClick={() => !isPublishing && setShowPublishDialog(false)}
-                className="p-1 text-zinc-500 hover:text-white transition-colors"
+                className="p-1 text-[#525252] hover:text-white transition-colors"
               >
                 <X size={14} />
               </button>
             </div>
-            <p className="text-xs text-zinc-400 mb-1">
-              This will make <strong className="text-zinc-300">"{doc.name}"</strong> publicly visible in the community gallery.
+            <p className="text-xs text-[#A6A6A6] mb-1">
+              This will make <strong className="text-[#D6D1CB]">"{doc.name}"</strong> publicly visible in the community gallery.
             </p>
-            <p className="text-xs text-zinc-500 mb-4">
+            <p className="text-xs text-[#525252] mb-4">
               A thumbnail of your current output will be captured and displayed.
             </p>
 
@@ -493,7 +493,7 @@ function EditorContent({ docId }: { docId: string }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowPublishDialog(false)}
-                className="text-zinc-400"
+                className="text-[#A6A6A6]"
                 disabled={isPublishing}
               >
                 Cancel
@@ -501,7 +501,7 @@ function EditorContent({ docId }: { docId: string }) {
               <Button
                 size="sm"
                 onClick={handlePublishConfirm}
-                className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
+                className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] gap-1.5"
                 disabled={isPublishing}
               >
                 {isPublishing ? (
@@ -530,7 +530,7 @@ export default function EditorPage() {
 
   if (!docId) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="h-screen w-full flex items-center justify-center bg-[#0C0C0C] text-[#525252]">
         No document ID specified.
       </div>
     );

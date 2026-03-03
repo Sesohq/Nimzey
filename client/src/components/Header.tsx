@@ -73,12 +73,12 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="bg-darkBg text-white px-3 py-2 flex justify-between items-center shadow-md border-b border-zinc-800">
+    <header className="bg-[#131312] text-white px-3 py-2 flex justify-between items-center shadow-md border-b border-[#333]">
       <div className="flex items-center gap-2">
         {onBack && (
           <button
             onClick={onBack}
-            className="p-1.5 text-zinc-400 hover:text-white rounded hover:bg-zinc-800 transition-colors"
+            className="p-1.5 text-[#A6A6A6] hover:text-white rounded hover:bg-[#1A1A19] transition-colors"
             title="Back to documents"
           >
             <ArrowLeft size={16} />
@@ -89,7 +89,7 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
 
         {documentName && (
           <>
-            <span className="text-zinc-600 text-sm">/</span>
+            <span className="text-[#525252] text-sm">/</span>
             {isEditing ? (
               <div className="flex items-center gap-1">
                 <input
@@ -102,15 +102,15 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
                     if (e.key === 'Enter') commitRename();
                     if (e.key === 'Escape') setIsEditing(false);
                   }}
-                  className="h-6 px-2 text-sm bg-zinc-800 border border-zinc-600 rounded text-white outline-none focus:border-blue-500"
+                  className="h-6 px-2 text-sm bg-[#1A1A19] border border-[#E0FF29] rounded text-white outline-none"
                 />
-                <button onClick={commitRename} className="p-1 text-blue-400 hover:text-blue-300">
+                <button onClick={commitRename} className="p-1 text-[#E0FF29] hover:text-[#f0ff80]">
                   <Check size={14} />
                 </button>
               </div>
             ) : (
               <span
-                className="text-sm text-zinc-300 cursor-pointer hover:text-white transition-colors"
+                className="text-sm text-[#D6D1CB] cursor-pointer hover:text-white transition-colors"
                 onClick={startEditing}
                 title="Click to rename"
               >
@@ -127,7 +127,7 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
             <button
               onClick={onUndo}
               disabled={!canUndo}
-              className="p-1.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-25 disabled:cursor-default text-zinc-400 hover:text-white disabled:hover:text-zinc-400 disabled:hover:bg-transparent"
+              className="p-1.5 rounded hover:bg-[#1A1A19] transition-colors disabled:opacity-25 disabled:cursor-default text-[#A6A6A6] hover:text-white disabled:hover:text-[#A6A6A6] disabled:hover:bg-transparent"
               title="Undo (Cmd+Z)"
             >
               <Undo2 size={14} />
@@ -135,14 +135,14 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
             <button
               onClick={onRedo}
               disabled={!canRedo}
-              className="p-1.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-25 disabled:cursor-default text-zinc-400 hover:text-white disabled:hover:text-zinc-400 disabled:hover:bg-transparent"
+              className="p-1.5 rounded hover:bg-[#1A1A19] transition-colors disabled:opacity-25 disabled:cursor-default text-[#A6A6A6] hover:text-white disabled:hover:text-[#A6A6A6] disabled:hover:bg-transparent"
               title="Redo (Cmd+Shift+Z)"
             >
               <Redo2 size={14} />
             </button>
           </div>
         )}
-        <span className="text-[10px] text-zinc-600">Auto-saved</span>
+        <span className="text-[10px] text-[#525252]">Auto-saved</span>
 
         {/* Share to Community */}
         {isAuthenticated && onPublish && (
@@ -151,8 +151,8 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
             variant="ghost"
             className={`h-7 text-xs gap-1.5 ${
               isPublished
-                ? 'text-green-400 hover:text-green-300'
-                : 'text-zinc-400 hover:text-white'
+                ? 'text-[#E0FF29] hover:text-[#f0ff80]'
+                : 'text-[#A6A6A6] hover:text-white'
             }`}
             onClick={onPublish}
             disabled={isPublishing || isPublished}
@@ -176,14 +176,12 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
           </Button>
         )}
 
-        <Button
-          size="sm"
-          variant="default"
-          className="bg-primary hover:bg-primary/90 h-7 text-xs"
+        <button
           onClick={onNewProject}
+          className="h-7 px-4 text-[11px] font-medium bg-[#E0FF29] text-[#131312] rounded-full hover:bg-[#f0ff80] transition-colors"
         >
           New
-        </Button>
+        </button>
 
         {/* Auth section */}
         {!loading && (
@@ -193,7 +191,7 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
               <div className="relative ml-1" ref={menuRef}>
                 <button
                   onClick={() => setShowUserMenu(prev => !prev)}
-                  className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-zinc-800 transition-colors"
+                  className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-[#1A1A19] transition-colors"
                 >
                   {avatarUrl ? (
                     <img
@@ -202,40 +200,40 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
                       className="h-6 w-6 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-[11px] font-medium text-white">
+                    <div className="h-6 w-6 rounded-full bg-[#E0FF29] flex items-center justify-center text-[11px] font-medium text-[#131312]">
                       {initials}
                     </div>
                   )}
-                  <span className="text-xs text-zinc-300 max-w-[80px] truncate hidden sm:block">
+                  <span className="text-xs text-[#D6D1CB] max-w-[80px] truncate hidden sm:block">
                     {displayName}
                   </span>
                 </button>
 
                 {/* Dropdown menu */}
                 {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
-                    <div className="px-3 py-2 border-b border-zinc-700">
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-[#1A1A19] border border-[#333] rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-[#333]">
                       <p className="text-xs font-medium text-white truncate">{displayName}</p>
-                      <p className="text-[10px] text-zinc-500 truncate">{user?.email}</p>
+                      <p className="text-[10px] text-[#525252] truncate">{user?.email}</p>
                     </div>
                     <button
                       onClick={() => { setShowUserMenu(false); setLocation('/'); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#D6D1CB] hover:bg-[#252524] hover:text-white transition-colors"
                     >
                       <FolderOpen size={13} />
                       My Documents
                     </button>
                     <button
                       onClick={() => { setShowUserMenu(false); setLocation('/community'); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#D6D1CB] hover:bg-[#252524] hover:text-white transition-colors"
                     >
                       <Users size={13} />
                       Community
                     </button>
-                    <div className="border-t border-zinc-700" />
+                    <div className="border-t border-[#333]" />
                     <button
                       onClick={handleSignOut}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-red-400 transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#D6D1CB] hover:bg-[#252524] hover:text-red-400 transition-colors"
                     >
                       <LogOut size={13} />
                       Sign Out
@@ -247,7 +245,7 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
               /* Sign In button */
               <button
                 onClick={() => setLocation('/login')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded transition-colors ml-1"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[#D6D1CB] hover:text-white hover:bg-[#1A1A19] rounded transition-colors ml-1"
               >
                 <LogIn size={13} />
                 Sign In

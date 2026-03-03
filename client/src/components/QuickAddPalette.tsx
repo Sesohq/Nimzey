@@ -208,7 +208,7 @@ export default function QuickAddPalette({ position, onSelect, onClose }: QuickAd
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
                     def.isGenerator
                       ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-blue-500/15 text-blue-400'
+                      : 'bg-[#E0FF29]/15 text-[#E0FF29]'
                   }`}>
                     {def.isGenerator ? 'Gen' : 'Proc'}
                   </span>

@@ -138,7 +138,7 @@ export default function PreviewPanel({
         {hiddenCanvas}
         <button
           onClick={() => setIsCollapsed(false)}
-          className="fixed bottom-4 right-4 z-40 rounded-lg bg-[#1e1e1e] border border-[#2e2e2e] shadow-xl hover:border-[#444] transition-all group overflow-hidden"
+          className="fixed bottom-4 right-4 z-40 rounded-lg bg-[#1A1A19] border border-[#333] shadow-xl hover:border-[#444] transition-all group overflow-hidden"
           title="Show preview"
           style={{ width: 44, height: 44 }}
         >
@@ -149,7 +149,7 @@ export default function PreviewPanel({
           )}
           {isRendering && (
             <div className="absolute top-0.5 right-0.5">
-              <Loader2 size={8} className="animate-spin text-[#6b8aaf]" />
+              <Loader2 size={8} className="animate-spin text-[#E0FF29]" />
             </div>
           )}
         </button>
@@ -161,9 +161,9 @@ export default function PreviewPanel({
   return (
     <>
       {hiddenCanvas}
-      <div className="fixed bottom-4 right-4 z-40 w-[280px] rounded-lg bg-[#1e1e1e] border border-[#2e2e2e] shadow-2xl overflow-hidden">
+      <div className="fixed bottom-4 right-4 z-40 w-[280px] rounded-lg bg-[#1A1A19] border border-[#333] shadow-2xl overflow-hidden">
         {/* Title bar */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] cursor-default">
+        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#333] cursor-default">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-[#d4d4d4] select-none">Preview</span>
             {editingRes ? (
@@ -175,7 +175,7 @@ export default function PreviewPanel({
                   onChange={e => setEditW(e.target.value)}
                   onKeyDown={handleResKeyDown}
                   onBlur={commitRes}
-                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#6b8aaf] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#E0FF29] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <span className="text-[9px] text-[#555]">×</span>
                 <input
@@ -184,12 +184,12 @@ export default function PreviewPanel({
                   onChange={e => setEditH(e.target.value)}
                   onKeyDown={handleResKeyDown}
                   onBlur={commitRes}
-                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#6b8aaf] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#E0FF29] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             ) : (
               <span
-                className={`text-[9px] tabular-nums select-none ${onResolutionChange ? 'text-[#888] cursor-pointer hover:text-[#6b8aaf] transition-colors' : 'text-[#666]'}`}
+                className={`text-[9px] tabular-nums select-none ${onResolutionChange ? 'text-[#888] cursor-pointer hover:text-[#E0FF29] transition-colors' : 'text-[#666]'}`}
                 onClick={startEditingRes}
                 title={onResolutionChange ? 'Click to change resolution' : undefined}
               >
@@ -197,7 +197,7 @@ export default function PreviewPanel({
               </span>
             )}
             {isRendering && (
-              <Loader2 size={10} className="animate-spin text-[#6b8aaf]" />
+              <Loader2 size={10} className="animate-spin text-[#E0FF29]" />
             )}
           </div>
           <div className="flex items-center gap-0.5">
@@ -249,7 +249,7 @@ export default function PreviewPanel({
         </div>
 
         {/* Bottom toolbar: quality + export */}
-        <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-[#2a2a2a]">
+        <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-[#333]">
           {/* Quality pills */}
           {QUALITY_OPTIONS.map(opt => (
             <button
@@ -257,7 +257,7 @@ export default function PreviewPanel({
               onClick={() => onQualityChange(opt.value)}
               className={`px-1.5 py-0.5 text-[9px] rounded transition-colors ${
                 quality === opt.value
-                  ? 'bg-[#6b8aaf]/20 text-[#6b8aaf] border border-[#6b8aaf]/30'
+                  ? 'bg-[#E0FF29]/20 text-[#E0FF29] border border-[#E0FF29]/30'
                   : 'text-[#666] hover:text-[#aaa] border border-transparent'
               }`}
               title={opt.label}
@@ -272,14 +272,14 @@ export default function PreviewPanel({
           <select
             value={exportFormat}
             onChange={e => setExportFormat(e.target.value as 'png' | 'jpeg')}
-            className="h-5 text-[9px] bg-[#252525] text-[#888] border border-[#333] rounded px-1 outline-none focus:border-[#6b8aaf]"
+            className="h-5 text-[9px] bg-[#252525] text-[#888] border border-[#333] rounded px-1 outline-none focus:border-[#E0FF29]"
           >
             <option value="png">PNG</option>
             <option value="jpeg">JPG</option>
           </select>
           <button
             onClick={handleExport}
-            className="flex items-center gap-1 h-5 px-2 text-[9px] bg-[#6b8aaf]/20 hover:bg-[#6b8aaf]/30 text-[#6b8aaf] rounded transition-colors"
+            className="flex items-center gap-1 h-5 px-2 text-[9px] bg-[#E0FF29]/20 hover:bg-[#E0FF29]/30 text-[#E0FF29] rounded transition-colors"
           >
             <Download size={9} />
             Export

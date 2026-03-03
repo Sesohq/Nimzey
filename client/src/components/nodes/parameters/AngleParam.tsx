@@ -63,9 +63,9 @@ export const AngleParam = memo(function AngleParam({ param, value, onChange, hin
             <line
               x1="10" y1="10"
               x2={needleX} y2={needleY}
-              stroke="#6b8aaf" strokeWidth="1.5" strokeLinecap="round"
+              stroke="#E0FF29" strokeWidth="1.5" strokeLinecap="round"
             />
-            <circle cx="10" cy="10" r="1.5" fill="#6b8aaf" />
+            <circle cx="10" cy="10" r="1.5" fill="#E0FF29" />
           </svg>
         </div>
       </div>

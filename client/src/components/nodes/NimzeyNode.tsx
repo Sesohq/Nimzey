@@ -1,6 +1,6 @@
 /**
- * NimzeyNode - Unified node component that renders any node type.
- * Shows friendly names in header with original name as tooltip.
+ * NimzeyNode - Unified node component matching Figma design.
+ * Thin colored top bar, category label (GEN-004), large node name.
  */
 
 import { memo, useCallback, useState, useEffect, useRef, useContext, createContext } from 'react';
@@ -10,7 +10,6 @@ import {
   NodeColorTag,
   DataType,
   NODE_COLOR_TAG_COLORS,
-  NODE_CATEGORY_ICONS,
   NODE_CATEGORY_COLORS,
 } from '@/types';
 import { NodeRegistry } from '@/registry/nodes';
@@ -18,40 +17,46 @@ import { TypedHandle } from './TypedHandle';
 import { ParameterRenderer } from './parameters/ParameterRenderer';
 import { cn } from '@/lib/utils';
 import { getFriendlyName } from '@/data/friendlyNames';
+import { SIMPLIFIED_GROUPS } from '@/data/simplifiedGroups';
 import {
   ChevronDown,
   ChevronUp,
   Eye,
   EyeOff,
-  Layers,
   Palette,
   Upload,
-  Sparkles,
-  SlidersHorizontal,
-  Calculator,
-  Move,
-  Image,
-  Settings,
-  Star,
-  Spline,
-  Wand2,
-  Blend,
 } from 'lucide-react';
 
-// Icon lookup by category
-const CATEGORY_ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Sparkles,
-  Layers,
-  SlidersHorizontal,
-  Wand2,
-  Blend,
-  Move,
-  Calculator,
-  Spline,
-  Settings,
-  Star,
-  SplitSquareHorizontal: Layers, // fallback for channels
-};
+// ---------- Node label lookup (lazy singleton) ----------
+
+let _nodeLabels: Map<string, { abbreviation: string; index: number }> | null = null;
+
+function getNodeLabel(definitionId: string): { abbreviation: string; index: number } {
+  if (!_nodeLabels) {
+    _nodeLabels = new Map();
+    const allCategories = NodeRegistry.getAllCategories();
+    for (const group of SIMPLIFIED_GROUPS) {
+      const defs: { id: string; name: string }[] = [];
+      for (const cat of group.categories) {
+        const catDefs = allCategories.get(cat);
+        if (catDefs) {
+          for (const def of catDefs) {
+            if (def.id !== 'result' && def.id !== 'result-pbr') {
+              defs.push(def);
+            }
+          }
+        }
+      }
+      defs.sort((a, b) =>
+        getFriendlyName(a.id, a.name).localeCompare(getFriendlyName(b.id, b.name)),
+      );
+      defs.forEach((def, i) => {
+        _nodeLabels!.set(def.id, { abbreviation: group.abbreviation, index: i + 1 });
+      });
+    }
+  }
+  return _nodeLabels.get(definitionId) || { abbreviation: 'NOD', index: 0 };
+}
 
 // ---------- Context for graph actions passed from parent ----------
 
@@ -142,23 +147,19 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
     );
   }
 
-  // Get category icon
-  const iconName = NODE_CATEGORY_ICONS[def.category];
-  const IconComponent = CATEGORY_ICON_MAP[iconName] || Star;
-
-  const headerColor = NODE_COLOR_TAG_COLORS[data.colorTag] || NODE_COLOR_TAG_COLORS.default;
   const isResult = def.id === 'result' || def.id === 'result-pbr';
   const isExternal = def.category === 'utility' && def.id === 'image';
+  const categoryColor = NODE_CATEGORY_COLORS[def.category] || '#282828';
+  const nodeLabel = getNodeLabel(data.definitionId);
 
   const friendlyName = getFriendlyName(def.id, def.name);
   const showOriginalName = friendlyName !== def.name;
 
-  // Build header gradient style — category color when default tag, user color tag overrides
+  // When user sets a custom color tag, use it for the top bar
   const isDefaultTag = data.colorTag === 'default';
-  const categoryColor = NODE_CATEGORY_COLORS[def.category] || '#282828';
-  const headerStyle: React.CSSProperties = isDefaultTag
-    ? { background: `linear-gradient(90deg, ${categoryColor}66 0%, transparent 70%), #282828` }
-    : { background: `linear-gradient(90deg, ${headerColor}55 0%, transparent 70%), #282828` };
+  const topBarColor = isDefaultTag
+    ? categoryColor
+    : (NODE_COLOR_TAG_COLORS[data.colorTag] || categoryColor);
 
   return (
     <div
@@ -170,36 +171,66 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
       )}
       style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
     >
+      {/* Thin colored top bar */}
+      <div
+        className="h-[3px] rounded-t-lg"
+        style={{ backgroundColor: topBarColor }}
+      />
+
       {/* Header */}
       <div
-        className="group/header flex items-center gap-1.5 px-2.5 py-2 cursor-grab rounded-t-lg relative"
-        style={headerStyle}
+        className="group/header px-2.5 pt-2 pb-1.5 cursor-grab relative"
         onMouseEnter={() => actions.onHeaderHover?.(id, data.definitionId)}
         onMouseLeave={() => actions.onHeaderHoverEnd?.()}
       >
-        {/* Icon with subtle circle background */}
-        <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center flex-shrink-0">
-          <IconComponent size={11} className="text-[#d4d4d4]" />
+        {/* Top row: category label + output indicator dots */}
+        <div className="flex items-center justify-between mb-0.5">
+          <span
+            className="text-[10px] font-medium tracking-wide select-none"
+            style={{ color: categoryColor }}
+          >
+            {isResult ? 'OUTPUT' : `${nodeLabel.abbreviation}-${String(nodeLabel.index).padStart(3, '0')}`}
+          </span>
+          {/* Output indicator dots */}
+          <div className="flex items-center gap-1">
+            {def.outputs.map(port => (
+              <div
+                key={port.id}
+                className="w-[6px] h-[6px] rounded-[1px]"
+                style={{ backgroundColor: categoryColor }}
+              />
+            ))}
+          </div>
         </div>
-        <span className="text-[11px] font-medium text-[#d4d4d4] flex-1 truncate select-none">
-          {friendlyName}
-        </span>
-        {/* Action buttons — visible on hover */}
-        <button
-          onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
-          className="text-[#666] hover:text-[#d4d4d4] transition-colors opacity-0 group-hover/header:opacity-100"
-        >
-          {data.enabled ? <Eye size={11} /> : <EyeOff size={11} />}
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
-          className="text-[#666] hover:text-[#d4d4d4] transition-colors opacity-0 group-hover/header:opacity-100"
-        >
-          <Palette size={10} />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }} className="text-[#666] hover:text-[#d4d4d4] transition-colors">
-          {data.collapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
-        </button>
+
+        {/* Node name */}
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-medium text-white flex-1 truncate select-none">
+            {friendlyName}
+          </span>
+          {/* Action buttons — visible on hover */}
+          <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleToggleEnabled(); }}
+              className="text-[#555] hover:text-white transition-colors p-0.5"
+            >
+              {data.enabled ? <Eye size={11} /> : <EyeOff size={11} />}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
+              className="text-[#555] hover:text-white transition-colors p-0.5"
+            >
+              <Palette size={10} />
+            </button>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleToggleCollapsed(); }}
+            className="text-[#555] hover:text-white transition-colors p-0.5 ml-0.5"
+          >
+            {data.collapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+          </button>
+        </div>
+
         {/* Tooltip showing original technical name */}
         {showOriginalName && (
           <div className="pointer-events-none absolute z-50 opacity-0 group-hover/header:opacity-100 transition-opacity duration-150 text-[10px] px-2 py-1 rounded bg-[#252525] border border-[#333] text-[#888] whitespace-nowrap shadow-lg left-1/2 -translate-x-1/2 -top-7">
@@ -280,18 +311,6 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
           </div>
         )}
 
-        {/* Preview thumbnail — always visible, even when collapsed */}
-        {data.preview && !isExternal && (
-          <div className="mb-1 mx-2 rounded overflow-hidden border border-[#2a2a2a]">
-            <img
-              src={data.preview}
-              alt="Preview"
-              className="w-full h-auto max-h-16 object-cover"
-              draggable={false}
-            />
-          </div>
-        )}
-
         {/* Parameters (when expanded) */}
         {!data.collapsed && def.parameters.length > 0 && (
           <div className="flex flex-col gap-1.5 py-1 px-2">
@@ -344,6 +363,18 @@ export const NimzeyNode = memo(function NimzeyNode({ id, data, selected }: NodeP
           </div>
         )}
       </div>
+
+      {/* Preview thumbnail — at the bottom, edge-to-edge, no bleed */}
+      {data.preview && !isExternal && (
+        <div className="overflow-hidden rounded-b-lg max-h-[120px]">
+          <img
+            src={data.preview}
+            alt="Preview"
+            className="w-full h-full object-cover block"
+            draggable={false}
+          />
+        </div>
+      )}
     </div>
   );
 });
