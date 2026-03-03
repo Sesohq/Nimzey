@@ -14,10 +14,10 @@ export const ditherShader: ShaderDefinition = {
   ],
   helpers: `
 // ---- Bayer Matrices ----
+// All return values in [0, 1) range, normalized
 
 float bayer2(ivec2 p) {
   int idx = (p.x & 1) + (p.y & 1) * 2;
-  // Matrix: [0, 2, 3, 1] / 4.0
   if (idx == 0) return 0.0 / 4.0;
   if (idx == 1) return 2.0 / 4.0;
   if (idx == 2) return 3.0 / 4.0;
@@ -28,7 +28,6 @@ float bayer4(ivec2 p) {
   int x = p.x & 3;
   int y = p.y & 3;
   int idx = x + y * 4;
-  // 4x4 Bayer matrix normalized to 0-1
   float m[16];
   m[0]  =  0.0; m[1]  =  8.0; m[2]  =  2.0; m[3]  = 10.0;
   m[4]  = 12.0; m[5]  =  4.0; m[6]  = 14.0; m[7]  =  6.0;
@@ -41,7 +40,6 @@ float bayer8(ivec2 p) {
   int x = p.x & 7;
   int y = p.y & 7;
   int idx = x + y * 8;
-  // Full 8x8 Bayer matrix normalized to 0-1
   float m[64];
   m[0]  =  0.0; m[1]  = 32.0; m[2]  =  8.0; m[3]  = 40.0; m[4]  =  2.0; m[5]  = 34.0; m[6]  = 10.0; m[7]  = 42.0;
   m[8]  = 48.0; m[9]  = 16.0; m[10] = 56.0; m[11] = 24.0; m[12] = 50.0; m[13] = 18.0; m[14] = 58.0; m[15] = 26.0;
@@ -54,201 +52,62 @@ float bayer8(ivec2 p) {
   return m[idx] / 64.0;
 }
 
-// ---- Hash & Noise ----
+// ---- Hash ----
 
-float hash21(vec2 p) {
+float ditherHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
 }
 
-float interleavedGradientNoise(vec2 pos) {
-  return fract(52.9829189 * fract(0.06711056 * pos.x + 0.00583715 * pos.y));
+// ---- Clustered Dot Matrix (8x8) ----
+// Fills from center outward to create round dot clusters
+
+float clusteredDot8(ivec2 p) {
+  int x = p.x & 7;
+  int y = p.y & 7;
+  int idx = x + y * 8;
+  // 8x8 clustered dot: fills radially from center of each 4x4 quadrant
+  float m[64];
+  m[0]  = 24.0; m[1]  = 10.0; m[2]  = 12.0; m[3]  = 26.0; m[4]  = 35.0; m[5]  = 47.0; m[6]  = 49.0; m[7]  = 37.0;
+  m[8]  =  8.0; m[9]  =  0.0; m[10] =  2.0; m[11] = 14.0; m[12] = 45.0; m[13] = 59.0; m[14] = 61.0; m[15] = 51.0;
+  m[16] = 22.0; m[17] =  6.0; m[18] =  4.0; m[19] = 16.0; m[20] = 43.0; m[21] = 57.0; m[22] = 63.0; m[23] = 53.0;
+  m[24] = 30.0; m[25] = 20.0; m[26] = 18.0; m[27] = 28.0; m[28] = 33.0; m[29] = 41.0; m[30] = 55.0; m[31] = 39.0;
+  m[32] = 34.0; m[33] = 46.0; m[34] = 48.0; m[35] = 36.0; m[36] = 25.0; m[37] = 11.0; m[38] = 13.0; m[39] = 27.0;
+  m[40] = 44.0; m[41] = 58.0; m[42] = 60.0; m[43] = 50.0; m[44] =  9.0; m[45] =  1.0; m[46] =  3.0; m[47] = 15.0;
+  m[48] = 42.0; m[49] = 56.0; m[50] = 62.0; m[51] = 52.0; m[52] = 23.0; m[53] =  7.0; m[54] =  5.0; m[55] = 17.0;
+  m[56] = 32.0; m[57] = 40.0; m[58] = 54.0; m[59] = 38.0; m[60] = 31.0; m[61] = 21.0; m[62] = 19.0; m[63] = 29.0;
+  return m[idx] / 64.0;
 }
 
-// ---- Quantization ----
+// ---- Line Screen Dither ----
+// Creates horizontal line patterns within each cell
 
-float quantize(float val, float levels) {
-  return floor(val * levels + 0.5) / levels;
+float lineScreen(ivec2 p, int matrixSize) {
+  int y = p.y % matrixSize;
+  return float(y) / float(matrixSize);
 }
 
-// ---- Clustered Dot Matrix (4x4) ----
-
-float clusteredDot4(ivec2 p) {
-  int x = p.x & 3;
-  int y = p.y & 3;
-  int idx = x + y * 4;
-  // Clustered dot ordering: center pixels fill first for round dots
-  float m[16];
-  m[0]  = 12.0; m[1]  =  5.0; m[2]  =  6.0; m[3]  = 13.0;
-  m[4]  =  4.0; m[5]  =  0.0; m[6]  =  1.0; m[7]  =  7.0;
-  m[8]  = 11.0; m[9]  =  3.0; m[10] =  2.0; m[11] =  8.0;
-  m[12] = 15.0; m[13] = 10.0; m[14] =  9.0; m[15] = 14.0;
-  return m[idx] / 16.0;
-}
-
-// ---- Pattern Dither (4x4 tile) ----
-
-float patternThreshold(ivec2 p, float val) {
-  // Map gray level to a fill pattern in a 4x4 tile
-  // Each level turns on additional pixels in a spiral from center
-  int x = p.x & 3;
-  int y = p.y & 3;
-  int idx = x + y * 4;
-  // Ordered fill sequence for pattern dither
-  float order[16];
-  order[0]  = 15.0; order[1]  =  7.0; order[2]  =  8.0; order[3]  = 14.0;
-  order[4]  =  6.0; order[5]  =  0.0; order[6]  =  1.0; order[7]  =  9.0;
-  order[8]  =  5.0; order[9]  =  3.0; order[10] =  2.0; order[11] = 10.0;
-  order[12] = 13.0; order[13] =  4.0; order[14] = 11.0; order[15] = 12.0;
-  float threshold = order[idx] / 16.0;
-  return step(threshold, val);
-}
-
-// ---- Error Diffusion GPU Approximations ----
-// These sample neighbors' original values to estimate propagated error
-
-float getErrorDiffusionThreshold(vec2 uv, vec2 texel, float levels, int algo) {
-  // Sample original values of previously-processed neighbors
-  // In a left-to-right, top-to-bottom scanline, previously processed
-  // pixels are: left (-1,0), up-left (-1,-1), up (0,-1), up-right (1,-1)
-  float origLeft   = luminance(texture(u_input0, uv + vec2(-texel.x, 0.0)).rgb);
-  float origUp     = luminance(texture(u_input0, uv + vec2(0.0, -texel.y)).rgb);
-  float origUpLeft = luminance(texture(u_input0, uv + vec2(-texel.x, -texel.y)).rgb);
-  float origUpRight= luminance(texture(u_input0, uv + vec2(texel.x, -texel.y)).rgb);
-  float origLeft2  = luminance(texture(u_input0, uv + vec2(-2.0 * texel.x, 0.0)).rgb);
-  float origUpLeft2= luminance(texture(u_input0, uv + vec2(-2.0 * texel.x, -texel.y)).rgb);
-  float origUpRight2=luminance(texture(u_input0, uv + vec2(2.0 * texel.x, -texel.y)).rgb);
-  float origDown   = luminance(texture(u_input0, uv + vec2(0.0, texel.y)).rgb);
-
-  // Compute quantization errors of neighbors
-  float errLeft    = origLeft    - quantize(origLeft, levels);
-  float errUp      = origUp      - quantize(origUp, levels);
-  float errUpLeft  = origUpLeft  - quantize(origUpLeft, levels);
-  float errUpRight = origUpRight - quantize(origUpRight, levels);
-  float errLeft2   = origLeft2   - quantize(origLeft2, levels);
-  float errUpLeft2 = origUpLeft2 - quantize(origUpLeft2, levels);
-  float errUpRight2= origUpRight2- quantize(origUpRight2, levels);
-
-  float accumulated = 0.0;
-
-  if (algo == 6) {
-    // Floyd-Steinberg: 7/16 from left, 3/16 from up-left, 5/16 from up, 1/16 from up-right
-    accumulated = errLeft * (7.0 / 16.0)
-                + errUpLeft * (3.0 / 16.0)
-                + errUp * (5.0 / 16.0)
-                + errUpRight * (1.0 / 16.0);
-  } else if (algo == 7) {
-    // Atkinson: distributes 6/8 of error (75%) across 6 neighbors
-    // Left, Up, UpLeft, UpRight each get 1/8, plus Left2 and Down approximation
-    accumulated = errLeft * (1.0 / 8.0)
-                + errUp * (1.0 / 8.0)
-                + errUpLeft * (1.0 / 8.0)
-                + errUpRight * (1.0 / 8.0)
-                + errLeft2 * (1.0 / 8.0);
-    // 6th neighbor (below-left) not available in single pass, approximate
-    accumulated += errUp * (1.0 / 8.0);
-  } else if (algo == 11) {
-    // Stucki: wider kernel with 5 neighbors visible
-    accumulated = errLeft * (8.0 / 42.0)
-                + errLeft2 * (4.0 / 42.0)
-                + errUp * (8.0 / 42.0)
-                + errUpLeft * (4.0 / 42.0)
-                + errUpRight * (4.0 / 42.0)
-                + errUpLeft2 * (2.0 / 42.0)
-                + errUpRight2 * (2.0 / 42.0);
-  } else if (algo == 12) {
-    // Burkes: similar to Stucki but different weights
-    accumulated = errLeft * (8.0 / 32.0)
-                + errLeft2 * (4.0 / 32.0)
-                + errUp * (8.0 / 32.0)
-                + errUpLeft * (4.0 / 32.0)
-                + errUpRight * (4.0 / 32.0);
-  } else if (algo == 13) {
-    // Sierra Lite: simple 3-neighbor kernel
-    accumulated = errLeft * (2.0 / 4.0)
-                + errUp * (1.0 / 4.0)
-                + errUpLeft * (1.0 / 4.0);
-  }
-
-  return accumulated;
-}
-
-vec3 getErrorDiffusionThresholdRGB(vec2 uv, vec2 texel, float levels, int algo) {
-  vec3 origLeft    = texture(u_input0, uv + vec2(-texel.x, 0.0)).rgb;
-  vec3 origUp      = texture(u_input0, uv + vec2(0.0, -texel.y)).rgb;
-  vec3 origUpLeft  = texture(u_input0, uv + vec2(-texel.x, -texel.y)).rgb;
-  vec3 origUpRight = texture(u_input0, uv + vec2(texel.x, -texel.y)).rgb;
-  vec3 origLeft2   = texture(u_input0, uv + vec2(-2.0 * texel.x, 0.0)).rgb;
-  vec3 origUpLeft2 = texture(u_input0, uv + vec2(-2.0 * texel.x, -texel.y)).rgb;
-  vec3 origUpRight2= texture(u_input0, uv + vec2(2.0 * texel.x, -texel.y)).rgb;
-
-  vec3 errLeft    = origLeft    - vec3(quantize(origLeft.r, levels), quantize(origLeft.g, levels), quantize(origLeft.b, levels));
-  vec3 errUp      = origUp      - vec3(quantize(origUp.r, levels), quantize(origUp.g, levels), quantize(origUp.b, levels));
-  vec3 errUpLeft  = origUpLeft  - vec3(quantize(origUpLeft.r, levels), quantize(origUpLeft.g, levels), quantize(origUpLeft.b, levels));
-  vec3 errUpRight = origUpRight - vec3(quantize(origUpRight.r, levels), quantize(origUpRight.g, levels), quantize(origUpRight.b, levels));
-  vec3 errLeft2   = origLeft2   - vec3(quantize(origLeft2.r, levels), quantize(origLeft2.g, levels), quantize(origLeft2.b, levels));
-  vec3 errUpLeft2 = origUpLeft2 - vec3(quantize(origUpLeft2.r, levels), quantize(origUpLeft2.g, levels), quantize(origUpLeft2.b, levels));
-  vec3 errUpRight2= origUpRight2- vec3(quantize(origUpRight2.r, levels), quantize(origUpRight2.g, levels), quantize(origUpRight2.b, levels));
-
-  vec3 accumulated = vec3(0.0);
-
-  if (algo == 6) {
-    accumulated = errLeft * (7.0 / 16.0)
-                + errUpLeft * (3.0 / 16.0)
-                + errUp * (5.0 / 16.0)
-                + errUpRight * (1.0 / 16.0);
-  } else if (algo == 7) {
-    accumulated = errLeft * (1.0 / 8.0)
-                + errUp * (1.0 / 8.0)
-                + errUpLeft * (1.0 / 8.0)
-                + errUpRight * (1.0 / 8.0)
-                + errLeft2 * (1.0 / 8.0)
-                + errUp * (1.0 / 8.0);
-  } else if (algo == 11) {
-    accumulated = errLeft * (8.0 / 42.0)
-                + errLeft2 * (4.0 / 42.0)
-                + errUp * (8.0 / 42.0)
-                + errUpLeft * (4.0 / 42.0)
-                + errUpRight * (4.0 / 42.0)
-                + errUpLeft2 * (2.0 / 42.0)
-                + errUpRight2 * (2.0 / 42.0);
-  } else if (algo == 12) {
-    accumulated = errLeft * (8.0 / 32.0)
-                + errLeft2 * (4.0 / 32.0)
-                + errUp * (8.0 / 32.0)
-                + errUpLeft * (4.0 / 32.0)
-                + errUpRight * (4.0 / 32.0);
-  } else if (algo == 13) {
-    accumulated = errLeft * (2.0 / 4.0)
-                + errUp * (1.0 / 4.0)
-                + errUpLeft * (1.0 / 4.0);
-  }
-
-  return accumulated;
-}
-
-// ---- Dither Threshold for ordered methods ----
+// ---- Dither Threshold Lookup ----
+// Returns threshold value in [0, 1) for ordered dither methods.
+// algo: 0=Bayer8x8, 1=Bayer4x4, 2=Bayer2x2, 3=Clustered Dot,
+//       4=Line Screen, 5=Noise/Random, 6=Halftone Dot
 
 float getDitherThreshold(ivec2 pixelCoord, int algo) {
-  if (algo == 0) return bayer2(pixelCoord);
+  if (algo == 0) return bayer8(pixelCoord);
   if (algo == 1) return bayer4(pixelCoord);
-  if (algo == 2) return bayer8(pixelCoord);
-  if (algo == 3) {
-    // Blue noise approximation: combine multiple octaves of hash
-    vec2 p = vec2(pixelCoord);
-    float n = hash21(p * 1.0) * 0.5
-            + hash21(p * 0.5 + 113.0) * 0.25
-            + hash21(p * 0.25 + 237.0) * 0.125
-            + hash21(p * 0.125 + 471.0) * 0.0625;
-    return fract(n * 1.7);
-  }
-  if (algo == 4) return hash21(vec2(pixelCoord));
-  if (algo == 5) return interleavedGradientNoise(vec2(pixelCoord));
-  if (algo == 8) return -1.0; // Pattern handled separately
-  if (algo == 9) return clusteredDot4(pixelCoord);
-  if (algo == 10) return 0.5; // Fixed threshold
-  return 0.0; // Error diffusion algorithms return 0 (handled separately)
+  if (algo == 2) return bayer2(pixelCoord);
+  if (algo == 3) return clusteredDot8(pixelCoord);
+  if (algo == 4) return lineScreen(pixelCoord, 8);
+  if (algo == 5) return ditherHash(vec2(pixelCoord));
+  // algo == 6 (halftone dot) is handled separately in processPixel
+  return 0.0;
+}
+
+// ---- Quantize to N levels ----
+
+float ditherQuantize(float val, float levels) {
+  return floor(val * (levels - 1.0) + 0.5) / (levels - 1.0);
 }
 `,
   glsl: `
@@ -260,95 +119,124 @@ vec4 processPixel(vec2 uv) {
   if (intensity < 0.001) return src;
 
   float levels = float(u_levels);
-  vec2 texel = 1.0 / u_resolution;
+  float cellSize = u_scale;
 
-  // Compute scaled pixel coordinate for pattern tiling
-  ivec2 pixelCoord = ivec2(floor(uv * u_resolution / u_scale));
+  // ---- Cell-based sampling ----
+  // When scale > 1, we downsample by reading from the center of each cell.
+  // This creates the chunky/blocky "dither tone" look where the dither
+  // pattern is visibly large.
+  vec2 pixelPos = uv * u_resolution;
+
+  // Compute which cell this pixel belongs to, and sample from cell center
+  vec2 cellIndex = floor(pixelPos / cellSize);
+  vec2 cellCenter = (cellIndex + 0.5) * cellSize / u_resolution;
+  // Clamp to valid UV range
+  cellCenter = clamp(cellCenter, vec2(0.0), vec2(1.0));
+
+  // Sample the source from the cell center (creates the blockified look)
+  vec4 cellSrc = texture(u_input0, cellCenter);
+
+  // Position within the cell for dither pattern tiling
+  ivec2 cellPixel = ivec2(mod(pixelPos, cellSize));
 
   int algo = u_algorithm;
-  bool isErrorDiffusion = (algo == 6 || algo == 7 || algo == 11 || algo == 12 || algo == 13);
+
+  // ---- Halftone Dot Mode (algo 6) ----
+  // Circular dots whose size varies with luminance
+  if (algo == 6) {
+    float val;
+    vec3 cellColor = cellSrc.rgb;
+
+    if (u_colorMode == 0) {
+      // Mono: compute luminance
+      val = luminance(cellColor);
+    } else {
+      val = luminance(cellColor);
+    }
+
+    // Position within cell normalized to [-0.5, 0.5]
+    vec2 cellUV = (vec2(cellPixel) + 0.5) / cellSize - 0.5;
+    float dist = length(cellUV) * 2.0; // 0 at center, ~1.414 at corners
+
+    // Radius based on darkness: darker = bigger dot
+    // intensity controls how aggressively dots fill
+    float darkness = 1.0 - val;
+    float radius = sqrt(darkness * intensity) * 1.2;
+
+    // Hard edge for clean dots
+    float dot = 1.0 - step(radius, dist);
+
+    if (u_colorMode == 0) {
+      // Mono halftone
+      float out_val = dot;
+      if (u_invert == 1) out_val = 1.0 - out_val;
+      return vec4(vec3(out_val), src.a);
+    } else if (u_colorMode == 1) {
+      // Per-channel halftone dots
+      vec3 result;
+      for (int ch = 0; ch < 3; ch++) {
+        float chVal = ch == 0 ? cellColor.r : (ch == 1 ? cellColor.g : cellColor.b);
+        float chDark = 1.0 - chVal;
+        float chRadius = sqrt(chDark * intensity) * 1.2;
+        float chDot = 1.0 - step(chRadius, dist);
+        if (ch == 0) result.r = chDot;
+        else if (ch == 1) result.g = chDot;
+        else result.b = chDot;
+      }
+      if (u_invert == 1) result = 1.0 - result;
+      return vec4(result, src.a);
+    } else {
+      // Preserve hue: dot shows original color, background is white (or black if inverted)
+      float out_val = dot;
+      if (u_invert == 1) out_val = 1.0 - out_val;
+      vec3 bg = vec3(1.0 - float(u_invert));
+      vec3 result = mix(bg, cellColor, out_val);
+      return vec4(result, src.a);
+    }
+  }
+
+  // ---- Ordered Dither Modes (algos 0-5) ----
+  // Classic ordered dithering: compare luminance against Bayer/pattern threshold
+
+  // Get the dither threshold for this pixel's position within the cell
+  float threshold = getDitherThreshold(cellPixel, algo);
+
+  // The threshold is in [0, 1). We use it to decide which quantized level
+  // each pixel gets. This is the core ordered dithering algorithm:
+  //   quantized = floor((value * (levels-1) + threshold * intensity) ) / (levels-1)
+  // This properly distributes pixels across quantization levels based on the
+  // Bayer pattern, creating the characteristic dither texture.
 
   vec3 result;
 
   if (u_colorMode == 0) {
     // ---- Mono Mode ----
-    float lum = luminance(src.rgb);
-
-    if (isErrorDiffusion) {
-      float errAccum = getErrorDiffusionThreshold(uv, texel, levels, algo);
-      float adjusted = lum + errAccum * intensity;
-      float dithered = quantize(clamp(adjusted, 0.0, 1.0), levels);
-      if (u_invert == 1) dithered = 1.0 - dithered;
-      result = vec3(dithered);
-    } else if (algo == 8) {
-      // Pattern dither
-      float patterned = patternThreshold(pixelCoord, lum);
-      float blended = mix(quantize(lum, levels), patterned, intensity);
-      if (u_invert == 1) blended = 1.0 - blended;
-      result = vec3(blended);
-    } else {
-      float threshold = getDitherThreshold(pixelCoord, algo);
-      // Remap threshold to [-0.5, 0.5] range and scale by intensity
-      float ditherOffset = (threshold - 0.5) * intensity / levels;
-      float dithered = quantize(clamp(lum + ditherOffset, 0.0, 1.0), levels);
-      if (u_invert == 1) dithered = 1.0 - dithered;
-      result = vec3(dithered);
-    }
+    float lum = luminance(cellSrc.rgb);
+    // Ordered dither: add threshold offset before quantizing
+    float dithered = lum + (threshold - 0.5) * intensity / (levels - 1.0);
+    dithered = ditherQuantize(clamp(dithered, 0.0, 1.0), levels);
+    if (u_invert == 1) dithered = 1.0 - dithered;
+    result = vec3(dithered);
 
   } else if (u_colorMode == 1) {
     // ---- Per Channel RGB Mode ----
-    if (isErrorDiffusion) {
-      vec3 errAccum = getErrorDiffusionThresholdRGB(uv, texel, levels, algo);
-      vec3 adjusted = src.rgb + errAccum * intensity;
-      adjusted = clamp(adjusted, 0.0, 1.0);
-      result = vec3(
-        quantize(adjusted.r, levels),
-        quantize(adjusted.g, levels),
-        quantize(adjusted.b, levels)
-      );
-      if (u_invert == 1) result = 1.0 - result;
-    } else if (algo == 8) {
-      result = vec3(
-        patternThreshold(pixelCoord, src.r),
-        patternThreshold(pixelCoord + ivec2(37, 17), src.g),
-        patternThreshold(pixelCoord + ivec2(59, 83), src.b)
-      );
-      result = mix(vec3(quantize(src.r, levels), quantize(src.g, levels), quantize(src.b, levels)), result, intensity);
-      if (u_invert == 1) result = 1.0 - result;
-    } else {
-      float threshold = getDitherThreshold(pixelCoord, algo);
-      float ditherOffset = (threshold - 0.5) * intensity / levels;
-      result = vec3(
-        quantize(clamp(src.r + ditherOffset, 0.0, 1.0), levels),
-        quantize(clamp(src.g + ditherOffset, 0.0, 1.0), levels),
-        quantize(clamp(src.b + ditherOffset, 0.0, 1.0), levels)
-      );
-      if (u_invert == 1) result = 1.0 - result;
-    }
+    vec3 color = cellSrc.rgb;
+    float offset = (threshold - 0.5) * intensity / (levels - 1.0);
+    result = vec3(
+      ditherQuantize(clamp(color.r + offset, 0.0, 1.0), levels),
+      ditherQuantize(clamp(color.g + offset, 0.0, 1.0), levels),
+      ditherQuantize(clamp(color.b + offset, 0.0, 1.0), levels)
+    );
+    if (u_invert == 1) result = 1.0 - result;
 
   } else {
     // ---- Preserve Hue Mode ----
-    vec3 hsl = rgb2hsl(src.rgb);
+    vec3 hsl = rgb2hsl(cellSrc.rgb);
     float lum = hsl.z;
-
-    if (isErrorDiffusion) {
-      float errAccum = getErrorDiffusionThreshold(uv, texel, levels, algo);
-      float adjusted = lum + errAccum * intensity;
-      float ditheredL = quantize(clamp(adjusted, 0.0, 1.0), levels);
-      if (u_invert == 1) ditheredL = 1.0 - ditheredL;
-      result = hsl2rgb(vec3(hsl.x, hsl.y, ditheredL));
-    } else if (algo == 8) {
-      float patterned = patternThreshold(pixelCoord, lum);
-      float blended = mix(quantize(lum, levels), patterned, intensity);
-      if (u_invert == 1) blended = 1.0 - blended;
-      result = hsl2rgb(vec3(hsl.x, hsl.y, blended));
-    } else {
-      float threshold = getDitherThreshold(pixelCoord, algo);
-      float ditherOffset = (threshold - 0.5) * intensity / levels;
-      float ditheredL = quantize(clamp(lum + ditherOffset, 0.0, 1.0), levels);
-      if (u_invert == 1) ditheredL = 1.0 - ditheredL;
-      result = hsl2rgb(vec3(hsl.x, hsl.y, ditheredL));
-    }
+    float dithered = lum + (threshold - 0.5) * intensity / (levels - 1.0);
+    dithered = ditherQuantize(clamp(dithered, 0.0, 1.0), levels);
+    if (u_invert == 1) dithered = 1.0 - dithered;
+    result = hsl2rgb(vec3(hsl.x, hsl.y, dithered));
   }
 
   return vec4(result, src.a);

@@ -159,11 +159,11 @@ export const parameterHints: Record<string, string> = {
   'halftone.crosshatchLevels': 'How many layers of lines for the crosshatch style',
 
   // Dither
-  'dither.algorithm': 'The dithering pattern/technique to use',
-  'dither.levels': 'How many brightness steps. 2 = pure B&W, more = smoother gradients',
-  'dither.intensity': 'Strength of the dither effect. 100% = normal, less = subtler',
-  'dither.scale': 'Size of the dither pattern. Larger = more visible pattern',
-  'dither.colorMode': 'Mono = B&W, Per Channel = dither R/G/B separately, Preserve Hue = keep colors',
+  'dither.algorithm': 'Dither pattern: Bayer for classic ordered, Clustered Dot for round clusters, Line Screen for stripes, Halftone Dot for circular dots',
+  'dither.scale': 'Size of each dither cell in pixels. Crank this up for a chunky retro look. 1 = pixel-level, 8+ = clearly visible pattern',
+  'dither.levels': 'How many brightness steps. 2 = pure black & white, 4 = retro console, 8+ = smoother',
+  'dither.intensity': 'Strength of the dither pattern. 100% = full effect. Higher values push contrast harder',
+  'dither.colorMode': 'Mono = B&W, Per Channel = dither R/G/B separately for color retro, Preserve Hue = keep original hue',
   'dither.invert': 'Swap black and white in the output',
 };
 

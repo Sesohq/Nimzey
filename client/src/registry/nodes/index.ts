@@ -3,6 +3,7 @@ import { NodeRegistry, getEffectiveInputs } from '../NodeRegistry';
 // Generators — Noise
 import { perlinNoiseNode } from './noise/perlin';
 import { cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode } from './noise/cells';
+import { uvCoordinatesNode } from './noise/uv';
 
 // Generators — Gradients
 import {
@@ -43,9 +44,11 @@ import {
   extractHLSNode, assembleHLSNode, getAlphaNode, setAlphaNode,
 } from './channel/extract-assemble';
 
-// Transforms
+// Transforms / Distortions
 import {
   flipNode, rotateNode, scaleNode, offsetNode, perspectiveNode, lookupNode,
+  twirlNode, rippleNode, polarCoordinatesNode, spherizeNode,
+  waveNode, kaleidoscopeNode, vortexNode, barrelDistortNode,
 } from './transform/transforms';
 
 // Math
@@ -55,6 +58,7 @@ import {
   lerpNode, ifNode, remapRangeNode,
   floorNode, ceilNode, roundNode,
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
+  makeVec2Node, splitVec2Node, fractNode, clampNode, rotateVec2Node,
 } from './math/rgb-math';
 
 // Utility (sources + controls)
@@ -71,7 +75,7 @@ import { resultNode, resultPBRNode } from './special/result';
 // Register all nodes
 const allNodes = [
   // Generators — Noise
-  perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode,
+  perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode, uvCoordinatesNode,
 
   // Generators — Gradients
   threeColorGradientNode, fiveColorGradientNode, profileGradientNode,
@@ -99,8 +103,10 @@ const allNodes = [
   extractRGBNode, assembleRGBNode, extractHSBNode, assembleHSBNode,
   extractHLSNode, assembleHLSNode, getAlphaNode, setAlphaNode,
 
-  // Transforms
+  // Transforms / Distortions
   flipNode, rotateNode, scaleNode, offsetNode, perspectiveNode, lookupNode,
+  twirlNode, rippleNode, polarCoordinatesNode, spherizeNode,
+  waveNode, kaleidoscopeNode, vortexNode, barrelDistortNode,
 
   // Math
   addNode, subtractNode, multiplyNode, divideNode, moduloNode,
@@ -108,6 +114,7 @@ const allNodes = [
   lerpNode, ifNode, remapRangeNode,
   floorNode, ceilNode, roundNode,
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
+  makeVec2Node, splitVec2Node, fractNode, clampNode, rotateVec2Node,
 
   // Utility
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
@@ -126,7 +133,7 @@ export { NodeRegistry, getEffectiveInputs };
 // Re-export all node definitions for direct access
 export {
   // Generators — Noise
-  perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode,
+  perlinNoiseNode, cellsNoiseNode, blocksNoiseNode, pyramidsNoiseNode, uvCoordinatesNode,
   // Generators — Gradients
   threeColorGradientNode, fiveColorGradientNode, profileGradientNode,
   freeGradientNode, elevationGradientNode, spectrumNode,
@@ -146,14 +153,17 @@ export {
   // Channels
   extractRGBNode, assembleRGBNode, extractHSBNode, assembleHSBNode,
   extractHLSNode, assembleHLSNode, getAlphaNode, setAlphaNode,
-  // Transforms
+  // Transforms / Distortions
   flipNode, rotateNode, scaleNode, offsetNode, perspectiveNode, lookupNode,
+  twirlNode, rippleNode, polarCoordinatesNode, spherizeNode,
+  waveNode, kaleidoscopeNode, vortexNode, barrelDistortNode,
   // Math
   addNode, subtractNode, multiplyNode, divideNode, moduloNode,
   negateNode, absNode, powerNode, minNode, maxNode,
   lerpNode, ifNode, remapRangeNode,
   floorNode, ceilNode, roundNode,
   sineNode, cosineNode, tangentNode, arcsineNode, arccosineNode, arctangentNode,
+  makeVec2Node, splitVec2Node, fractNode, clampNode, rotateVec2Node,
   // Utility
   imageNode, colorControlNode, sliderControlNode, checkboxControlNode, angleControlNode,
   // Curves

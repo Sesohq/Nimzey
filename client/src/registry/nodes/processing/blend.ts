@@ -25,6 +25,7 @@ export const blendNode: NodeDefinition = {
       { label: 'Difference', value: 14 }, { label: 'Exclusion', value: 15 },
       { label: 'Hue', value: 16 }, { label: 'Saturation', value: 17 },
       { label: 'Color', value: 18 }, { label: 'Luminosity', value: 19 },
+      { label: 'Hard Mix', value: 20 },
     ]},
     { id: 'opacity', label: 'Opacity', type: 'float', defaultValue: 100, min: 0, max: 100, step: 1, unit: '%', mappable: true },
   ],

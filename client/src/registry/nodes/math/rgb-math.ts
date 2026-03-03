@@ -181,3 +181,59 @@ export const tangentNode = trigNode('math-tangent', 'Tangent', 'tan(x)');
 export const arcsineNode = trigNode('math-arcsine', 'ArcSine', 'asin(x)');
 export const arccosineNode = trigNode('math-arccosine', 'ArcCosine', 'acos(x)');
 export const arctangentNode = trigNode('math-arctangent', 'ArcTangent', 'atan(x)');
+
+// ===== Vector / Coordinate Math =====
+
+export const makeVec2Node: NodeDefinition = {
+  id: 'math-make-vec2',
+  name: 'Make Vector2',
+  category: 'math',
+  description: 'Packs two grayscale inputs into a Vector2 image (R=X, G=Y). Use with UV and Lookup nodes for distortion.',
+  inputs: [
+    { id: 'x', label: 'X', dataType: DataType.Map, required: true, hdr: true },
+    { id: 'y', label: 'Y', dataType: DataType.Map, required: true, hdr: true },
+  ],
+  outputs: [
+    { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
+  ],
+  parameters: [],
+  shaderId: 'math-make-vec2',
+  isGenerator: false,
+  requiresBitmapCache: false,
+  icon: 'Combine',
+  tags: ['vector', 'vec2', 'make', 'pack', 'combine', 'xy'],
+};
+
+export const splitVec2Node: NodeDefinition = {
+  id: 'math-split-vec2',
+  name: 'Split Vector2',
+  category: 'math',
+  description: 'Extracts X (Red) or Y (Green) channel from a Vector2 image as grayscale.',
+  inputs: [
+    { id: 'source', label: 'Source', dataType: DataType.Map, required: true, hdr: true },
+  ],
+  outputs: [
+    { id: 'out', label: 'Output', dataType: DataType.Map, required: false, hdr: true },
+  ],
+  parameters: [
+    { id: 'channel', label: 'Channel', type: 'option', defaultValue: 0, options: [
+      { label: 'X (Red)', value: 0 }, { label: 'Y (Green)', value: 1 },
+    ]},
+  ],
+  shaderId: 'math-split-vec2',
+  isGenerator: false,
+  requiresBitmapCache: false,
+  icon: 'Split',
+  tags: ['vector', 'vec2', 'split', 'extract', 'x', 'y', 'channel'],
+};
+
+export const fractNode = unaryMathNode('math-fract', 'Fract', 'Returns the fractional part of each channel. Essential for UV tiling and wrapping.', 'Hash', ['fract', 'fractional', 'wrap', 'tile', 'repeat']);
+
+export const clampNode = unaryMathNode('math-clamp', 'Clamp', 'Clamps all channels to a min/max range. Prevents values from going out of bounds.', 'Minimize2', ['clamp', 'limit', 'bound', 'constrain', 'range'], [
+  { id: 'min', label: 'Min', type: 'float', defaultValue: 0, min: -2, max: 2, step: 0.01 },
+  { id: 'max', label: 'Max', type: 'float', defaultValue: 1, min: -2, max: 2, step: 0.01 },
+]);
+
+export const rotateVec2Node = unaryMathNode('math-rotate-vec2', 'Rotate Vector2', 'Rotates a 2D vector (RG channels) by an angle. For directional distortion.', 'RotateCw', ['rotate', 'vector', 'vec2', 'direction', 'angle'], [
+  { id: 'angle', label: 'Angle', type: 'angle', defaultValue: 0, min: 0, max: 360, step: 1 },
+]);

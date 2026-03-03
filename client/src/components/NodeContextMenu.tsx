@@ -3,8 +3,8 @@
  * Shows "Bake to Image" to capture the node's output and create an image node.
  */
 
-import { useEffect, useRef } from 'react';
-import { ImagePlus, Maximize2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
+import { Download, ImagePlus, Maximize2, Trash2 } from 'lucide-react';
 
 interface NodeContextMenuProps {
   /** Screen-relative position of the menu */
@@ -19,6 +19,8 @@ interface NodeContextMenuProps {
   onFocus?: (nodeId: string) => void;
   /** Called when "Delete" is selected */
   onDelete: (nodeId: string) => void;
+  /** Preview data URL for the node (used by Save Image) */
+  previewDataUrl?: string | null;
   /** Called when menu should close */
   onClose: () => void;
 }
@@ -30,6 +32,7 @@ export default function NodeContextMenu({
   onBakeToImage,
   onFocus,
   onDelete,
+  previewDataUrl,
   onClose,
 }: NodeContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -73,6 +76,16 @@ export default function NodeContextMenu({
   const canBake = definitionId !== 'result' && definitionId !== 'result-pbr';
   // Don't allow deleting the result node
   const canDelete = definitionId !== 'result' && definitionId !== 'result-pbr';
+  const canSave = !!previewDataUrl;
+
+  const handleSaveImage = useCallback(() => {
+    if (!previewDataUrl) return;
+    const a = document.createElement('a');
+    a.href = previewDataUrl;
+    a.download = `nimzey-node-${nodeId}.png`;
+    a.click();
+    onClose();
+  }, [previewDataUrl, nodeId, onClose]);
 
   return (
     <div
@@ -103,6 +116,16 @@ export default function NodeContextMenu({
         >
           <Maximize2 size={13} className="text-[#E0FF29]/70" />
           Focus Node
+        </button>
+      )}
+
+      {canSave && (
+        <button
+          className="w-full text-left px-3 py-2 text-[11px] text-[#ccc] hover:bg-[#2a2a2a] hover:text-white transition-colors flex items-center gap-2.5"
+          onClick={handleSaveImage}
+        >
+          <Download size={13} className="text-sky-400/70" />
+          Save Image
         </button>
       )}
 

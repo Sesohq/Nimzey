@@ -294,3 +294,63 @@ vec4 processPixel(vec2 uv) {
   return vec4(v, a.a);
 }`,
 };
+
+// ===== Vector / Coordinate Math =====
+
+export const makeVec2Shader: ShaderDefinition = {
+  id: 'math-make-vec2', inputCount: 2, isNeighborhood: false,
+  uniforms: [{ name: 'u_inputCount', type: 'int' }],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  float x = luminance(texture(u_input0, uv).rgb);
+  float y = u_inputCount >= 2 ? luminance(texture(u_input1, uv).rgb) : 0.0;
+  return vec4(x, y, 0.0, 1.0);
+}`,
+};
+
+export const splitVec2Shader: ShaderDefinition = {
+  id: 'math-split-vec2', inputCount: 1, isNeighborhood: false,
+  uniforms: [{ name: 'u_channel', type: 'int' }],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 a = texture(u_input0, uv);
+  float v = u_channel == 0 ? a.r : a.g;
+  return vec4(v, v, v, a.a);
+}`,
+};
+
+export const fractShader: ShaderDefinition = {
+  id: 'math-fract', inputCount: 1, isNeighborhood: false, uniforms: [],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 a = texture(u_input0, uv);
+  return vec4(fract(a.rgb), a.a);
+}`,
+};
+
+export const clampShader: ShaderDefinition = {
+  id: 'math-clamp', inputCount: 1, isNeighborhood: false,
+  uniforms: [
+    { name: 'u_min', type: 'float' },
+    { name: 'u_max', type: 'float' },
+  ],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 a = texture(u_input0, uv);
+  return vec4(clamp(a.rgb, vec3(u_min), vec3(u_max)), a.a);
+}`,
+};
+
+export const rotateVec2Shader: ShaderDefinition = {
+  id: 'math-rotate-vec2', inputCount: 1, isNeighborhood: false,
+  uniforms: [{ name: 'u_angle', type: 'float' }],
+  glsl: `
+vec4 processPixel(vec2 uv) {
+  vec4 a = texture(u_input0, uv);
+  vec2 v = a.rg - 0.5;
+  float rad = u_angle * 3.14159265 / 180.0;
+  v = rot2D(rad) * v;
+  v += 0.5;
+  return vec4(v, a.b, a.a);
+}`,
+};

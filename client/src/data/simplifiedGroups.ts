@@ -69,10 +69,10 @@ export const SIMPLIFIED_GROUPS: SimplifiedGroup[] = [
   },
   {
     id: 'transforms',
-    label: 'Transforms',
+    label: 'Distortions',
     icon: Move,
     categories: ['transform'],
-    abbreviation: 'TR',
+    abbreviation: 'DST',
   },
   {
     id: 'colors',

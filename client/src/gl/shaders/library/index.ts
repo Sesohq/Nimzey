@@ -8,6 +8,7 @@ import { ShaderDefinition, parametersToUniforms } from '../ShaderDefinition';
 // Import all shader definitions
 import { passthroughShader, solidColorShader, resultShader, numericOutputShader, resultPBRShader } from './special/utility';
 import { perlinNoiseShader } from './noise/perlin';
+import { uvCoordinatesShader } from './noise/uv';
 import { cellsNoiseShader, blocksNoiseShader, pyramidsNoiseShader } from './noise/cells';
 import { blendShader, multiblendShader } from './processing/blend';
 import { maskShader } from './processing/mask';
@@ -19,11 +20,16 @@ import { brightnessContrastShader, levelsShader, hueSaturationShader, invertShad
 import { extractRGBShader, assembleRGBShader, extractHSBShader, assembleHSBShader, getAlphaShader, setAlphaShader, extractHLSShader, assembleHLSShader } from './channel/channels';
 import { checkerShader, bricksShader, tilesShader, ellipseShader, polygonShader, rectangleShader } from './pattern/patterns';
 import { threeColorGradientShader, fiveColorGradientShader, profileGradientShader, freeGradientShader, elevationGradientShader, spectrumShader } from './gradient/gradients';
-import { flipShader, rotateShader, scaleShader, offsetShader, perspectiveShader, lookupShader } from './transform/transforms';
+import {
+  flipShader, rotateShader, scaleShader, offsetShader, perspectiveShader, lookupShader,
+  twirlShader, rippleShader, polarCoordinatesShader, spherizeShader,
+  waveShader, kaleidoscopeShader, vortexShader, barrelDistortShader,
+} from './transform/transforms';
 import {
   addShader, subtractShader, multiplyShader, divideShader, negateShader, absShader, minShader, maxShader, lerpShader, remapRangeShader,
   powerShader, moduloShader, ifShader, floorShader, ceilShader, roundShader,
   sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
+  makeVec2Shader, splitVec2Shader, fractShader, clampShader, rotateVec2Shader,
 } from './math/math';
 import { curveGeneratorShader, levelsCurveShader } from './curve/curves';
 
@@ -56,7 +62,7 @@ ShaderLibrary.registerAll([
   // Special / Utility
   passthroughShader, solidColorShader, resultShader, numericOutputShader, resultPBRShader,
   // Noise
-  perlinNoiseShader, cellsNoiseShader, blocksNoiseShader, pyramidsNoiseShader,
+  perlinNoiseShader, cellsNoiseShader, blocksNoiseShader, pyramidsNoiseShader, uvCoordinatesShader,
   // Processing
   blendShader, multiblendShader, maskShader, halftoneShader, ditherShader,
   blurShader, sharpenShader, edgeDetectorShader, highPassShader, motionBlurShader,
@@ -73,14 +79,17 @@ ShaderLibrary.registerAll([
   // Gradients
   threeColorGradientShader, fiveColorGradientShader, profileGradientShader,
   freeGradientShader, elevationGradientShader, spectrumShader,
-  // Transforms
+  // Transforms / Distortions
   flipShader, rotateShader, scaleShader, offsetShader, perspectiveShader, lookupShader,
+  twirlShader, rippleShader, polarCoordinatesShader, spherizeShader,
+  waveShader, kaleidoscopeShader, vortexShader, barrelDistortShader,
   // Math
   addShader, subtractShader, multiplyShader, divideShader, moduloShader,
   negateShader, absShader, powerShader, minShader, maxShader,
   lerpShader, ifShader, remapRangeShader,
   floorShader, ceilShader, roundShader,
   sineShader, cosineShader, tangentShader, arcsineShader, arccosineShader, arctangentShader,
+  makeVec2Shader, splitVec2Shader, fractShader, clampShader, rotateVec2Shader,
   // Curve generators
   curveGeneratorShader, levelsCurveShader,
 ]);

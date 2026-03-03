@@ -251,7 +251,7 @@ export default function FilterPanel({ width, onAddNode, onUploadImage, onApplyPr
                   ) : (
                     <Plus size={13} style={{ color: categoryColor }} className="flex-shrink-0" />
                   )}
-                  <span className="flex-1 text-left text-[#DBDBDC] tracking-wider font-semibold uppercase">{group.label}</span>
+                  <span className="flex-1 text-left text-[#DBDBDC] tracking-wider font-semibold uppercase text-[10px]">{group.label}</span>
                   <span className="text-[10px] text-[#525252] flex-shrink-0">——</span>
                   <span className="text-[10px] text-[#A6A6A6] tabular-nums flex-shrink-0">{String(defs.length).padStart(3, '0')}</span>
                 </button>

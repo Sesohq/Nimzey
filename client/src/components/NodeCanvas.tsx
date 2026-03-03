@@ -100,6 +100,7 @@ export default function NodeCanvas({
     position: { x: number; y: number };
     nodeId: string;
     definitionId: string;
+    preview?: string | null;
   } | null>(null);
   const [hoveredNode, setHoveredNode] = useState<{
     nodeId: string;
@@ -261,10 +262,12 @@ export default function NodeCanvas({
   // Node context menu handler — opens on right-click on any node
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
     e.preventDefault();
+    const data = node.data as NimzeyNodeData;
     setNodeMenu({
       position: { x: e.clientX, y: e.clientY },
       nodeId: node.id,
-      definitionId: (node.data as NimzeyNodeData)?.definitionId || '',
+      definitionId: data?.definitionId || '',
+      preview: data?.preview ?? null,
     });
   }, []);
 
@@ -555,6 +558,7 @@ export default function NodeCanvas({
             onBakeToImage={onBakeToImage || (() => {})}
             onFocus={onNodeFocus}
             onDelete={handleNodeMenuDelete}
+            previewDataUrl={nodeMenu.preview}
             onClose={() => setNodeMenu(null)}
           />
         )}

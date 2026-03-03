@@ -214,7 +214,7 @@ float worleyNoise(vec2 p, int formula) {
   return d2 - d1;
 }
 
-// ---- Blend Modes (19 modes) ----
+// ---- Blend Modes (20 modes) ----
 
 vec3 blendMode(vec3 base, vec3 blend, int mode) {
   if (mode == 0) return blend; // Normal
@@ -257,6 +257,7 @@ vec3 blendMode(vec3 base, vec3 blend, int mode) {
   if (mode == 13) return clamp(base + 2.0 * blend - 1.0, 0.0, 1.0); // Linear Light
   if (mode == 14) return abs(base - blend); // Difference
   if (mode == 15) return base + blend - 2.0 * base * blend; // Exclusion
+  if (mode == 20) return step(vec3(1.0), base + blend); // Hard Mix
   // HSY-based modes
   if (mode >= 16) {
     vec3 baseHSL = rgb2hsl(base);

@@ -15,6 +15,7 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'cells-noise': { name: 'Cell Pattern', description: 'Creates organic cell-like shapes' },
   'blocks-noise': { name: 'Blocky Noise', description: 'Generates sharp, pixelated blocks' },
   'pyramids-noise': { name: 'Crystal Noise', description: 'Creates angular, gem-like patterns' },
+  'uv-coordinates': { name: 'UV Coordinates', description: 'Generates UV coordinate space (R=X, G=Y) for distortion' },
 
   // Gradients
   'gradient-3-color': { name: 'Three Color Blend', description: 'Smooth blend between three colors' },
@@ -47,7 +48,7 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'minimum': { name: 'Grow Dark', description: 'Expands dark areas' },
   'mask': { name: 'Mask', description: 'Uses a grayscale image to cut out areas' },
   'halftone': { name: 'Halftone', description: 'Creates newspaper-style dot patterns' },
-  'dither': { name: 'Dither', description: 'Reduces colors with artistic pixel patterns' },
+  'dither': { name: 'Dither', description: 'Retro dithering with visible Bayer, dot, and line patterns' },
   'pixelate': { name: 'Pixelate', description: 'Creates a blocky, retro mosaic effect' },
   'extrude': { name: 'Extrude', description: 'Gives a 3D pop-out effect with depth shadows' },
 
@@ -94,18 +95,31 @@ export const friendlyNames: Record<string, FriendlyInfo> = {
   'math-arcsine': { name: 'Arc Sine', description: 'Inverse sine curve' },
   'math-arccosine': { name: 'Arc Cosine', description: 'Inverse cosine curve' },
   'math-arctangent': { name: 'Arc Tangent', description: 'Inverse tangent curve' },
+  'math-make-vec2': { name: 'Pack XY', description: 'Combines two values into a vector (R=X, G=Y)' },
+  'math-split-vec2': { name: 'Unpack XY', description: 'Extracts X or Y from a vector image' },
+  'math-fract': { name: 'Fract (Tile)', description: 'Returns fractional part — wraps values for tiling' },
+  'math-clamp': { name: 'Clamp', description: 'Limits values to a min/max range' },
+  'math-rotate-vec2': { name: 'Rotate XY', description: 'Rotates a 2D vector by an angle' },
 
   // Curve generators
   'curve-generator': { name: 'Curve Presets', description: 'Generate preset curve shapes for tone mapping' },
   'levels-curve': { name: 'Levels Curve', description: 'Remap input range to output range with gamma' },
 
-  // Transforms
+  // Transforms / Distortions
   'flip': { name: 'Mirror', description: 'Flips the image horizontally or vertically' },
   'rotate': { name: 'Spin', description: 'Rotates the image' },
   'scale': { name: 'Resize', description: 'Scales the image up or down' },
   'offset': { name: 'Slide', description: 'Shifts the image position' },
   'perspective': { name: '3D Tilt', description: 'Adds perspective distortion' },
-  'lookup': { name: 'Color Map', description: 'Remaps colors using a lookup table' },
+  'lookup': { name: 'Sample UV', description: 'Samples source image at custom UV coordinates' },
+  'twirl': { name: 'Twirl', description: 'Twists the image into a spiral' },
+  'ripple': { name: 'Ripple', description: 'Creates expanding water ripple waves' },
+  'polar-coordinates': { name: 'Polar Warp', description: 'Converts between rectangular and polar coordinates' },
+  'spherize': { name: 'Spherize', description: 'Warps image around a sphere or pinches inward' },
+  'wave': { name: 'Wave', description: 'Displaces image with sine, triangle, or sawtooth waves' },
+  'kaleidoscope': { name: 'Kaleidoscope', description: 'Creates mirrored symmetrical patterns' },
+  'vortex': { name: 'Vortex', description: 'Spirals the image outward from center' },
+  'barrel-distort': { name: 'Lens Distort', description: 'Barrel or pincushion lens distortion' },
 
   // External
   'image': { name: 'Photo', description: 'Upload your own image' },

@@ -298,9 +298,16 @@ export class GLContext {
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, output.framebuffer);
       gl.viewport(0, 0, output.width, output.height);
+      // Disable blending for render-to-texture: the shader computes the final
+      // pixel value and must REPLACE the framebuffer contents, not blend with
+      // stale data from a previous render cycle.  Without this, nodes that
+      // output variable alpha (e.g. Mask) accumulate blending artifacts across
+      // frames, and long chains progressively degrade.
+      gl.disable(gl.BLEND);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, viewport.width, viewport.height);
+      gl.enable(gl.BLEND);
     }
 
     gl.useProgram(program);
