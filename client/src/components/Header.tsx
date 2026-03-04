@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import nimzeyLogo from '@/assets/nimzey-logo.png';
-import { ArrowLeft, Check, Undo2, Redo2, LogIn, LogOut, FolderOpen, Users, Share2, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Check, Undo2, Redo2, LogIn, LogOut, FolderOpen, Image, Share2, Loader2, CheckCircle2, Shield } from 'lucide-react';
 import { useAuth } from '@/stores/authStore';
 
 interface HeaderProps {
@@ -224,12 +224,21 @@ export default function Header({ onNewProject, documentName, onRename, onBack, o
                       My Documents
                     </button>
                     <button
-                      onClick={() => { setShowUserMenu(false); setLocation('/community'); }}
+                      onClick={() => { setShowUserMenu(false); setLocation('/textures'); }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#D6D1CB] hover:bg-[#252524] hover:text-white transition-colors"
                     >
-                      <Users size={13} />
-                      Community
+                      <Image size={13} />
+                      Textures
                     </button>
+                    {profile?.is_admin && (
+                      <button
+                        onClick={() => { setShowUserMenu(false); setLocation('/admin'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#D6D1CB] hover:bg-[#252524] hover:text-white transition-colors"
+                      >
+                        <Shield size={13} />
+                        Admin
+                      </button>
+                    )}
                     <div className="border-t border-[#333]" />
                     <button
                       onClick={handleSignOut}

@@ -3,13 +3,17 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/stores/authStore';
 import nimzeyLogo from '@/assets/nimzey-logo.png';
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { isAuthenticated, loading, error, signInWithGoogle, signInWithEmail, signUp, clearError } = useAuth();
+
+  // Parse redirect param from ?redirect=/admin
+  const redirectTo = new URLSearchParams(searchString).get('redirect') || '/';
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -20,9 +24,9 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      setLocation('/');
+      setLocation(redirectTo);
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, setLocation, redirectTo]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();

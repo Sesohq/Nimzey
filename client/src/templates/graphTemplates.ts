@@ -14,13 +14,13 @@ export interface GraphTemplate {
   build: () => TemplateBuildResult;
 }
 
-interface TemplateNode {
+export interface TemplateNode {
   definitionId: string;
   position: { x: number; y: number };
   parameters?: Record<string, number | string | boolean | number[]>;
 }
 
-interface TemplateEdge {
+export interface TemplateEdge {
   /** Index into nodes array for source */
   sourceIdx: number;
   sourcePort: string;
@@ -61,7 +61,7 @@ export const graphTemplates: GraphTemplate[] = [
     name: 'Displacement Effect',
     description: 'Cells warped by Perlin Noise refraction',
     icon: 'Droplets',
-    build: () => ({
+    build: (): TemplateBuildResult => ({
       nodes: [
         {
           definitionId: 'cells-noise',
@@ -93,7 +93,7 @@ export const graphTemplates: GraphTemplate[] = [
     name: 'Blended Pattern',
     description: 'Bricks + Perlin blended with Overlay',
     icon: 'Layers',
-    build: () => ({
+    build: (): TemplateBuildResult => ({
       nodes: [
         {
           definitionId: 'bricks',
@@ -125,7 +125,7 @@ export const graphTemplates: GraphTemplate[] = [
     name: 'Stylized Cells',
     description: 'Cells enhanced with contrast + sharpen',
     icon: 'Sparkles',
-    build: () => ({
+    build: (): TemplateBuildResult => ({
       nodes: [
         {
           definitionId: 'cells-noise',

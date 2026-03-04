@@ -392,6 +392,62 @@ export function useRenderController(graphState: GraphState, structuralVersion: n
   // Expose GL context for reading node textures (used by bakeToImage)
   const getContext = useCallback(() => ctxRef.current, []);
 
+  /**
+   * Capture a specific node's output texture from the CURRENT render state.
+   * Does NOT re-render at full resolution — reads the already-rendered texture
+   * (same data the preview thumbnail shows). This avoids GPU memory issues
+   * that cause black output when re-rendering large graphs at full resolution.
+   * Uses readPixels (same approach as bakeToImage) for pixel-perfect accuracy.
+   */
+  const captureNodeImage = useCallback((nodeId: string): string | null => {
+    const ctx = ctxRef.current;
+    if (!ctx) return null;
+
+    // Read existing texture from the current render (no re-render!)
+    const texName = `node_${nodeId}_out`;
+    const managed = ctx.getTexture(texName);
+    if (!managed) {
+      debugLog('RENDER', `captureNodeImage: no texture found for ${texName}`);
+      return null;
+    }
+
+    debugLog('RENDER', `captureNodeImage: reading ${texName} at ${managed.width}x${managed.height}`);
+
+    const pixels = ctx.readPixels(texName);
+    if (!pixels || pixels.length === 0) {
+      debugLog('RENDER', `captureNodeImage: readPixels returned empty for ${texName}`);
+      return null;
+    }
+
+    const texW = managed.width;
+    const texH = managed.height;
+
+    // Create an offscreen canvas at the texture's native dimensions
+    const offscreen = document.createElement('canvas');
+    offscreen.width = texW;
+    offscreen.height = texH;
+    const ctx2d = offscreen.getContext('2d');
+    if (!ctx2d) return null;
+
+    // Write pixel data, flipping Y (WebGL is bottom-up)
+    const imageData = ctx2d.createImageData(texW, texH);
+    for (let y = 0; y < texH; y++) {
+      const srcY = texH - 1 - y;
+      for (let x = 0; x < texW; x++) {
+        const srcIdx = (srcY * texW + x) * 4;
+        const dstIdx = (y * texW + x) * 4;
+        imageData.data[dstIdx] = pixels[srcIdx];
+        imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+        imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+        imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
+      }
+    }
+    ctx2d.putImageData(imageData, 0, 0);
+
+    debugLog('RENDER', `captureNodeImage: captured ${texW}x${texH} for ${nodeId}`);
+    return offscreen.toDataURL('image/png', 1.0);
+  }, []);
+
   return {
     canvasRef,
     initCanvas,
@@ -403,5 +459,6 @@ export function useRenderController(graphState: GraphState, structuralVersion: n
     uploadImage,
     exportImage,
     getContext,
+    captureNodeImage,
   };
 }

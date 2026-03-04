@@ -59,19 +59,46 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile;
 }
 
+/** Race a promise against a timeout. Rejects with an error on timeout. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+/** Max time we'll wait for initial auth before giving up and showing the page. */
+const AUTH_TIMEOUT_MS = 5000;
+
 function initAuth() {
   if (initialized) return;
   initialized = true;
 
-  // Get initial session
-  supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (session?.user) {
-      const profile = await fetchProfile(session.user.id);
-      setState({ user: session.user, session, profile, loading: false });
-    } else {
+  // Get initial session — timeout prevents infinite hang from stale Web Locks
+  withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS, 'getSession')
+    .then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // If profile fetch fails, still keep the user authenticated
+        let profile: Profile | null = null;
+        try {
+          profile = await withTimeout(
+            fetchProfile(session.user.id),
+            AUTH_TIMEOUT_MS,
+            'fetchProfile',
+          );
+        } catch (e) {
+          console.warn('Profile fetch failed, continuing without profile:', e);
+        }
+        setState({ user: session.user, session, profile, loading: false });
+      } else {
+        setState({ loading: false });
+      }
+    }).catch((err) => {
+      console.warn('Failed to get session:', err);
       setState({ loading: false });
-    }
-  });
+    });
 
   // Listen for auth changes
   supabase.auth.onAuthStateChange(async (event, session) => {

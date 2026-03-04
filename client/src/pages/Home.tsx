@@ -21,10 +21,11 @@ import { loadCloudDocument, saveCloudDocument } from '@/stores/cloudDocumentStor
 import { serializeGraph } from '@/utils/graphSerializer';
 import { NodeRegistry } from '@/registry/nodes';
 import { useAuth } from '@/stores/authStore';
-import { usePublishChain } from '@/stores/communityStore';
+import { usePublishChain, type PublishParams } from '@/stores/communityStore';
 import { Button } from '@/components/ui/button';
 import { Share2, Loader2, X } from 'lucide-react';
 import { NodeFocusOverlay } from '@/components/NodeFocusOverlay';
+import PublishDialog, { type PublishDialogResult } from '@/components/PublishDialog';
 
 function EditorContent({ docId }: { docId: string }) {
   const [, setLocation] = useLocation();
@@ -96,7 +97,14 @@ function EditorContent({ docId }: { docId: string }) {
           };
           setDoc(nimzeyDoc);
           setIsCloudDoc(true);
-          graph.loadFromSerialized(nimzeyDoc.graphData);
+
+          // Check if this doc was opened from the community library (needs auto-layout)
+          const autoLayoutFlag = sessionStorage.getItem('nimzey_autoLayout');
+          const shouldAutoLayout = autoLayoutFlag === nimzeyDoc.id;
+          if (shouldAutoLayout) {
+            sessionStorage.removeItem('nimzey_autoLayout');
+          }
+          graph.loadFromSerialized(nimzeyDoc.graphData, shouldAutoLayout ? { autoLayout: true } : undefined);
           setLoaded(true);
 
           // Also cache locally
@@ -123,7 +131,14 @@ function EditorContent({ docId }: { docId: string }) {
       if (loadedDoc && !cancelled) {
         setDoc(loadedDoc);
         setIsCloudDoc(false);
-        graph.loadFromSerialized(loadedDoc.graphData);
+
+        // Check if this doc was opened from the community library (needs auto-layout)
+        const localAutoLayoutFlag = sessionStorage.getItem('nimzey_autoLayout');
+        const localShouldAutoLayout = localAutoLayoutFlag === loadedDoc.id;
+        if (localShouldAutoLayout) {
+          sessionStorage.removeItem('nimzey_autoLayout');
+        }
+        graph.loadFromSerialized(loadedDoc.graphData, localShouldAutoLayout ? { autoLayout: true } : undefined);
         setLoaded(true);
 
         // Set up tabs
@@ -328,7 +343,7 @@ function EditorContent({ docId }: { docId: string }) {
     setShowPublishDialog(true);
   }, []);
 
-  const handlePublishConfirm = useCallback(async () => {
+  const handlePublishConfirm = useCallback(async (result: PublishDialogResult) => {
     if (!user || !doc) return;
 
     // Find the result canvas in the DOM
@@ -343,6 +358,10 @@ function EditorContent({ docId }: { docId: string }) {
         docId: doc.id,
         userId: user.id,
         canvasElement: canvasEl,
+        description: result.description,
+        tags: result.tags,
+        category: result.category,
+        showFilterChain: result.showFilterChain,
       });
       setShowPublishDialog(false);
       setPublishSuccess(true);
@@ -418,6 +437,8 @@ function EditorContent({ docId }: { docId: string }) {
           onCommitPositionChange={graph.commitPositionChange}
           onBakeToImage={graph.bakeToImage}
           onNodeFocus={setFocusedNodeId}
+          onSaveNodeImage={graph.saveNodeImage}
+          onEndHere={graph.endHere}
         />
       </div>
 
@@ -453,73 +474,15 @@ function EditorContent({ docId }: { docId: string }) {
         onCreate={handleCreateNew}
       />
 
-      {/* Publish confirmation dialog */}
-      {showPublishDialog && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
-          onClick={() => !isPublishing && setShowPublishDialog(false)}
-        >
-          <div
-            className="bg-[#1A1A19] border border-[#333] rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Share2 size={16} className="text-[#E0FF29]" />
-                <h3 className="text-sm font-medium text-white">Share to Community</h3>
-              </div>
-              <button
-                onClick={() => !isPublishing && setShowPublishDialog(false)}
-                className="p-1 text-[#525252] hover:text-white transition-colors"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <p className="text-xs text-[#A6A6A6] mb-1">
-              This will make <strong className="text-[#D6D1CB]">"{doc.name}"</strong> publicly visible in the community gallery.
-            </p>
-            <p className="text-xs text-[#525252] mb-4">
-              A thumbnail of your current output will be captured and displayed.
-            </p>
-
-            {publishError && (
-              <p className="text-xs text-red-400 mb-3 p-2 bg-red-400/10 rounded">
-                {publishError}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowPublishDialog(false)}
-                className="text-[#A6A6A6]"
-                disabled={isPublishing}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handlePublishConfirm}
-                className="bg-[#E0FF29] hover:bg-[#f0ff80] text-[#131312] gap-1.5"
-                disabled={isPublishing}
-              >
-                {isPublishing ? (
-                  <>
-                    <Loader2 size={12} className="animate-spin" />
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <Share2 size={12} />
-                    Publish
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Publish dialog */}
+      <PublishDialog
+        open={showPublishDialog}
+        documentName={doc.name}
+        isPublishing={isPublishing}
+        publishError={publishError}
+        onClose={() => !isPublishing && setShowPublishDialog(false)}
+        onPublish={handlePublishConfirm}
+      />
     </div>
   );
 }

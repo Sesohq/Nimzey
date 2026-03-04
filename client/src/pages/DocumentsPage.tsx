@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import nimzeyLogo from '@/assets/nimzey-logo.png';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, FileImage, Clock, Cloud, HardDrive, LogIn, Users } from 'lucide-react';
+import { Plus, Trash2, FileImage, Clock, Cloud, HardDrive, LogIn, Image, Sparkles } from 'lucide-react';
 import { listDocuments, deleteDocument, NimzeyDocument } from '@/stores/documentStore';
 import { listCloudDocuments, deleteCloudDocument, saveCloudDocument, CloudDocumentListItem } from '@/stores/cloudDocumentStore';
 import NewDocumentDialog, { NewDocumentResult } from '@/components/NewDocumentDialog';
@@ -88,45 +88,60 @@ export default function DocumentsPage() {
     const loadDocs = async () => {
       setLoadingDocs(true);
 
-      if (isAuthenticated) {
-        // Load cloud documents
-        const cloudDocs = await listCloudDocuments();
-        const unified: UnifiedDocument[] = cloudDocs.map(d => ({
-          id: d.id,
-          name: d.name,
-          width: d.width,
-          height: d.height,
-          thumbnail: d.thumbnail_url,
-          updatedAt: d.updated_at,
-          source: 'cloud' as const,
-        }));
+      try {
+        if (isAuthenticated) {
+          // Load cloud documents
+          const cloudDocs = await listCloudDocuments();
+          const unified: UnifiedDocument[] = cloudDocs.map(d => ({
+            id: d.id,
+            name: d.name,
+            width: d.width,
+            height: d.height,
+            thumbnail: d.thumbnail_url,
+            updatedAt: d.updated_at,
+            source: 'cloud' as const,
+          }));
 
-        // Also check for local-only documents that aren't in the cloud
-        const localDocs = listDocuments();
-        const cloudIds = new Set(cloudDocs.map(d => d.id));
-        const localOnly = localDocs.filter(d => !cloudIds.has(d.id));
-        for (const ld of localOnly) {
-          unified.push({
-            id: ld.id,
-            name: ld.name,
-            width: ld.width,
-            height: ld.height,
-            thumbnail: ld.thumbnail,
-            updatedAt: ld.updatedAt,
-            source: 'local' as const,
+          // Also check for local-only documents that aren't in the cloud
+          const localDocs = listDocuments();
+          const cloudIds = new Set(cloudDocs.map(d => d.id));
+          const localOnly = localDocs.filter(d => !cloudIds.has(d.id));
+          for (const ld of localOnly) {
+            unified.push({
+              id: ld.id,
+              name: ld.name,
+              width: ld.width,
+              height: ld.height,
+              thumbnail: ld.thumbnail,
+              updatedAt: ld.updatedAt,
+              source: 'local' as const,
+            });
+          }
+
+          // Sort by updated descending
+          unified.sort((a, b) => {
+            const ta = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : a.updatedAt;
+            const tb = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : b.updatedAt;
+            return tb - ta;
           });
+
+          setDocs(unified);
+        } else {
+          // Load local documents only
+          const localDocs = listDocuments();
+          setDocs(localDocs.map(d => ({
+            id: d.id,
+            name: d.name,
+            width: d.width,
+            height: d.height,
+            thumbnail: d.thumbnail,
+            updatedAt: d.updatedAt,
+            source: 'local' as const,
+          })));
         }
-
-        // Sort by updated descending
-        unified.sort((a, b) => {
-          const ta = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : a.updatedAt;
-          const tb = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : b.updatedAt;
-          return tb - ta;
-        });
-
-        setDocs(unified);
-      } else {
-        // Load local documents only
+      } catch (err) {
+        console.error('Failed to load documents:', err);
+        // Fall back to local documents
         const localDocs = listDocuments();
         setDocs(localDocs.map(d => ({
           id: d.id,
@@ -137,8 +152,9 @@ export default function DocumentsPage() {
           updatedAt: d.updatedAt,
           source: 'local' as const,
         })));
+      } finally {
+        setLoadingDocs(false);
       }
-      setLoadingDocs(false);
     };
 
     loadDocs();
@@ -212,11 +228,11 @@ export default function DocumentsPage() {
             )}
             <Button
               variant="ghost"
-              onClick={() => setLocation('/community')}
+              onClick={() => setLocation('/textures')}
               className="text-zinc-400 hover:text-white gap-1.5"
             >
-              <Users size={16} />
-              Community
+              <Image size={16} />
+              Textures
             </Button>
             <Button
               onClick={() => setShowNewDialog(true)}
@@ -260,6 +276,23 @@ export default function DocumentsPage() {
         ) : (
           /* Document grid */
           <div>
+            {/* Browse Textures CTA */}
+            <div
+              onClick={() => setLocation('/textures')}
+              className="mb-6 bg-gradient-to-r from-[#E0FF29]/5 via-[#1A1A19] to-[#1A1A19] border border-[#333] hover:border-[#E0FF29]/30 rounded-xl p-5 cursor-pointer transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-[#E0FF29]/10 flex items-center justify-center shrink-0 group-hover:bg-[#E0FF29]/20 transition-colors">
+                  <Sparkles size={20} className="text-[#E0FF29]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-white mb-0.5">Browse Community Textures</h3>
+                  <p className="text-xs text-zinc-500">Discover unique procedural textures crafted by the community</p>
+                </div>
+                <span className="text-xs text-[#E0FF29] font-medium hidden sm:block">Explore &rarr;</span>
+              </div>
+            </div>
+
             <h2 className="text-sm font-medium text-zinc-400 mb-4">
               Your Documents ({docs.length})
             </h2>
