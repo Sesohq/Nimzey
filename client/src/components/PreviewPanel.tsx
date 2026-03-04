@@ -59,12 +59,21 @@ export default function PreviewPanel({
     setTimeout(() => resWRef.current?.focus(), 0);
   }, [canvasWidth, canvasHeight, onResolutionChange]);
 
+  const resContainerRef = useRef<HTMLDivElement>(null);
+
   const commitRes = useCallback(() => {
     const w = Math.max(64, Math.min(4096, parseInt(editW) || canvasWidth));
     const h = Math.max(64, Math.min(4096, parseInt(editH) || canvasHeight));
     onResolutionChange?.(w, h);
     setEditingRes(false);
   }, [editW, editH, canvasWidth, canvasHeight, onResolutionChange]);
+
+  /** Only commit when focus leaves BOTH inputs (not when tabbing between them). */
+  const handleResBlur = useCallback((e: React.FocusEvent) => {
+    // If the new focus target is still inside the container, don't commit yet
+    if (resContainerRef.current?.contains(e.relatedTarget as Node)) return;
+    commitRes();
+  }, [commitRes]);
 
   const handleResKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') commitRes();
@@ -167,14 +176,14 @@ export default function PreviewPanel({
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-[#d4d4d4] select-none">Preview</span>
             {editingRes ? (
-              <div className="flex items-center gap-0.5">
+              <div ref={resContainerRef} className="flex items-center gap-0.5">
                 <input
                   ref={resWRef}
                   type="number"
                   value={editW}
                   onChange={e => setEditW(e.target.value)}
                   onKeyDown={handleResKeyDown}
-                  onBlur={commitRes}
+                  onBlur={handleResBlur}
                   className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#E0FF29] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <span className="text-[9px] text-[#555]">×</span>
@@ -183,7 +192,7 @@ export default function PreviewPanel({
                   value={editH}
                   onChange={e => setEditH(e.target.value)}
                   onKeyDown={handleResKeyDown}
-                  onBlur={commitRes}
+                  onBlur={handleResBlur}
                   className="w-10 h-4 text-[9px] text-center bg-[#252525] border border-[#E0FF29] rounded text-[#d4d4d4] outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>

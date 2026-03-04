@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { Download, ImagePlus, Maximize2, Trash2 } from 'lucide-react';
+import { Download, ImagePlus, Maximize2, RouteOff, Trash2 } from 'lucide-react';
 
 interface NodeContextMenuProps {
   /** Screen-relative position of the menu */
@@ -19,8 +19,12 @@ interface NodeContextMenuProps {
   onFocus?: (nodeId: string) => void;
   /** Called when "Delete" is selected */
   onDelete: (nodeId: string) => void;
-  /** Preview data URL for the node (used by Save Image) */
+  /** Preview data URL for the node (used to determine if Save Image is shown) */
   previewDataUrl?: string | null;
+  /** Called to save a full-resolution image of this node's output */
+  onSaveImage?: (nodeId: string) => void;
+  /** Called to make this node the final output ("End Here") */
+  onEndHere?: (nodeId: string) => void;
   /** Called when menu should close */
   onClose: () => void;
 }
@@ -33,6 +37,8 @@ export default function NodeContextMenu({
   onFocus,
   onDelete,
   previewDataUrl,
+  onSaveImage,
+  onEndHere,
   onClose,
 }: NodeContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -77,15 +83,23 @@ export default function NodeContextMenu({
   // Don't allow deleting the result node
   const canDelete = definitionId !== 'result' && definitionId !== 'result-pbr';
   const canSave = !!previewDataUrl;
+  // Show "End Here" on non-result nodes
+  const canEndHere = definitionId !== 'result' && definitionId !== 'result-pbr' && !!onEndHere;
 
   const handleSaveImage = useCallback(() => {
+    if (onSaveImage) {
+      onSaveImage(nodeId);
+      onClose();
+      return;
+    }
+    // Fallback: download the preview data URL directly
     if (!previewDataUrl) return;
     const a = document.createElement('a');
     a.href = previewDataUrl;
     a.download = `nimzey-node-${nodeId}.png`;
     a.click();
     onClose();
-  }, [previewDataUrl, nodeId, onClose]);
+  }, [onSaveImage, previewDataUrl, nodeId, onClose]);
 
   return (
     <div
@@ -126,6 +140,20 @@ export default function NodeContextMenu({
         >
           <Download size={13} className="text-sky-400/70" />
           Save Image
+        </button>
+      )}
+
+      {canEndHere && (
+        <button
+          className="w-full text-left px-3 py-2 text-[11px] text-[#ccc] hover:bg-[#2a2a2a] hover:text-white transition-colors flex items-center gap-2.5"
+          onClick={() => {
+            console.log('[NodeContextMenu] End Here clicked, nodeId:', nodeId, 'onEndHere:', typeof onEndHere);
+            onEndHere(nodeId);
+            onClose();
+          }}
+        >
+          <RouteOff size={13} className="text-orange-400/70" />
+          End Here
         </button>
       )}
 

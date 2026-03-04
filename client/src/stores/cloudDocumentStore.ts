@@ -32,13 +32,34 @@ export interface CloudDocumentListItem {
   updated_at: string;
 }
 
+/** Race a promise against a timeout. Rejects with an error on timeout. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+const SUPABASE_TIMEOUT_MS = 8000;
+
 /**
- * List all documents for the authenticated user.
+ * List the authenticated user's own documents (excludes public community docs).
+ * Does NOT fetch `data` to keep the response lightweight.
  */
 export async function listCloudDocuments(): Promise<CloudDocumentListItem[]> {
+  const { data: { user } } = await withTimeout(
+    supabase.auth.getUser(),
+    SUPABASE_TIMEOUT_MS,
+    'getUser',
+  );
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('documents')
-    .select('id, name, data, thumbnail_url, is_public, created_at, updated_at')
+    .select('id, name, thumbnail_url, is_public, created_at, updated_at')
+    .eq('user_id', user.id)
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -49,8 +70,8 @@ export async function listCloudDocuments(): Promise<CloudDocumentListItem[]> {
   return (data || []).map(doc => ({
     id: doc.id,
     name: doc.name,
-    width: (doc.data as any)?.width || 512,
-    height: (doc.data as any)?.height || 512,
+    width: 512,
+    height: 512,
     thumbnail_url: doc.thumbnail_url,
     is_public: doc.is_public,
     created_at: doc.created_at,
@@ -88,7 +109,11 @@ export async function saveCloudDocument(params: {
   thumbnail?: string | null;
   isPublic?: boolean;
 }): Promise<{ id: string } | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await withTimeout(
+    supabase.auth.getUser(),
+    SUPABASE_TIMEOUT_MS,
+    'getUser',
+  );
   if (!user) {
     console.warn('Cannot save to cloud: not authenticated');
     return null;

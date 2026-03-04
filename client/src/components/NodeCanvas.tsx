@@ -60,6 +60,8 @@ interface NodeCanvasProps {
   onCommitPositionChange?: () => void;
   onBakeToImage?: (nodeId: string) => void;
   onNodeFocus?: (nodeId: string) => void;
+  onSaveNodeImage?: (nodeId: string) => void;
+  onEndHere?: (nodeId: string) => void;
 }
 
 export default function NodeCanvas({
@@ -85,6 +87,8 @@ export default function NodeCanvas({
   onCommitPositionChange,
   onBakeToImage,
   onNodeFocus,
+  onSaveNodeImage,
+  onEndHere,
 }: NodeCanvasProps) {
   const [emptyStateDismissed, setEmptyStateDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -559,6 +563,8 @@ export default function NodeCanvas({
             onFocus={onNodeFocus}
             onDelete={handleNodeMenuDelete}
             previewDataUrl={nodeMenu.preview}
+            onSaveImage={onSaveNodeImage}
+            onEndHere={onEndHere}
             onClose={() => setNodeMenu(null)}
           />
         )}

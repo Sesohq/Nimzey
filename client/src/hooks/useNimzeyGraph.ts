@@ -332,11 +332,20 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     graph.applyTemplate(buildResult);
   }, [graph]);
 
-  // Apply an effect preset (inserts chain of nodes atomically)
+  // Apply an effect preset (simple = insert chain, complex = replace graph)
   const applyPreset = useCallback((presetId: string) => {
     const preset = effectPresets.find(p => p.id === presetId);
     if (!preset) return;
-    // Compute base position from live state, then offset each step
+
+    // Complex preset with full graph topology
+    if (preset.build) {
+      const buildResult = preset.build();
+      graph.applyTemplate(buildResult);
+      return;
+    }
+
+    // Simple linear chain preset (existing behavior)
+    if (!preset.steps || preset.steps.length === 0) return;
     const firstDef = NodeRegistry.get(preset.steps[0]?.definitionId);
     const basePos = firstDef
       ? computeAutoPosition(firstDef, graph.state)
@@ -457,6 +466,21 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     return true;
   }, [renderer]);
 
+  // Save a node's output as a full-resolution PNG
+  const saveNodeImage = useCallback((nodeId: string) => {
+    const dataUrl = renderer.captureNodeImage(nodeId);
+    if (!dataUrl) {
+      console.warn('saveNodeImage: could not capture node image for', nodeId);
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `nimzey-${nodeId}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [renderer]);
+
   // Clear suggestion pills
   const clearSuggestion = useCallback(() => {
     setLastAddedNodeId(null);
@@ -485,6 +509,8 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
     addAndConnect,
     bakeToImage,
     blitNodeToCanvas,
+    saveNodeImage,
+    endHere: graph.endHere,
     onParameterChange,
     onToggleEnabled,
     onToggleCollapsed,
@@ -517,7 +543,7 @@ export function useNimzeyGraph(options?: { quality?: QualityLevel; width?: numbe
 
     // Persistence
     getSerializedState: graph.getSerializedState,
-    loadFromSerialized: graph.loadFromSerialized,
+    loadFromSerialized: graph.loadFromSerialized as (data: SerializedGraph, options?: { autoLayout?: boolean }) => void,
     resetGraph: graph.resetGraph,
     structuralVersion: graph.structuralVersion,
   };

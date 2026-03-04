@@ -1,9 +1,12 @@
 /**
  * One-click effect presets - pre-built chains that insert into the graph.
- * Each preset defines a series of nodes with parameter overrides.
+ * Simple presets define a linear chain via `steps`.
+ * Complex presets define a full graph topology via `build()`.
  */
 
 import { Sunset, Pencil, Sparkles, Contrast, Layers } from 'lucide-react';
+import type { TemplateBuildResult } from '@/templates/graphTemplates';
+import { complexPresets } from './complexPresets';
 
 export interface PresetStep {
   definitionId: string;
@@ -15,7 +18,10 @@ export interface EffectPreset {
   name: string;
   description: string;
   icon: React.ComponentType<any>;
-  steps: PresetStep[];
+  /** Linear chain of nodes (simple presets) */
+  steps?: PresetStep[];
+  /** Full graph topology with branching (complex presets) */
+  build?: () => TemplateBuildResult;
 }
 
 export const effectPresets: EffectPreset[] = [
@@ -72,4 +78,5 @@ export const effectPresets: EffectPreset[] = [
       { definitionId: 'gamma', parameters: { gamma: 0.6 } },
     ],
   },
+  ...complexPresets,
 ];

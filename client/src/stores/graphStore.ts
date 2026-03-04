@@ -8,6 +8,7 @@ import { DataType, GraphEdge, GraphNode, NodeColorTag, NodeDefinition } from '@/
 import { NodeRegistry, getEffectiveInputs } from '@/registry/nodes';
 import { TemplateBuildResult } from '@/templates/graphTemplates';
 import { SerializedGraph, serializeGraph, deserializeGraph } from '@/utils/graphSerializer';
+import { autoLayoutGraph } from '@/utils/autoLayout';
 import { debugLog } from './debugLog';
 
 export interface GraphState {
@@ -948,8 +949,9 @@ export function useGraphStore() {
     return serializeGraph(nodes, edges, resultNodeId);
   }, [nodes, edges, resultNodeId]);
 
-  const loadFromSerialized = useCallback((data: SerializedGraph) => {
-    const deserialized = deserializeGraph(data);
+  const loadFromSerialized = useCallback((data: SerializedGraph, options?: { autoLayout?: boolean }) => {
+    const graphData = options?.autoLayout ? autoLayoutGraph(data) : data;
+    const deserialized = deserializeGraph(graphData);
     debugLog('EDGE', `loadFromSerialized() restoring graph`, {
       nodes: deserialized.nodes.size,
       edges: deserialized.edges.size,
@@ -984,6 +986,110 @@ export function useGraphStore() {
     setSelectedEdgeIds(new Set());
     bumpVersion();
   }, [bumpVersion, setEdgesWithIndex]);
+
+  /**
+   * "End Here" — rewire the given node as the final output.
+   * 1. Remove all edges feeding into the result node's 'source' port
+   * 2. Connect nodeId:out → result-node:source
+   * 3. Remove any nodes no longer reachable from the result node
+   *    (except generator/source nodes with no incoming edges — keep those)
+   */
+  const endHere = useCallback((nodeId: string) => {
+    console.log('[endHere] called with nodeId:', nodeId, 'resultNodeId:', resultNodeId);
+    console.log('[endHere] nodes.has(nodeId):', nodes.has(nodeId), 'nodes.has(resultNodeId):', nodes.has(resultNodeId));
+    console.log('[endHere] all node IDs:', Array.from(nodes.keys()));
+
+    if (nodeId === resultNodeId) {
+      console.log('[endHere] SKIPPED — nodeId === resultNodeId');
+      return;
+    }
+
+    // Safety: verify the node and result node exist
+    if (!nodes.has(nodeId) || !nodes.has(resultNodeId)) {
+      console.log('[endHere] SKIPPED — node or result not found in nodes map');
+      return;
+    }
+
+    // Collect edges to remove and build fresh edge map
+    const edgesToKeep = new Map<string, GraphEdge>();
+    for (const [eid, edge] of edges) {
+      // Remove all edges feeding into result node's 'source' port
+      if (edge.targetNodeId === resultNodeId && edge.targetPortId === 'source') {
+        continue; // Skip — will be replaced
+      }
+      edgesToKeep.set(eid, edge);
+    }
+
+    // Add new edge: nodeId:out → result-node:source
+    const newEdgeId = `edge_${edgeCounter++}`;
+    edgesToKeep.set(newEdgeId, {
+      id: newEdgeId,
+      sourceNodeId: nodeId,
+      sourcePortId: 'out',
+      targetNodeId: resultNodeId,
+      targetPortId: 'source',
+      dataType: DataType.Map,
+    });
+
+    // Walk backwards from result node to find all reachable nodes
+    const reachable = new Set<string>();
+    const queue = [resultNodeId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (reachable.has(current)) continue;
+      reachable.add(current);
+      for (const edge of edgesToKeep.values()) {
+        if (edge.targetNodeId === current && !reachable.has(edge.sourceNodeId)) {
+          queue.push(edge.sourceNodeId);
+        }
+      }
+    }
+
+    // Identify nodes to remove: not reachable AND not a standalone generator
+    const nodesToRemove = new Set<string>();
+    for (const [nid] of nodes) {
+      // NEVER remove the result node
+      if (nid === resultNodeId) continue;
+      // Keep reachable nodes
+      if (reachable.has(nid)) continue;
+      // Keep generators (nodes with no incoming edges — they're standalone sources)
+      let hasIncoming = false;
+      for (const edge of edgesToKeep.values()) {
+        if (edge.targetNodeId === nid) {
+          hasIncoming = true;
+          break;
+        }
+      }
+      if (!hasIncoming) continue;
+      nodesToRemove.add(nid);
+    }
+
+    // Build final node and edge maps
+    const newNodes = new Map(nodes);
+    const newEdges = new Map(edgesToKeep);
+
+    // Remove edges first (connected to nodes being removed)
+    for (const [eid, edge] of newEdges) {
+      if (nodesToRemove.has(edge.sourceNodeId) || nodesToRemove.has(edge.targetNodeId)) {
+        // NEVER remove an edge connected to the result node
+        if (edge.sourceNodeId === resultNodeId || edge.targetNodeId === resultNodeId) continue;
+        newEdges.delete(eid);
+      }
+    }
+
+    // Remove the nodes
+    for (const nid of nodesToRemove) {
+      newNodes.delete(nid);
+    }
+
+    debugLog('EDGE', `endHere: rewired ${nodeId} → result, removed ${nodesToRemove.size} downstream nodes`);
+
+    setNodes(newNodes);
+    setEdgesWithIndex(newEdges);
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIds(new Set());
+    bumpVersion();
+  }, [nodes, edges, resultNodeId, bumpVersion, setEdgesWithIndex]);
 
   const state: GraphState = useMemo(() => ({
     nodes,
@@ -1024,6 +1130,7 @@ export function useGraphStore() {
     getSerializedState,
     loadFromSerialized,
     resetGraph,
+    endHere,
     structuralVersion,
   };
 }
