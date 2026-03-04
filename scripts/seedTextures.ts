@@ -13,6 +13,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { textureSeedData } from '@/data/textureSeedData';
+import { textureSeedBatch5 } from '@/data/textureSeedBatch5';
 import { v4 as uuidv4 } from 'uuid';
 
 const SUPABASE_URL = 'https://hrzycikekymemyjmeeuv.supabase.co';
@@ -112,14 +113,17 @@ async function main() {
   const userId = authData.user.id;
   console.log(`✅ Signed in as ${userId}\n`);
 
-  console.log(`🌱 Seeding ${textureSeedData.length} textures into community library...`);
+  // Use batch5 only if --batch5 flag is passed, otherwise seed all
+  const batch5Only = process.argv.includes('--batch5');
+  const seedData = batch5Only ? textureSeedBatch5 : textureSeedData;
+  console.log(`🌱 Seeding ${seedData.length} textures${batch5Only ? ' (batch 5 only)' : ''} into community library...`);
 
   let success = 0;
   let failed = 0;
   const BATCH_SIZE = 10;
 
-  for (let batchStart = 0; batchStart < textureSeedData.length; batchStart += BATCH_SIZE) {
-    const batch = textureSeedData.slice(batchStart, batchStart + BATCH_SIZE);
+  for (let batchStart = 0; batchStart < seedData.length; batchStart += BATCH_SIZE) {
+    const batch = seedData.slice(batchStart, batchStart + BATCH_SIZE);
     const rows: any[] = [];
 
     for (const seed of batch) {
@@ -129,7 +133,7 @@ async function main() {
           id: uuidv4(),
           user_id: userId,
           name: seed.name,
-          data: { graphData, width: 512, height: 512 },
+          data: { graphData, width: 3840, height: 2160 },
           is_public: true,
           show_filter_chain: true,
           description: seed.description,

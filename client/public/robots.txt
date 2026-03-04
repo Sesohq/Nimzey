@@ -1,0 +1,10 @@
+# Nimzey - Procedural Texture Generator
+User-agent: *
+Allow: /
+Allow: /textures
+Disallow: /edit/
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://nimzey.com/sitemap.xml

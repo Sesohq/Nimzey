@@ -254,8 +254,15 @@ export class RenderPipeline {
 
             // Use underscore-prefixed uniform name for mappable params
             // (shader #define resolves u_paramId from _u_paramId or texture)
-            if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
-              uniforms[`_u_${paramId}`] = hexToVec3(value);
+            if ((paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
+              if (typeof value === 'string') {
+                uniforms[`_u_${paramId}`] = hexToVec3(value);
+              } else if (Array.isArray(value)) {
+                // Defensive: convert float array [r,g,b,a?] to vec3
+                uniforms[`_u_${paramId}`] = [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0];
+              } else {
+                uniforms[`_u_${paramId}`] = value as number | number[] | boolean;
+              }
             } else {
               uniforms[`_u_${paramId}`] = value as number | number[] | boolean;
             }
@@ -263,8 +270,15 @@ export class RenderPipeline {
             mapInputIdx++;
           } else {
             // Non-mappable: use standard uniform name
-            if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
-              uniforms[`u_${paramId}`] = hexToVec3(value);
+            if ((paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
+              if (typeof value === 'string') {
+                uniforms[`u_${paramId}`] = hexToVec3(value);
+              } else if (Array.isArray(value)) {
+                // Defensive: convert float array [r,g,b,a?] to vec3
+                uniforms[`u_${paramId}`] = [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0];
+              } else {
+                uniforms[`u_${paramId}`] = value as number | number[] | boolean;
+              }
             } else {
               uniforms[`u_${paramId}`] = value as number | number[] | boolean;
             }
@@ -383,8 +397,15 @@ export class RenderPipeline {
       const value = parameters[paramId] ?? paramDef.defaultValue;
       // Mappable params use underscore-prefixed uniform names
       const uniformKey = paramDef.mappable ? `_u_${paramId}` : `u_${paramId}`;
-      if (typeof value === 'string' && (paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
-        step.uniforms[uniformKey] = hexToVec3(value);
+      if ((paramDef.type === 'color' || paramDef.type === 'hdrColor')) {
+        if (typeof value === 'string') {
+          step.uniforms[uniformKey] = hexToVec3(value);
+        } else if (Array.isArray(value)) {
+          // Defensive: convert float array [r,g,b,a?] to vec3
+          step.uniforms[uniformKey] = [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0];
+        } else {
+          step.uniforms[uniformKey] = value as number | number[] | boolean;
+        }
       } else {
         step.uniforms[uniformKey] = value as number | number[] | boolean;
       }

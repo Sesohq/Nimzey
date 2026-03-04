@@ -1,8 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createClient } from "@supabase/supabase-js";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertProjectSchema } from "@shared/schema";
+
+const SUPABASE_URL = 'https://hrzycikekymemyjmeeuv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyenljaWtla3ltZW15am1lZXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDk5MDcsImV4cCI6MjA4NzgyNTkwN30.GJ3xd6iZvxuWhaIzR-mAKU2GvIHyX0kOVW7Xzg7cWF0';
+const sitemapSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Projects endpoints
@@ -85,6 +90,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
+
+  // Sitemap for SEO — lists static pages + all public texture categories
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const baseUrl = "https://nimzey.com";
+      const now = new Date().toISOString().split("T")[0];
+
+      // Fetch public texture counts per category for priority
+      const { data: textures } = await sitemapSupabase
+        .from("documents")
+        .select("id, category, updated_at")
+        .eq("is_public", true)
+        .order("updated_at", { ascending: false })
+        .limit(500);
+
+      const categories = [
+        "Experimental", "Grunge", "Organic", "Geometric",
+        "Noise", "Abstract", "Minimal", "Cosmic", "Nature",
+      ];
+
+      let urls = `
+  <url>
+    <loc>${baseUrl}/</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/textures</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+
+      // Category pages
+      for (const cat of categories) {
+        urls += `
+  <url>
+    <loc>${baseUrl}/textures?category=${encodeURIComponent(cat)}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+      }
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`;
+
+      res.set("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Sitemap generation failed:", error);
+      res.status(500).send("Sitemap generation failed");
     }
   });
 

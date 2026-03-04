@@ -242,7 +242,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 9: Multiply for depth
         { definitionId: 'math-multiply', position: pos(5, 1) },
         // 10: Gradient-3-color warm
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.1, 0.0, 0.2, 1], color2: [0.8, 0.3, 0.1, 1], color3: [1.0, 0.9, 0.5, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#1a0033', color2: '#cc4d1a', color3: '#ffe680', angle: 0 } },
         // 11: Gradient-elevation for color
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 12: Blend colored with structure
@@ -389,7 +389,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 8: Blend detail (add)
         { definitionId: 'blend', position: pos(3, 1), parameters: { mode: 1, opacity: 30 } },
         // 9: Gradient-3-color (deep blue to white)
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.0, 0.0, 0.15, 1], color2: [0.2, 0.1, 0.6, 1], color3: [0.9, 0.8, 1.0, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#000026', color2: '#331a99', color3: '#e6ccff', angle: 0 } },
         // 10: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 11: Blend color (overlay)
@@ -461,7 +461,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 12: Perlin for color variation
         { definitionId: 'perlin-noise', position: pos(5, 3), parameters: { scale: 3, octaves: 2, roughness: 0.3, seed: 55 } },
         // 13: Gradient-3-color fire
-        { definitionId: 'gradient-3-color', position: pos(4, 4), parameters: { color1: [0.1, 0.0, 0.0, 1], color2: [0.9, 0.3, 0.0, 1], color3: [1.0, 0.95, 0.4, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(4, 4), parameters: { color1: '#1a0000', color2: '#e64d00', color3: '#fff266', angle: 0 } },
         // 14: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(3, 3) },
         // 15: Mask structure into color
@@ -529,7 +529,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 8: Noise distortion
         { definitionId: 'noise-distortion', position: pos(2, 1), parameters: { distortion: 12, scale: 10, octaves: 2 } },
         // 9: Gradient-3-color green matrix
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.0, 0.05, 0.0, 1], color2: [0.0, 0.5, 0.1, 1], color3: [0.5, 1.0, 0.6, 1], angle: 90 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#000d00', color2: '#00801a', color3: '#80ff99', angle: 90 } },
         // 10: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 11: Blend color (overlay)
@@ -826,7 +826,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 13: Perlin for color variation
         { definitionId: 'perlin-noise', position: pos(5, 3), parameters: { scale: 3, octaves: 2, roughness: 0.4, seed: 88 } },
         // 14: Gradient-3-color vivid
-        { definitionId: 'gradient-3-color', position: pos(5, 4), parameters: { color1: [0.1, 0.0, 0.3, 1], color2: [0.0, 0.7, 0.5, 1], color3: [1.0, 0.6, 0.0, 1], angle: 45 } },
+        { definitionId: 'gradient-3-color', position: pos(5, 4), parameters: { color1: '#1a004d', color2: '#00b380', color3: '#ff9900', angle: 45 } },
         // 15: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(4, 3) },
         // 16: Blend color
@@ -965,7 +965,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 5: Blend detail (overlay)
         { definitionId: 'blend', position: pos(3, 1), parameters: { mode: 4, opacity: 45 } },
         // 6: Gradient-3-color rust tones
-        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: [0.15, 0.05, 0.0, 1], color2: [0.6, 0.25, 0.05, 1], color3: [0.85, 0.55, 0.2, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: '#260d00', color2: '#99400d', color3: '#d98c33', angle: 0 } },
         // 7: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(3, 2) },
         // 8: Blend color (multiply)
@@ -1067,7 +1067,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 5: Levels to lighten
         { definitionId: 'levels', position: pos(2, 0), parameters: { inBlack: 5, inWhite: 70, gamma: 1.6 } },
         // 6: Gradient-3-color warm paper tones
-        { definitionId: 'gradient-3-color', position: pos(3, 2), parameters: { color1: [0.75, 0.65, 0.5, 1], color2: [0.9, 0.82, 0.7, 1], color3: [0.95, 0.9, 0.8, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 2), parameters: { color1: '#bfa680', color2: '#e6d1b3', color3: '#f2e6cc', angle: 0 } },
         // 7: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 1) },
         // 8: Blend color (multiply)
@@ -1175,7 +1175,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 7: Blend edges (screen)
         { definitionId: 'blend', position: pos(2, 0), parameters: { mode: 3, opacity: 25 } },
         // 8: Gradient-3-color cold metal
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.15, 0.15, 0.2, 1], color2: [0.45, 0.48, 0.55, 1], color3: [0.7, 0.72, 0.78, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#26263d', color2: '#737a8c', color3: '#b3b8c7', angle: 0 } },
         // 9: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 10: Blend color (multiply)
@@ -1231,7 +1231,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 6: Levels
         { definitionId: 'levels', position: pos(2, 1), parameters: { inBlack: 18, inWhite: 82, gamma: 0.9 } },
         // 7: Gradient-3-color wood tones
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.2, 0.12, 0.05, 1], color2: [0.5, 0.32, 0.15, 1], color3: [0.7, 0.5, 0.28, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#331f0d', color2: '#80521a', color3: '#b38047', angle: 0 } },
         // 8: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 9: Blend color (multiply)
@@ -1281,11 +1281,11 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 4: Perlin underneath texture
         { definitionId: 'perlin-noise', position: pos(6, 2), parameters: { scale: 15, octaves: 3, roughness: 0.4, seed: 61 } },
         // 5: Gradient-3-color paint color
-        { definitionId: 'gradient-3-color', position: pos(5, 3), parameters: { color1: [0.2, 0.35, 0.5, 1], color2: [0.3, 0.55, 0.65, 1], color3: [0.5, 0.7, 0.75, 1], angle: 45 } },
+        { definitionId: 'gradient-3-color', position: pos(5, 3), parameters: { color1: '#335980', color2: '#4d8ca6', color3: '#80b3bf', angle: 45 } },
         // 6: Gradient-elevation paint surface
         { definitionId: 'gradient-elevation', position: pos(4, 2) },
         // 7: Gradient-3-color base wall color
-        { definitionId: 'gradient-3-color', position: pos(5, 4), parameters: { color1: [0.6, 0.55, 0.45, 1], color2: [0.7, 0.65, 0.55, 1], color3: [0.8, 0.75, 0.65, 1], angle: 90 } },
+        { definitionId: 'gradient-3-color', position: pos(5, 4), parameters: { color1: '#998c73', color2: '#b3a68c', color3: '#ccbfa6', angle: 90 } },
         // 8: Gradient-elevation base
         { definitionId: 'gradient-elevation', position: pos(4, 3) },
         // 9: Mask paint over base
@@ -1407,7 +1407,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 6: Levels
         { definitionId: 'levels', position: pos(2, 1), parameters: { inBlack: 12, inWhite: 88, gamma: 1.2 } },
         // 7: Gradient-3-color acid green
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.05, 0.15, 0.05, 1], color2: [0.2, 0.6, 0.15, 1], color3: [0.6, 0.9, 0.3, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#0d260d', color2: '#339926', color3: '#99e64d', angle: 0 } },
         // 8: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 9: Blend color (overlay)
@@ -1461,7 +1461,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 6: Levels warm
         { definitionId: 'levels', position: pos(2, 0), parameters: { inBlack: 20, inWhite: 80, gamma: 0.9 } },
         // 7: Gradient-3-color leather
-        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: [0.18, 0.1, 0.05, 1], color2: [0.4, 0.25, 0.12, 1], color3: [0.6, 0.42, 0.22, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(3, 3), parameters: { color1: '#2e1a0d', color2: '#66401f', color3: '#996b38', angle: 0 } },
         // 8: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(2, 2) },
         // 9: Blend color (multiply)
@@ -1523,7 +1523,7 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 10: Levels grungy
         { definitionId: 'levels', position: pos(2, 0), parameters: { inBlack: 25, inWhite: 80, gamma: 0.85 } },
         // 11: Gradient-3-color brick tones
-        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: [0.2, 0.12, 0.08, 1], color2: [0.55, 0.35, 0.2, 1], color3: [0.7, 0.55, 0.4, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: '#331f14', color2: '#8c5933', color3: '#b38c66', angle: 0 } },
         // 12: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(3, 2) },
         // 13: Blend color (multiply)
@@ -1578,13 +1578,13 @@ export const textureSeedBatch1: TextureSeed[] = [
         // 4: Blend fine (add subtle)
         { definitionId: 'blend', position: pos(3, 0), parameters: { mode: 1, opacity: 25 } },
         // 5: Gradient-3-color copper patina
-        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: [0.45, 0.28, 0.12, 1], color2: [0.2, 0.5, 0.45, 1], color3: [0.35, 0.7, 0.6, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(4, 3), parameters: { color1: '#73471f', color2: '#338073', color3: '#59b399', angle: 0 } },
         // 6: Gradient-elevation
         { definitionId: 'gradient-elevation', position: pos(3, 2) },
         // 7: Perlin mask (patina distribution)
         { definitionId: 'perlin-noise', position: pos(5, 3), parameters: { scale: 4, octaves: 3, roughness: 0.5, seed: 15 } },
         // 8: Gradient-3-color copper base
-        { definitionId: 'gradient-3-color', position: pos(4, 4), parameters: { color1: [0.5, 0.3, 0.15, 1], color2: [0.65, 0.42, 0.2, 1], color3: [0.75, 0.55, 0.3, 1], angle: 0 } },
+        { definitionId: 'gradient-3-color', position: pos(4, 4), parameters: { color1: '#804d26', color2: '#a66b33', color3: '#bf8c4d', angle: 0 } },
         // 9: Gradient-elevation copper
         { definitionId: 'gradient-elevation', position: pos(3, 3) },
         // 10: Mask patina over copper

@@ -24,6 +24,8 @@ import {
   FolderOpen,
   Shield,
   Download,
+  LayoutGrid,
+  RectangleHorizontal,
 } from 'lucide-react';
 import {
   useCommunityChains,
@@ -38,6 +40,7 @@ import {
 } from '@/stores/communityStore';
 import { useAuth } from '@/stores/authStore';
 import { TextureThumbnail } from '@/components/TextureThumbnail';
+import { renderFullRes } from '@/utils/fullResRenderer';
 
 // -----------------------------------------------------------------------
 // TexturesPage
@@ -53,6 +56,7 @@ export default function TexturesPage() {
   const [activeCategory, setActiveCategory] = useState<Category>('All');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<'square' | 'wide'>('square');
   const sortRef = useRef<HTMLDivElement>(null);
 
   // Detail modal
@@ -283,6 +287,15 @@ export default function TexturesPage() {
             )}
           </div>
 
+          {/* Aspect ratio toggle */}
+          <button
+            onClick={() => setAspectRatio((p) => (p === 'square' ? 'wide' : 'square'))}
+            className="h-10 px-3 text-sm bg-[#131312] border border-[#333] rounded-lg text-[#A6A6A6] hover:text-white flex items-center gap-2 transition-colors"
+            title={aspectRatio === 'square' ? 'Switch to 16:9 view' : 'Switch to square view'}
+          >
+            {aspectRatio === 'square' ? <LayoutGrid size={15} /> : <RectangleHorizontal size={15} />}
+          </button>
+
           {/* Sort dropdown */}
           <div className="relative" ref={sortRef}>
             <button
@@ -386,6 +399,7 @@ export default function TexturesPage() {
                   key={chain.id}
                   chain={chain}
                   isLiked={userLikes?.has(chain.id) ?? false}
+                  aspectRatio={aspectRatio}
                   onClick={() => handleOpenDetail(chain)}
                   onLike={() => handleToggleLike(chain)}
                   onOpenInEditor={() => handleOpenInEditor(chain)}
@@ -479,12 +493,13 @@ export default function TexturesPage() {
 interface TextureCardProps {
   chain: CommunityChain;
   isLiked: boolean;
+  aspectRatio: 'square' | 'wide';
   onClick: () => void;
   onLike: () => void;
   onOpenInEditor: () => void;
 }
 
-function TextureCard({ chain, isLiked, onClick, onLike, onOpenInEditor }: TextureCardProps) {
+function TextureCard({ chain, isLiked, aspectRatio, onClick, onLike, onOpenInEditor }: TextureCardProps) {
   const [downloading, setDownloading] = useState(false);
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
 
@@ -493,15 +508,15 @@ function TextureCard({ chain, isLiked, onClick, onLike, onOpenInEditor }: Textur
   const handleDownload = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (downloading || !downloadUrl) return;
+      if (downloading) return;
       setDownloading(true);
       try {
-        const response = await fetch(downloadUrl);
-        const blob = await response.blob();
+        const blob = await renderFullRes(chain.id);
+        if (!blob) throw new Error('Render failed');
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${chain.name.replace(/[^a-zA-Z0-9-_ ]/g, '')}.jpg`;
+        a.download = `${chain.name.replace(/[^a-zA-Z0-9-_ ]/g, '')}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -512,7 +527,7 @@ function TextureCard({ chain, isLiked, onClick, onLike, onOpenInEditor }: Textur
         setDownloading(false);
       }
     },
-    [downloadUrl, chain.name, downloading],
+    [chain.id, chain.name, downloading],
   );
 
   return (
@@ -521,7 +536,7 @@ function TextureCard({ chain, isLiked, onClick, onLike, onOpenInEditor }: Textur
       onClick={onClick}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-square bg-[#0E0E0E] overflow-hidden">
+      <div className={`relative ${aspectRatio === 'wide' ? 'aspect-video' : 'aspect-square'} bg-[#0E0E0E] overflow-hidden`}>
         <TextureThumbnail
           documentId={chain.id}
           userId={chain.user_id}
@@ -556,20 +571,18 @@ function TextureCard({ chain, isLiked, onClick, onLike, onOpenInEditor }: Textur
             )}
 
             {/* Download */}
-            {downloadUrl && (
-              <button
-                onClick={handleDownload}
-                disabled={downloading}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
-                title="Download texture"
-              >
-                {downloading ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Download size={12} />
-                )}
-              </button>
-            )}
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
+              title="Download full-res PNG (3840×2160)"
+            >
+              {downloading ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Download size={12} />
+              )}
+            </button>
 
             {/* Open in editor (only if filter chain is shared) */}
             {chain.show_filter_chain && (
@@ -647,15 +660,15 @@ function DetailModal({
   const downloadUrl = chain.thumbnail_url || renderedUrl;
 
   const handleDownload = useCallback(async () => {
-    if (downloading || !downloadUrl) return;
+    if (downloading) return;
     setDownloading(true);
     try {
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
+      const blob = await renderFullRes(chain.id);
+      if (!blob) throw new Error('Render failed');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${chain.name.replace(/[^a-zA-Z0-9-_ ]/g, '')}.jpg`;
+      a.download = `${chain.name.replace(/[^a-zA-Z0-9-_ ]/g, '')}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -665,7 +678,7 @@ function DetailModal({
     } finally {
       setDownloading(false);
     }
-  }, [downloadUrl, chain.name, downloading]);
+  }, [chain.id, chain.name, downloading]);
 
   return (
     <div
@@ -802,26 +815,24 @@ function DetailModal({
                 )}
               </Button>
             )}
-            {downloadUrl && (
-              <Button
-                variant="ghost"
-                className="w-full border border-[#333] text-[#D6D1CB] hover:text-white hover:border-[#525252] gap-2 h-10"
-                onClick={handleDownload}
-                disabled={downloading}
-              >
-                {downloading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} />
-                    Download Texture
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              className="w-full border border-[#333] text-[#D6D1CB] hover:text-white hover:border-[#525252] gap-2 h-10"
+              onClick={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Rendering full resolution...
+                </>
+              ) : (
+                <>
+                  <Download size={14} />
+                  Download PNG (3840×2160)
+                </>
+              )}
+            </Button>
             <Button
               variant="ghost"
               className="w-full border border-[#333] text-[#D6D1CB] hover:text-white hover:border-[#525252] gap-2 h-10"

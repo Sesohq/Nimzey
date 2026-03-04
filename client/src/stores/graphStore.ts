@@ -958,6 +958,33 @@ export function useGraphStore() {
       edgeIds: Array.from(deserialized.edges.keys()).join(', '),
     });
 
+    // Remap the loaded result node to use the canonical 'result-node' ID.
+    // Community textures (and any externally-created graphs) may use a UUID
+    // for the result node, but graphStore expects it at the constant 'result-node'.
+    const loadedResultId = deserialized.resultNodeId;
+    if (loadedResultId && loadedResultId !== resultNodeId) {
+      const loadedResultNode = deserialized.nodes.get(loadedResultId);
+      if (loadedResultNode) {
+        deserialized.nodes.delete(loadedResultId);
+        loadedResultNode.id = resultNodeId;
+        deserialized.nodes.set(resultNodeId, loadedResultNode);
+
+        // Update all edges referencing the old result node ID
+        for (const edge of deserialized.edges.values()) {
+          if (edge.sourceNodeId === loadedResultId) edge.sourceNodeId = resultNodeId;
+          if (edge.targetNodeId === loadedResultId) edge.targetNodeId = resultNodeId;
+        }
+
+        debugLog('EDGE', `Remapped result node ${loadedResultId} → ${resultNodeId}`);
+      }
+    }
+
+    // Ensure a result node always exists (fallback for legacy graphs)
+    if (!deserialized.nodes.has(resultNodeId)) {
+      deserialized.nodes.set(resultNodeId, createResultNode());
+      debugLog('EDGE', `Created missing result node`);
+    }
+
     // Sync edgeCounter to avoid ID collisions with deserialized edge IDs.
     // Without this, new edges could reuse IDs like "edge_5" that already exist
     // in the loaded graph, silently overwriting connections.
