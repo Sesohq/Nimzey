@@ -20,7 +20,7 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
-  const serverOptions: any = {
+  const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true,
@@ -58,10 +58,6 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
-
-      // Per-route SEO meta injection for crawlers
-      template = injectRouteMeta(template, url);
-
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -69,24 +65,6 @@ export async function setupVite(app: Express, server: Server) {
       next(e);
     }
   });
-}
-
-/**
- * Inject route-specific meta tags for better SEO per page.
- * Replaces the default title/description with route-appropriate ones.
- */
-function injectRouteMeta(html: string, url: string): string {
-  if (url.startsWith('/textures')) {
-    html = html.replace(
-      '<title>NIMZEY - Free Procedural Texture Generator | Noise, Grunge & Abstract Textures</title>',
-      '<title>Free Texture Library - 150+ Procedural Noise, Grunge & Abstract Textures | NIMZEY</title>',
-    );
-    html = html.replace(
-      'content="Create unique procedural textures with Nimzey\'s node-based texture editor. Browse 150+ free noise, grunge, abstract, and organic textures. Download high-res 4K PNGs instantly."',
-      'content="Browse and download 150+ free procedural textures. Noise, grunge, abstract, organic, geometric, and cosmic textures available in 4K resolution. Create your own with the node editor."',
-    );
-  }
-  return html;
 }
 
 export function serveStatic(app: Express) {
@@ -101,11 +79,7 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  // Apply per-route meta injection for SEO
-  app.use("*", (req, res) => {
-    const indexPath = path.resolve(distPath, "index.html");
-    let html = fs.readFileSync(indexPath, "utf-8");
-    html = injectRouteMeta(html, req.originalUrl);
-    res.status(200).set({ "Content-Type": "text/html" }).send(html);
+  app.use("*", (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

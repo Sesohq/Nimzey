@@ -1,39 +1,33 @@
-import { users, type User, type InsertUser } from "@shared/schema";
-
-// modify the interface with any CRUD methods
-// you might need
+import { designAnalyses, type DesignAnalysis, type InsertDesignAnalysis } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createDesignAnalysis(analysis: InsertDesignAnalysis): Promise<DesignAnalysis>;
+  getDesignAnalysis(id: number): Promise<DesignAnalysis | undefined>;
+  getUserAnalyses(userId: string): Promise<DesignAnalysis[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  currentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.currentId = 1;
+export class DatabaseStorage implements IStorage {
+  async createDesignAnalysis(insertAnalysis: InsertDesignAnalysis): Promise<DesignAnalysis> {
+    const [analysis] = await db.insert(designAnalyses).values(insertAnalysis).returning();
+    return analysis;
   }
 
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+  async getDesignAnalysis(id: number): Promise<DesignAnalysis | undefined> {
+    const [analysis] = await db.select().from(designAnalyses).where(eq(designAnalyses.id, id));
+    return analysis;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async getUserAnalyses(userId: string): Promise<DesignAnalysis[]> {
+    const analyses = await db
+      .select()
+      .from(designAnalyses)
+      .where(eq(designAnalyses.userId, userId))
+      .orderBy(desc(designAnalyses.createdAt))
+      .limit(20);
+    return analyses;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

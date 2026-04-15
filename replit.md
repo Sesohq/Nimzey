@@ -1,104 +1,61 @@
-# Filter Kit - Node-based Image Processing System
+# Nimzey - AI-Powered Design Feedback Application
 
 ## Overview
+Nimzey is an AI-powered web application that provides expert-level design feedback using OpenAI's GPT-4 Vision API. Users upload design images (posters, layouts, ads, UI designs) and receive critiques with visual annotations, heatmaps, and genre-aware analysis. The application offers structured feedback, instant visual scores, and the ability to compare designs against curated references. Nimzey aims to provide actionable, professional-grade design critiques, helping users improve their visual content across various contexts like marketing, branding, and personal portfolios.
 
-This project is a sophisticated image processing application built as a node-based visual editor. Users can create complex filter chains by connecting nodes in a graph-like interface, similar to professional tools like Filter Forge or Blender's shader nodes. The application uses a full-stack architecture with React/TypeScript on the frontend and Express.js with PostgreSQL on the backend.
+## User Preferences
+Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
-- **React 18** with TypeScript for type safety and modern component patterns
-- **ReactFlow** for the node-based graph editor interface
-- **Tailwind CSS** with **shadcn/ui** components for consistent, modern styling
-- **Vite** as the build tool for fast development and optimized production builds
-- **TanStack Query** for server state management and caching
-- **Wouter** for lightweight client-side routing
+### UI/UX Decisions
+- **Design Theme**: Premium SaaS UI with glass-morphism effects, gradient backgrounds (violet/cyan), and modern card layouts.
+- **Interactive Elements**: Animated SVG gradient rings for instant scores, hover effects, custom scrollbars.
+- **Feedback Display**: Unified image viewer with view mode toggles (Annotations/Heatmap), sticky right sidebar for issues breakdown.
+- **Responsiveness**: Optimized for desktop with `lg:grid-cols-[2fr_1fr]` and single-column for mobile.
+- **Instant Visual Scores**: 4 circular score indicators (Layout, Aesthetics, Copy, Color) with a 1-99 scale, color-coded circles, and hover tooltips.
 
-### Backend Architecture
-- **Express.js** with TypeScript for the REST API server
-- **Drizzle ORM** for type-safe database operations
-- **PostgreSQL** as the primary database (using @neondatabase/serverless for cloud deployment)
-- **Session-based architecture** with connect-pg-simple for session storage
+### Technical Implementations
+- **Frontend**: React 18, TypeScript, Vite, shadcn/ui (Radix UI), Tailwind CSS, TanStack Query, Wouter.
+- **Backend**: Node.js, Express.js, TypeScript, ES modules.
+- **Image Processing**: Sharp for optimization (resize to 1024x1024, quality optimization) and Base64 encoding.
+- **AI Integration**:
+    - **Design Analysis**: GPT-4 Vision API for layout, spacing, hierarchy, and stylistic alignment critique.
+    - **Visual Annotations**: GPT-4 Vision generates precise coordinates for issue locations.
+    - **Genre-Aware Critique**: Identifies design genres (e.g., Sports Tribute, Minimalist) and applies context-specific evaluation criteria.
+    - **Context-Aware Scoring**: Two-stage algorithm for design type classification and context-specific rubrics.
+    - **Reference-Based Critique**: Compares user uploads against curated references from Supabase.
+    - **Actionable Feedback**: Provides specific measurements, reasons for scores, top 3 fixes, and an "Advisor Note."
+    - **Intent Selector**: Allows users to specify design purpose and goal for tailored feedback.
 
-### WebGL GPU Acceleration (In Development)
-- **WebGL2-based filter engine** for high-performance image processing
-- **Shader compilation system** that converts filter graphs into optimized GPU shaders
-- **Progressive quality levels** (preview/draft/full) for responsive editing
-
-## Key Components
-
-### Node System
-- **Filter Nodes**: Apply image processing effects (blur, sharpen, noise, etc.)
-- **Generator Nodes**: Create procedural content (Perlin noise, checkerboard patterns)
-- **Image Nodes**: Source images for processing
-- **Output Nodes**: Final rendered results
-- **Mask Nodes**: Advanced blending and masking operations
-
-### Filter Processing Pipeline
-1. **CPU-based processing** using HTML5 Canvas for immediate compatibility
-2. **WebGL acceleration** (planned) for complex filter chains
-3. **Real-time preview system** with debounced parameter updates
-4. **Shader fusion optimization** to minimize GPU texture transfers
-
-### Graph Management
-- **Visual node editor** with drag-and-drop filter placement
-- **Connection validation** to prevent invalid filter chains
-- **Real-time parameter adjustment** with immediate visual feedback
-- **Export capabilities** for saving processed images
-
-## Data Flow
-
-1. **User uploads image** → Stored as base64 data URL
-2. **User creates filter nodes** → Added to ReactFlow graph state
-3. **User connects nodes** → Edges define processing order
-4. **Parameter changes** → Trigger debounced re-processing
-5. **Filter processing** → Sequential application through connected nodes
-6. **Preview generation** → Real-time canvas updates
-7. **Export** → Final processed image download
-
-The system uses a reactive data flow where parameter changes immediately trigger preview updates, providing instant visual feedback to users.
+### System Design Choices
+- **Database**: PostgreSQL with Drizzle ORM (Neon Database for serverless hosting).
+- **Schema Management**: Drizzle Kit for migrations and schema synchronization.
+- **File Upload**: Multer for backend, native HTML5 with drag-and-drop for frontend.
+- **Data Flow**: User uploads image -> Frontend validation/processing -> AI analysis via OpenAI Vision API -> Structured feedback storage -> Results display.
+- **Deployment**: Vite for frontend builds, ESBuild for backend, environment variable configuration for API keys and database.
 
 ## External Dependencies
+- **OpenAI API**: GPT-4 Vision (design analysis, visual annotations), DALL-E 3 (design generation - *note: generation feature is no longer active*).
+- **Neon Database**: Serverless PostgreSQL hosting.
+- **Radix UI**: Accessible component primitives.
+- **TanStack Query**: Server state management and caching.
+- **Supabase**: For fetching curated poster references.
+- **Drizzle Kit**: Database schema management.
+- **Sharp**: Image processing library (also used for binary mask generation).
+- **Multer**: Middleware for handling multipart form data.
+- **Wouter**: Lightweight client-side routing.
 
-### Core Dependencies
-- **ReactFlow**: Node-based graph editor functionality
-- **Drizzle ORM + PostgreSQL**: Database operations and schema management
-- **shadcn/ui + Radix UI**: Comprehensive component library
-- **Tailwind CSS**: Utility-first styling framework
-- **TanStack Query**: Server state management
+## Recent Changes
+- December 16, 2025. Added user authentication and past reviews tracking:
+  - Replit Auth integration with OIDC for user login/logout
+  - Users table with id, email, firstName, lastName, profileImageUrl fields
+  - Design analyses linked to user accounts via userId field
+  - Header shows Sign In button when not logged in, user profile + logout when authenticated
+  - Past Reviews panel (slide-out from right) showing user's previous analyses
+  - Past reviews display includes thumbnail, score, genre badge, and date
+  - Click on past review to reload that analysis
+  - New /api/my-analyses endpoint (authenticated) returns user's design analyses
+  - PostgreSQL session storage for persistent login sessions
 
-### Image Processing
-- **HTML5 Canvas API**: Core image manipulation
-- **WebGL2** (planned): GPU-accelerated processing
-- **lodash**: Utility functions for debouncing and data manipulation
-
-### Development Tools
-- **TypeScript**: Type safety across the entire stack
-- **Vite**: Fast development server and build tool
-- **ESBuild**: Server-side bundling for production
-
-## Deployment Strategy
-
-### Development Environment
-- **Replit-optimized setup** with live reloading and error overlay
-- **PostgreSQL database** provisioned through Replit's database service
-- **Environment variables** for database connection and configuration
-
-### Production Deployment
-- **Autoscale deployment target** for handling variable traffic
-- **Vite build process** generates optimized client bundles
-- **ESBuild server compilation** for efficient server-side code
-- **Static asset serving** through Express with proper caching headers
-
-The application is designed to run efficiently on Replit's infrastructure while being portable to other deployment platforms.
-
-## Changelog
-```
-Changelog:
-- June 12, 2025. Initial setup
-```
-
-## User Preferences
-```
-Preferred communication style: Simple, everyday language.
-```
+- December 16, 2025. Removed Vision Fix feature (click-to-fix annotations) - feature was non-functional.

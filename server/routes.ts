@@ -1,152 +1,161 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { createClient } from "@supabase/supabase-js";
+import multer from "multer";
+import sharp from "sharp";
 import { storage } from "./storage";
-import { z } from "zod";
-import { insertProjectSchema } from "@shared/schema";
+import { analyzeDesignWithReferences } from "./services/openai";
+import { fetchReferenceAssets, selectReferencesForAI } from "./services/supabase";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { insertDesignAnalysisSchema } from "@shared/schema";
 
-const SUPABASE_URL = 'https://hrzycikekymemyjmeeuv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyenljaWtla3ltZW15am1lZXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDk5MDcsImV4cCI6MjA4NzgyNTkwN30.GJ3xd6iZvxuWhaIzR-mAKU2GvIHyX0kOVW7Xzg7cWF0';
-const sitemapSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
+    }
+  },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Projects endpoints
-  app.get("/api/projects", async (req, res) => {
-    try {
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
-      const projects = await storage.getProjects(userId);
-      res.json(projects);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch projects" });
-    }
+  // Setup authentication FIRST
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  // Get user's past analyses
+  app.get("/api/my-analyses", isAuthenticated, async (req: any, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const project = await storage.getProject(id);
-      
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
       }
-      
-      res.json(project);
+      const analyses = await storage.getUserAnalyses(userId);
+      res.json(analyses.map(a => ({
+        ...a,
+        feedback: JSON.parse(a.feedback)
+      })));
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch project" });
+      console.error("Error fetching user analyses:", error);
+      res.status(500).json({ error: "Failed to fetch analyses" });
     }
   });
 
-  app.post("/api/projects", async (req, res) => {
+  // Upload and analyze design endpoint (now uses reference-based critique as primary flow)
+  app.post("/api/analyze-design", upload.single('image'), async (req: MulterRequest, res) => {
     try {
-      const result = insertProjectSchema.safeParse(req.body);
+      console.log("Upload request received");
+      console.log("Files in request:", req.file ? "File present" : "No file");
+      console.log("Content-Type:", req.headers['content-type']);
       
-      if (!result.success) {
-        return res.status(400).json({ 
-          message: "Invalid project data", 
-          errors: result.error.format() 
+      if (!req.file) {
+        console.log("Error: No image file provided");
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      // Get original image metadata
+      const metadata = await sharp(req.file.buffer).metadata();
+      console.log('Original image metadata:', metadata);
+      
+      // Process the image and convert to base64 (NO RESIZE - preserve original)
+      const processedImage = await sharp(req.file.buffer)
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      
+      // Get processed image metadata
+      const processedMetadata = await sharp(processedImage).metadata();
+      console.log('Processed image metadata:', processedMetadata);
+
+      const base64Image = processedImage.toString('base64');
+
+      // Fetch reference assets from Supabase for comparison
+      // Use designPurpose from frontend, fallback to intent for backwards compatibility
+      const designPurpose = req.body.designPurpose || req.body.intent || 'poster_print';
+      const primaryGoal = req.body.primaryGoal || 'brand_perception';
+      console.log(`Fetching references for design purpose: ${designPurpose}, goal: ${primaryGoal}`);
+      
+      // Fetch up to 20 references to ensure we have enough of all quality levels
+      const allReferences = await fetchReferenceAssets(designPurpose, 20);
+      
+      if (allReferences.length === 0) {
+        return res.status(404).json({ 
+          error: "No reference assets found. Please add references to the database first." 
         });
       }
-      
-      const project = await storage.createProject(result.data);
-      res.status(201).json(project);
+
+      // Select minimum 10 references for proper calibration (strong, mixed, weak)
+      const selectedReferences = selectReferencesForAI(allReferences, 10);
+      console.log(`Selected ${selectedReferences.length} references for AI analysis`);
+
+      // Analyze the design using reference-based critique (includes annotations + heatmap)
+      console.log("Analyzing design with reference-based critique...");
+      const feedback = await analyzeDesignWithReferences(base64Image, selectedReferences);
+
+      // Create a temporary URL for the original image
+      const originalImageUrl = `data:image/jpeg;base64,${base64Image}`;
+
+      // Get userId if authenticated (optional - allow anonymous uploads)
+      const userId = (req as any).user?.claims?.sub || null;
+
+      // Store the analysis result
+      const analysis = await storage.createDesignAnalysis({
+        userId,
+        originalImageUrl,
+        revisedImageUrl: '',
+        feedback: JSON.stringify(feedback),
+      });
+
+      res.json({
+        id: analysis.id,
+        originalImageUrl,
+        feedback,
+        referencesUsed: selectedReferences.length,
+        createdAt: analysis.createdAt,
+      });
+
     } catch (error) {
-      res.status(500).json({ message: "Failed to create project" });
+      console.error("Error in analyze-design endpoint:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to analyze design" 
+      });
     }
   });
 
-  app.put("/api/projects/:id", async (req, res) => {
+  // Get analysis by ID
+  app.get("/api/analysis/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const result = insertProjectSchema.safeParse(req.body);
-      
-      if (!result.success) {
-        return res.status(400).json({ 
-          message: "Invalid project data", 
-          errors: result.error.format() 
-        });
+      const analysis = await storage.getDesignAnalysis(id);
+
+      if (!analysis) {
+        return res.status(404).json({ error: "Analysis not found" });
       }
-      
-      const project = await storage.updateProject(id, result.data);
-      
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-      
-      res.json(project);
+
+      res.json({
+        id: analysis.id,
+        originalImageUrl: analysis.originalImageUrl,
+        revisedImageUrl: analysis.revisedImageUrl,
+        feedback: JSON.parse(analysis.feedback),
+        createdAt: analysis.createdAt,
+      });
     } catch (error) {
-      res.status(500).json({ message: "Failed to update project" });
-    }
-  });
-
-  app.delete("/api/projects/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const success = await storage.deleteProject(id);
-      
-      if (!success) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete project" });
-    }
-  });
-
-  // Sitemap for SEO — lists static pages + all public texture categories
-  app.get("/sitemap.xml", async (_req, res) => {
-    try {
-      const baseUrl = "https://nimzey.com";
-      const now = new Date().toISOString().split("T")[0];
-
-      // Fetch public texture counts per category for priority
-      const { data: textures } = await sitemapSupabase
-        .from("documents")
-        .select("id, category, updated_at")
-        .eq("is_public", true)
-        .order("updated_at", { ascending: false })
-        .limit(500);
-
-      const categories = [
-        "Experimental", "Grunge", "Organic", "Geometric",
-        "Noise", "Abstract", "Minimal", "Cosmic", "Nature",
-      ];
-
-      let urls = `
-  <url>
-    <loc>${baseUrl}/</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseUrl}/textures</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>`;
-
-      // Category pages
-      for (const cat of categories) {
-        urls += `
-  <url>
-    <loc>${baseUrl}/textures?category=${encodeURIComponent(cat)}</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>`;
-      }
-
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls}
-</urlset>`;
-
-      res.set("Content-Type", "application/xml");
-      res.send(xml);
-    } catch (error) {
-      console.error("Sitemap generation failed:", error);
-      res.status(500).send("Sitemap generation failed");
+      console.error("Error fetching analysis:", error);
+      res.status(500).json({ error: "Failed to fetch analysis" });
     }
   });
 
